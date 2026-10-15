@@ -381,13 +381,20 @@ function buildComponents(ctx: Context): Component[] {
   const anchorsByRoot = new Map<PartId, { anchorId: string; partId: PartId; pose: Pose; broken: boolean }[]>();
   for (const anchor of design.anchors) {
     const p = primaryPart(ctx, anchor.target);
-    if (!p) {
+    const open = p ? undefined : openEndRoot(ctx, anchor.target, anchor.worldPose);
+    if (!p && !open) {
       report(ctx, 'structure', 'unresolved-placement', `Anker ${anchor.id} trifft kein realisiertes Teil.`, [intent(anchor.target)]);
       continue;
     }
-    const pose = anchorPose(ctx, anchor.target, anchor.worldPose, p);
-    const r = find(p.id);
-    anchorsByRoot.set(r, [...(anchorsByRoot.get(r) ?? []), { anchorId: anchor.id, partId: p.id, pose, broken: ctx.brokenAnchors.has(anchor.id) }]);
+    if (open === 'mismatch') {
+      report(ctx, 'structure', 'invalid-data', `Rohr am offenen Ende liegt nicht am Anker ${anchor.id}.`, [intent(anchor.target)]);
+      ctx.brokenAnchors.add(anchor.id);
+    }
+    const root = p ?? (open && open !== 'mismatch' ? open.part : undefined);
+    if (!root) continue;
+    const pose = p ? anchorPose(ctx, anchor.target, anchor.worldPose, p) : (open as { pose: Pose }).pose;
+    const r = find(root.id);
+    anchorsByRoot.set(r, [...(anchorsByRoot.get(r) ?? []), { anchorId: anchor.id, partId: root.id, pose, broken: ctx.brokenAnchors.has(anchor.id) }]);
   }
 
   const components: Component[] = [];
@@ -422,6 +429,36 @@ function anchorPose(ctx: Context, target: IntentRef, world: Pose, p: PartInstanc
   if (!stored) return world;
   const relative = qmul(qconj(world.orientation), stored.orientation);
   return { position: world.position, orientation: qmul(world.orientation, nearestAxisRotation(relative).rotation) };
+}
+
+/**
+ * A junction anchor without connector: the tube at the open end is the root. Its
+ * end face lies one arm length from the junction point along the design direction;
+ * the roll about its own axis is free, so the stored pose is taken once verified.
+ */
+function openEndRoot(ctx: Context, target: IntentRef, world: Pose): { part: PartInstance; pose: Pose } | 'mismatch' | undefined {
+  if (target.kind !== 'junction') return undefined;
+  const { design, realization } = ctx.snapshot;
+  const tube = design.tubes.find((t) => t.a.junctionId === target.id || t.b.junctionId === target.id);
+  if (!tube) return undefined;
+  const end = tube.a.junctionId === target.id ? 'a' : 'b';
+  const body = primaryPart(ctx, { kind: 'tube', id: tube.id });
+  const type = body && ctx.types.get(body.typeId);
+  const stored = body && realization.poses.find((x) => x.partId === body.id)?.worldPose;
+  if (!body || type?.kind !== 'tube' || !stored) return undefined;
+  const endSite = type.sites.find((s) => s.id === type.ends[end]);
+  if (!endSite) return undefined;
+  const socket = ctx.catalog.partTypes.flatMap((t) => (t.kind === 'connector' ? t.sites : [])).find((s) => s.role === 'socket');
+  const armOffset = socket ? length(socket.frame.position) : 0;
+  const direction = rotate(qmul(world.orientation, tube[end].orientation), vec(0, 0, 1));
+  const face = compose(stored, endSite.frame);
+  const expected = vec(world.position.x + direction.x * armOffset, world.position.y + direction.y * armOffset,
+    world.position.z + direction.z * armOffset);
+  const outward = rotate(face.orientation, vec(0, 0, 1));
+  const tol = ctx.options.tolerance;
+  const aligned = Math.acos(clamp(-dot(outward, direction))) <= tol.angleRad;
+  if (length(sub(face.position, expected)) > tol.distanceMm || !aligned) return 'mismatch';
+  return { part: body, pose: stored };
 }
 
 function nearestAxisRotation(q: Quaternion): { rotation: Quaternion; angle: number } {

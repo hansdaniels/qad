@@ -2,7 +2,7 @@ import type { PartCatalog } from './catalog.js';
 import type { EditCommand } from './commands.js';
 import type { ConstructionDesign } from './design.js';
 import type { Diagnostic, Result } from './diagnostics.js';
-import type { GeometryTolerance } from './geometry.js';
+import type { GeometryTolerance, Pose } from './geometry.js';
 import type { IntentRef, PartId, PartTypeId } from './ids.js';
 import type { Realization } from './realization.js';
 
@@ -13,8 +13,13 @@ export interface ConstructionSnapshot {
   readonly realization: Realization;
 }
 
+/** Frame of site b in site a for a parametric connection. */
+export type ConnectionEvaluator = (parameters: Readonly<Record<string, number>>) => Pose;
+
 export interface SolveOptions {
   readonly tolerance: GeometryTolerance;
+  /** Keyed by ConnectionType evaluatorKey; a missing evaluator is missing catalog data. */
+  readonly connectionEvaluators?: Readonly<Record<string, ConnectionEvaluator>>;
 }
 
 /** Domain service: deterministic selection, geometry, closure and collision checks. */

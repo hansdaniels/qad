@@ -13,6 +13,7 @@ export { ConstructionDocumentSchema } from './document-schema.js';
 export { parseConstructionDocument } from './parse-document.js';
 export { resolveArticle } from './article-catalog.js';
 export type { OpenEnd } from './open-ends.js';
+export { realizationSolver, solveRealization } from './solver.js';
 export {
   BODY_ROLE, CONNECTOR_ROLE, DEFAULT_TOLERANCE, PLATE_MOUNTS_PENDING, buildabilityChecker, checkBuildability,
 } from './buildability-checker.js';

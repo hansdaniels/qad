@@ -44,6 +44,7 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `commands` | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte |
 | `diagnostics` | Strukturierte Konflikte mit Referenzen für Markierungen im Editor |
 | `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](./BAUBARKEIT.md)) |
+| `solver` | Realisierung aus dem Entwurf: Auto-Kupplung, Lagen, Drehstellungen, Ringschluss (`solveRealization`) |
 | `buildability-checker` | Umsetzung der Prüfung, Stufen 1–4 (`checkBuildability`, `DEFAULT_TOLERANCE`) |
 | `collision` | Konvexe Kollisionsformen: GJK-Abstand, Eindringtiefe, Achsenkreuzung |
 | `math` | Posen, Quaternionen, die 24 Achsdrehungen |
@@ -99,9 +100,11 @@ enthält eine konkrete Realisierung: Freie Vorgaben bleiben im Entwurf frei, die
 gewählte Stellung steht in der Realisierung. Auswahl soll gültige bisherige Teile
 bevorzugen und bei gleichen Eingaben reproduzierbar bleiben.
 
-Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4 um und ist mit
-einem synthetischen Prüfkatalog getestet. `quadroPartCatalog` ist ein vorläufiger
-Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
-([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. Nächste Schritte: Stufe 5
-(Platten) nach Klärung der Bohrungsmaße, danach der Solver für starre Verbindungen und
-Ringschlüsse.
+Der Solver (`solveRealization`) ermittelt aus dem Entwurf die Realisierung für gerade
+Rohre und Bogenrohre an achsparallelen Verbindungspunkten mit Auto-Kupplung, Ringschluss
+und offenen Enden. Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4
+um und bestätigt jede Lösung des Solvers unabhängig. `quadroPartCatalog` ist ein
+vorläufiger Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
+([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. Nächste Schritte:
+`ModelCore` (Bearbeitungen anwenden, lösen, prüfen, übernehmen), Winkelkupplungen im
+Solver, Stufe 5 (Platten) nach Klärung der Bohrungsmaße.

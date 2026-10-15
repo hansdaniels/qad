@@ -2,7 +2,7 @@ import type { PartCatalog } from './catalog.js';
 import type { DesignOperation } from './commands.js';
 import type { ConstructionSnapshot, SolveOptions } from './core.js';
 import type { Diagnostic } from './diagnostics.js';
-import type { GeometryRef, Pose, Vector3 } from './geometry.js';
+import type { GeometryRef, Vector3 } from './geometry.js';
 import type {
   ConnectionId, FamilyId, PartId, PartTypeId, PlateId, SiteId, TubeId,
 } from './ids.js';
@@ -87,15 +87,10 @@ export interface BuildabilityReport {
   };
 }
 
-/** Frame of site b in site a for a parametric connection. */
-export type ConnectionEvaluator = (parameters: Readonly<Record<string, number>>) => Pose;
-
 export interface BuildabilityOptions extends SolveOptions {
   /** Distances below this, without penetration, yield a clearance warning. */
   readonly minClearanceMm: number;
   readonly maxRemediesPerFinding: number;
-  /** Keyed by ConnectionType evaluatorKey; a missing evaluator is missing catalog data. */
-  readonly connectionEvaluators?: Readonly<Record<string, ConnectionEvaluator>>;
 }
 
 /**

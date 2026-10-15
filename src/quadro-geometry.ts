@@ -1,4 +1,5 @@
-import type { CollisionGeometryProvider, CollisionShape, ConnectionEvaluator } from './buildability.js';
+import type { CollisionGeometryProvider, CollisionShape } from './buildability.js';
+import type { ConnectionEvaluator } from './core.js';
 import type { AccessoryType, AttachmentSite, ConnectionType, PartCatalog, PartType, TubeType } from './catalog.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
 import type { ConnectorArticle, GridDirection, TubeArticle } from './article-catalog.js';

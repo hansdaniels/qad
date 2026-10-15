@@ -149,6 +149,15 @@ Nicht jede Bohrungsvariante ist in jeder Farbe erhältlich. Die gewünschte Farb
 
 Unter mehreren gültigen Lösungen werden bestehende Teile und Varianten möglichst beibehalten. Erst danach greifen dokumentierte Standardpräferenzen. Die Auswahl soll reproduzierbar sein.
 
+Die erste Umsetzung (`src/solver.ts`) arbeitet so:
+
+- Alle Verbindungspunkte einer Baugruppe übernehmen die Orientierung ihres Ankers; die Rohrrichtungen sind darin achsparallel.
+- Je Verbindungspunkt mit mindestens zwei Rohren wird die Kupplung mit genau passender Armzahl und eine der 24 achsparallelen Drehungen gewählt; die bisherige Wahl bleibt, solange sie passt.
+- Lagen werden vom Anker aus über die Verbindungsregeln berechnet, Drehstellungen aus deren Wertebereich gewählt, bisherige bevorzugt. Ein Ring, der einen bereits platzierten Punkt verfehlt, ist ein Konflikt.
+- Ein offenes Rohrende hat keine Kupplung; sein Verbindungspunkt liegt eine Armlänge vor der Stirnseite.
+- Teile behalten ihre ID über Herkunft und Rolle; neue IDs sind `tube:<id>/body` und `junction:<id>/connector`.
+- Winkelkupplungen und Platten realisiert die erste Umsetzung noch nicht; sie führen zu einem Konflikt.
+
 Der Benutzer kann eine Variante fixieren. Dann ist sie eine Bedingung der Lösungsfindung. Kann der Aufbau damit nicht realisiert werden, wird ein Konflikt gemeldet; die Fixierung wird nicht stillschweigend aufgehoben.
 
 ## 7. Besondere Bauteilregeln
