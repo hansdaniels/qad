@@ -34,3 +34,37 @@ test('clicking a part reports its ID', async () => {
   await renderer.fireEvent(tube, 'click');
   expect(picked).toEqual(['tube:t1/body']);
 });
+
+test('free arms are shown as stubs and a click picks the attach point', async () => {
+  const { attachPoints, quadroPartCatalog } = await import('@qad/model-core');
+  const { VirtualArms } = await import('./VirtualArms');
+  const { snapshot } = demoModel();
+  const points = attachPoints(snapshot, quadroPartCatalog);
+  const picked: string[] = [];
+  const renderer = await ReactThreeTestRenderer.create(
+    <ModelScene snapshot={snapshot} selected={undefined} onSelect={() => {}}>
+      <VirtualArms points={points} pending={undefined} onPick={(p) => picked.push(`${p.junctionId}:${p.direction}`)} />
+    </ModelScene>,
+  );
+  const arms = renderer.scene.findAll((node) => String(node.props.name).startsWith('arm:'));
+  expect(arms).toHaveLength(points.length);
+  const target = renderer.scene.findByProps({ name: 'arm:j1:+z' });
+  await renderer.fireEvent(target.children[0]!, 'click');
+  expect(picked).toEqual(['j1:+z']);
+});
+
+test('a valid preview shows the new tube as a ghost', async () => {
+  const { attachTube } = await import('@qad/model-core');
+  const core = demoModel();
+  const preview = core.preview(
+    attachTube(core.snapshot, { junctionId: 'j1', direction: '+z' }, { familyId: 'tube-25cm', colour: 'green' }),
+  );
+  expect(preview.status).toBe('valid');
+  if (preview.status !== 'valid') return;
+  const renderer = await ReactThreeTestRenderer.create(
+    <ModelScene snapshot={core.snapshot} selected={undefined} onSelect={() => {}} candidate={preview.candidate} />,
+  );
+  const ghosts = renderer.scene.findAll((node) => String(node.props.name).startsWith('ghost:'));
+  expect(ghosts.map((g) => g.props.name)).toContain('ghost:tube:t7/body');
+  expect(core.snapshot.revision).toBe(6);
+});

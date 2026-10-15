@@ -8,14 +8,19 @@ const UP = new Vector3(0, 1, 0);
 interface Look {
   readonly colour: string;
   readonly selected: boolean;
+  /** Preview of a pending edit: translucent and not pickable. */
+  readonly ghost?: boolean;
 }
 
-function Material({ colour, selected }: Look) {
+function Material({ colour, selected, ghost }: Look) {
   return (
     <meshStandardMaterial
       color={colour}
       emissive={selected ? '#ffb000' : '#000000'}
       emissiveIntensity={selected ? 0.6 : 0}
+      transparent={ghost === true}
+      opacity={ghost ? 0.45 : 1}
+      depthWrite={!ghost}
     />
   );
 }
@@ -64,11 +69,11 @@ interface PartMeshProps extends Look {
   readonly name: string;
   readonly pose: Pose;
   readonly shapes: readonly CollisionShape[];
-  readonly onSelect: () => void;
+  readonly onSelect?: () => void;
 }
 
 /** A realised part at its world pose, drawn from its collision shapes. */
-export function PartMesh({ name, pose, shapes, colour, selected, onSelect }: PartMeshProps) {
+export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect }: PartMeshProps) {
   const { position, orientation } = pose;
   return (
     <group
@@ -76,12 +81,13 @@ export function PartMesh({ name, pose, shapes, colour, selected, onSelect }: Par
       position={[position.x, position.y, position.z]}
       quaternion={[orientation.x, orientation.y, orientation.z, orientation.w]}
       onClick={(event) => {
+        if (!onSelect) return;
         event.stopPropagation();
         onSelect();
       }}
     >
       {shapes.map((shape, i) => (
-        <Shape key={i} shape={shape} look={{ colour, selected }} />
+        <Shape key={i} shape={shape} look={{ colour, selected, ...(ghost ? { ghost } : {}) }} />
       ))}
     </group>
   );
