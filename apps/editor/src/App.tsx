@@ -6,17 +6,32 @@ import {
   attachTube,
   quadroArticleCatalog,
   quadroPartCatalog,
+  recolourTube,
+  removeTube,
+  tubeOfPart,
   type AttachPoint,
+  type ColourId,
   type Diagnostic,
+  type EditCommand,
   type PartId,
 } from '@qad/model-core';
 import { demoModel } from './demo';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
+import { SelectionTrash } from './SelectionTrash';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 
 const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
+const COLOUR_NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
+
+/** Colours offered for a tube: those of its family's standard variant. */
+function coloursOfFamily(familyId: string): readonly ColourId[] {
+  const entry = quadroArticleCatalog.entries.find(
+    (e) => e.familyId === familyId && e.category === 'tube' && e.drilling.kind === 'standard',
+  );
+  return entry?.articles.map((a) => a.colour) ?? [];
+}
 
 export function App() {
   const core = useMemo(() => demoModel(), []);
@@ -37,9 +52,7 @@ export function App() {
     return { key: armKey(hover), command, preview: core.preview(command) };
   }, [choice, hover, snapshot, core]);
 
-  const pick = (point: AttachPoint) => {
-    if (!choice) return;
-    const command = plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog);
+  const apply = (command: EditCommand): boolean => {
     const result = core.execute(command);
     if (result.ok) {
       commit(result.value);
@@ -47,6 +60,17 @@ export function App() {
     } else {
       setNotice(result.diagnostics);
     }
+    return result.ok;
+  };
+  const pick = (point: AttachPoint) => {
+    if (!choice) return;
+    apply(plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog));
+  };
+  const selectedTube = selected ? tubeOfPart(snapshot, selected) : undefined;
+  const selectedTubeIntent = snapshot.design.tubes.find((t) => t.id === selectedTube);
+  const remove = () => {
+    if (!selectedTube) return;
+    if (apply(removeTube(snapshot, selectedTube))) setSelected(undefined);
   };
   const run = (step: () => readonly Diagnostic[]) => {
     setHover(undefined);
@@ -64,9 +88,13 @@ export function App() {
       } else if (mod && event.key.toLowerCase() === 'y') {
         event.preventDefault();
         run(redo);
+      } else if (event.key === 'Delete') {
+        event.preventDefault();
+        remove();
       } else if (event.key === 'Escape') {
         setChoice(undefined);
         setHover(undefined);
+        setSelected(undefined);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -108,6 +136,9 @@ export function App() {
               />
             ) : null}
           </ModelScene>
+          {selected && selectedTube ? (
+            <SelectionTrash partId={selected} revision={snapshot.revision} onDelete={remove} />
+          ) : null}
           <OrbitControls makeDefault target={[200, 100, -200]} />
         </Canvas>
       </div>
@@ -146,12 +177,36 @@ export function App() {
             <dd>{current.article?.article.articleNumber ?? '–'}</dd>
             <dt>Farbe</dt>
             <dd>
-              {current.article?.article.colour ?? '–'}
+              {selectedTubeIntent ? (
+                <select
+                  value={selectedTubeIntent.appearance.colour}
+                  onChange={(e) => apply(recolourTube(snapshot, selectedTubeIntent.id, e.target.value))}
+                >
+                  {coloursOfFamily(selectedTubeIntent.familyId).map((c) => (
+                    <option key={c} value={c}>
+                      {COLOUR_NAMES.get(c) ?? c}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                (COLOUR_NAMES.get(current.article?.article.colour ?? '') ?? '–')
+              )}
               {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
             </dd>
             <dt>ID</dt>
             <dd style={{ fontFamily: 'monospace' }}>{current.part.id}</dd>
           </dl>
+        ) : null}
+        {current ? (
+          selectedTube ? (
+            <button type="button" onClick={remove} title="Entf">
+              {current.part.origin.intent.kind === 'tube' ? 'Rohr löschen' : 'Schräges Rohr löschen'}
+            </button>
+          ) : (
+            <p style={{ fontSize: 13, color: '#555' }}>
+              Kupplungen entstehen automatisch aus den Rohren und verschwinden mit ihnen.
+            </p>
+          )
         ) : (
           <p style={{ fontSize: 14 }}>Teil anklicken für Details.</p>
         )}
