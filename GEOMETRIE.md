@@ -1,0 +1,158 @@
+# Geometriedaten aus dem QUADRO-Designprogramm
+
+Status: Kandidatenwerte, 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitt 11.
+Noch nicht am Teil nachgemessen und deshalb nicht im Katalog.
+
+## 1. Quelle und Methode
+
+Quelle ist das QUADRO-Designprogramm 1.3 (2006) des Herstellers,
+`https://quadroworld.com/files/apps/QUADRO-Setup-Deutsch.zip`. Es enthält keine
+Geometriedateien; die Teile werden im Programmcode aus Konstanten erzeugt.
+
+Das Programm wurde nicht ausgeführt. Seine Zeichenfunktionen wurden in einem
+x86-Emulator aufgerufen, die OpenGL-Aufrufe abgefangen und die Eckpunkte in
+Teilkoordinaten ausgewertet. Die Konstanten wurden zusätzlich im Maschinencode
+nachgelesen; Zeichnung, Anschlussberechnung und Anbaulogik ergeben dieselben
+Werte. Einheit im Programm ist mm.
+
+Laut Hersteller sind die Teile seitdem kompatibel geblieben. Das Programm ist ein
+Darstellungsmodell: Werte, die es nicht zeichnet (Bohrungen, Wandstärken, Toleranzen),
+fehlen, und gezeichnete Werte können vereinfacht sein.
+
+## 2. Raster, Rohr und Kupplung
+
+| Größe | Wert |
+| --- | --- |
+| Außendurchmesser Rohr | 50 |
+| Rohr im eigenen Rahmen | von 25 bis Nennlänge + 25, Ursprung im Kupplungsmittelpunkt |
+| Abstand der Kupplungsmittelpunkte | Nennlänge + 50, z. B. 35-cm-Rohr → 400 |
+| Kupplungskörper | Ø 50, reicht in jeder Armrichtung bis 25 (Armschulter) |
+| Kupplungsarm (steckt im Rohr) | von 25 bis 75, außen Ø 41,7, innen Ø 34, an der Spitze auf 5 mm Länge auf Ø 39 angefast |
+
+Alle Raum- und Flächenkupplungen sind im Programm ein Typ mit einer Bitmaske der
+belegten Richtungen (Bit 0–5: +x, −x, +y, −y, +z, −z); Körper und Arme sind für alle
+gleich.
+
+Der Abstand von 400 für 35-cm-Rohre passt zur Platte 40 × 40 cm, die der Shop für
+35-cm-Rohre angibt. Die Preisliste des Programms nennt die Platten entsprechend
+„für 35 cm x 35 cm“, „für 15 cm x 35 cm“ und „für 25 cm x 25 cm“.
+
+Das Programm kennt an normalen Kupplungen nur rechte Winkel („Das Rohr trifft nicht
+im rechten Winkel auf die Kupplung. Eine Verbindung ist nicht möglich!“), wie das
+Modell der sechs Achsrichtungen in [BAUTEILKATALOG.md](./BAUTEILKATALOG.md).
+
+## 3. Winkelkupplung 45°
+
+Die Winkelkupplung wird mit ihrer Hülse wie ein Rohr auf einen Arm einer normalen
+Kupplung geschoben. Koordinaten im Rahmen dieses Arms: Ursprung O im
+Kupplungsmittelpunkt, +x entlang des Arms nach außen, y in der Ebene des Zapfens.
+
+| Element | Wert |
+| --- | --- |
+| Hülse | Ø 50, von x = 25 (Armschulter) bis x = 95, bei x = 95 geschlossen |
+| Schnittpunkt P von Arm- und Zapfenachse | x = 108,3, y = 0 |
+| Zapfenrichtung | 135° zu +x, also (−cos 45°, sin 45°): 45° zur Linie zurück zur Kupplung |
+| Zapfen (steckt im schrägen Rohr) | Ø 42, von 61 bis 111 ab P entlang der Zapfenachse |
+| Schulter am Zapfenansatz | Ø 50, 61 ab P |
+| Körper | Ø 50 entlang der Zapfenachse von der Schulter bis zur Ebene x = 95 |
+| Seitlicher Versatz aus der Zapfenebene | keiner |
+
+Für das schräge Rohr verhält sich die Winkelkupplung wie eine Kupplung mit dem
+gedachten Mittelpunkt **V = P + 36 · Zapfenrichtung = (82,84; 25,46)**. Der Zapfen
+liegt dann wie ein normaler Arm bei 25 bis 75 ab V. Das Programm rechnet genau so:
+`Armrahmen · Tx(108,3) · Rz(135°) · Tx(36)`; der Anbau in Gegenrichtung verwendet
+`Tx(36) · Rx(180°) · Rz(45°) · Tx(−108,3)`.
+
+Die Drehung um die Armachse wählt das Programm nur aus den 24 achsparallelen
+Drehungen. Der Zapfen liegt also in einer Ebene, die von der Armachse und einer
+weiteren Rasterachse aufgespannt wird. Ob am Teil alle vier 90°-Stellungen
+verschraubbar sind, ist offen.
+
+Folgerung für das Raster: Zwei Winkelkupplungen an diagonal gegenüberliegenden
+Ecken eines 40er-Quadrats ergeben einen Abstand V–V von 646,8, also ein Rohr von
+596,8 mm. Das ist keine Shoplänge. Schräge Rohre schließen im Raster also
+nicht ohne Weiteres; das ist nach SPEC 5 zulässig, muss aber im Ringschluss
+geprüft werden.
+
+## 4. Bogenrohr
+
+Ein Viertelbogen in einer Ebene. Rahmen: Ursprung in der Kupplung an Ende a,
++x entlang des Rohrs an Ende a, y in der Biegeebene.
+
+| Element | Wert |
+| --- | --- |
+| Gerades Ende a | x = 25 bis 75 auf y = 0 |
+| Bogen | Mittellinienradius 325, Mittelpunkt (75; 325), 90° |
+| Gerades Ende b | y = 325 bis 375 auf x = 400 |
+| Kupplung an Ende b | (400; 400), Rohr verlässt sie in −y |
+| Mittellinienlänge | 2 · 50 + π/2 · 325 ≈ 610,5 |
+
+Das Bogenrohr verbindet also zwei Kupplungen, die in zwei Rasterrichtungen je 400
+auseinanderliegen, mit rechtwinklig ankommenden Enden. Die geraden Enden sind genau
+so lang wie ein Kupplungsarm. Das Programm kennt nur diese eine Größe. Die
+Biegeebene enthält beide Rohrenden; eine Drehung um ein Ende dreht die Ebene mit
+(SPEC 7.2).
+
+## 5. Platten
+
+Rahmen: Ursprung in der Mitte zwischen den vier Kupplungen, z = 0 in der Ebene der
+Rohrachsen, Platte oberhalb.
+
+| Element | Wert |
+| --- | --- |
+| Außenmaß | Rastermaß, also Nennlänge + 50 je Seite: 400 × 400, 200 × 400, 300 × 300 |
+| Ecken | gerundet, Radius ≈ 25 |
+| Oberseite | z = 25,12, liegt auf den Rohren auf |
+| Flansche | an den beiden Kanten entlang der ersten Plattenabmessung, innen an den Rohren (Abstand zur Rohrachse 25,12), bis z = −22 |
+
+Damit entsprechen die Shopnamen (40 × 40, 40 × 20, 30 × 30 cm) dem Außenmaß.
+Bohrungen und Plattenschrauben stellt das Programm nicht dar.
+
+## 6. Weitere Kupplungen und Zubehör
+
+| Teil | Programm | Geometrie |
+| --- | --- | --- |
+| Flexikupplung | „1 Arm ohne Bolzen“ | Zwei Gelenkaugen Ø 50 mit Bohrung Ø 42, je 12,5 breit, bei −25…−12,5 und 0…12,5 auf der Gelenkachse x; ein Kupplungsarm senkrecht dazu (25 bis 75) |
+| Flexibolzen 15 cm | Länge als Parameter | Rohr Ø 41,7/Ø 34 von −75 bis 75 auf der Gelenkachse. Er trägt die Gelenkaugen im Bereich ±25; seine Enden stecken wie Kupplungsarme in den anschließenden Rohren |
+| Lagerkupplung | | Ring um ein durchlaufendes Rohr: Bohrung Ø 50,1, außen Ø 57, 50 breit. Radialer Stutzen Ø 50 bis 78 von der Ringachse; gedachter Kupplungsmittelpunkt für das radiale Rohr bei 103 |
+| Doppelrohrverbinder | | Zwei Halbschalen um zwei parallele, sich berührende Rohre (Achsabstand 50), Wand 3, 50 breit |
+| Rohrklammer | „Pool / Zelt“ | C-förmige Klammer um ein Rohr (innen Ø 50, Wand ≈ 4, 50 breit) mit einer Lippe bis ≈ 69 von der Rohrachse |
+| Rohrkappe | | Kopf Ø 50, 4 dick, außen auf dem Rohrende; Stopfen Ø 41,7/Ø 34, 20 tief im Rohr |
+| Lochkupplung / Lochzapfenkupplung | Untertyp je Variante | Gezeichnet nur ein Zapfen Ø 42 von −25 bis 25 mit Schultern Ø 50; Zuordnung zu den heutigen Varianten 00841/00843 unklar |
+
+Bei der Flexikupplung ergibt sich: Gelenkachse durch den gedachten
+Kupplungsmittelpunkt, Rohre am Bolzen wie an einer geraden Kupplung (Abstand 25 zur
+Schulter), Drehwinkel um den Bolzen frei. Zwei Flexikupplungen greifen mit
+versetzten Augen ineinander.
+
+## 7. Rutschen
+
+Bogenrutsche (alt 10023, heute Körper 10027) und Rutschenauslauf (10034, gleiche
+Nummer) sind im Programm quadratische NURBS-Flächen; die Kontrollpunkte liegen vor.
+Befestigungspunkte zeichnet das Programm als Schraubköpfe:
+
+| Teil | Befestigungspunkte (x, y, z) |
+| --- | --- |
+| Bogenrutsche | (±228; 140; 0) seitlich, (±140; 0; −29) unten, (600; −660; 371) und (600; −660; 829) am anderen Ende |
+| Auslauf | Fläche über ±225 in x, Rahmenbezug noch nicht ausgewertet |
+
+Die gerade Rutsche des Programms (alt 10015) ließ sich nicht emulieren und ist
+ohnehin der Vorgänger der heutigen Modularrutsche. Wie die Rutschenrahmen am Raster
+liegen, ist noch auszuwerten.
+
+## 8. Nicht im Programm
+
+- Bohrungsmuster der Rohre und Bohrungsvarianten (90°, 135°, 180°).
+- Schrauben, Lage der Schraubbohrungen.
+- Bodenverankerung, Acrylglas, Holzgitter und ihre Halteplatten, Lochplatte,
+  Modularrutsche.
+
+## 9. Offen
+
+- Nachmessen der Werte aus Abschnitt 3 an einer Winkelkupplung (00911), außerdem
+  stichprobenartig Rohrdurchmesser, Armlänge und Bogenradius.
+- Lage der Schraubbohrungen an Hülse, Arm und Zapfen; zulässige Drehstellungen
+  der Hülse auf dem Arm.
+- Einstecktiefen: Das Programm setzt Rohrende = Armschulter; ob ein Spalt bleibt,
+  zeigt es nicht.
+- Bohrungsmuster der Rohre: Quelle fehlt, am Teil messen oder beim Hersteller anfragen.
