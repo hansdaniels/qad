@@ -85,6 +85,15 @@ class Core implements ModelCore {
     this.current = preview.candidate;
     return { ok: true, value: this.current, diagnostics: preview.diagnostics };
   }
+
+  restore(snapshot: ConstructionSnapshot): Result<ConstructionSnapshot> {
+    const errors = validateDesign(snapshot.design, this.catalog);
+    if (errors.length > 0) return { ok: false, diagnostics: errors };
+    const verified = verify(snapshot, this.catalog, this.options);
+    if (!verified.ok) return verified;
+    this.current = { ...snapshot, revision: this.current.revision + 1 };
+    return { ok: true, value: this.current, diagnostics: verified.diagnostics };
+  }
 }
 
 // ---------------------------------------------------------------- solving and checking
@@ -98,22 +107,27 @@ function realize(
 ): Result<Realization> {
   const solved = solveRealization(design, catalog, options, previous);
   if (!solved.ok) return solved;
+  const edit = previous ? editContext(previous, solved.value, options) : undefined;
+  const verified = verify({ revision: 0, design, realization: solved.value }, catalog, options, edit);
+  return verified.ok ? { ok: true, value: solved.value, diagnostics: verified.diagnostics } : verified;
+}
+
+/** Full or incremental buildability check; only a buildable verdict passes. */
+function verify(
+  snapshot: ConstructionSnapshot,
+  catalog: PartCatalog,
+  options: ModelCoreOptions,
+  edit?: ReturnType<typeof editContext>,
+): Result<ConstructionSnapshot> {
   const checkOptions: BuildabilityOptions = {
     tolerance: options.tolerance,
     minClearanceMm: options.minClearanceMm ?? 0,
     maxRemediesPerFinding: 3,
     ...(options.connectionEvaluators ? { connectionEvaluators: options.connectionEvaluators } : {}),
   };
-  const edit = previous ? editContext(previous, solved.value, options) : undefined;
-  const report = checkBuildability(
-    { revision: 0, design, realization: solved.value },
-    catalog,
-    options.geometry,
-    checkOptions,
-    edit,
-  );
+  const report = checkBuildability(snapshot, catalog, options.geometry, checkOptions, edit);
   const diagnostics = report.findings.map((f) => f.diagnostic);
-  if (report.verdict === 'buildable') return { ok: true, value: solved.value, diagnostics };
+  if (report.verdict === 'buildable') return { ok: true, value: snapshot, diagnostics };
   if (report.verdict === 'undetermined') {
     diagnostics.push(
       error('missing-catalog-data', 'Für die Prüfung fehlen Katalogdaten.', [], {

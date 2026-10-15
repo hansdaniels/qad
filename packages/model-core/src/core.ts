@@ -66,6 +66,11 @@ export interface ModelCore {
   readonly snapshot: ConstructionSnapshot;
   preview(command: EditCommand): EditPreview;
   execute(command: EditCommand): Result<ConstructionSnapshot>;
+  /**
+   * Makes an earlier state current again, e.g. for undo and redo. The state is
+   * verified in full and committed as the next revision, so stale commands keep failing.
+   */
+  restore(snapshot: ConstructionSnapshot): Result<ConstructionSnapshot>;
 }
 
 /** Solving plus the independent buildability check before every commit. */

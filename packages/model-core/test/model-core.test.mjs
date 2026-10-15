@@ -281,3 +281,43 @@ test('operations on missing objects are refused before solving', () => {
   const result = run(core, { kind: 'add-tube', tube: tube('t1', 'j1', 'nowhere', '+x') });
   assert.equal(result.diagnostics[0].code, 'missing-reference');
 });
+
+test('restoring an earlier state undoes an edit as a new revision; a corrupted state is refused', () => {
+  const core = start();
+  const before = ok(
+    run(
+      core,
+      { kind: 'add-junction', junction: { id: 'j2' } },
+      { kind: 'add-tube', tube: tube('t1', 'j1', 'j2', '+x') },
+    ),
+  );
+  const after = ok(
+    run(
+      core,
+      { kind: 'add-junction', junction: { id: 'j3' } },
+      { kind: 'add-tube', tube: tube('t2', 'j2', 'j3', '+y') },
+    ),
+  );
+  const undone = ok(core.restore(before));
+  assert.equal(undone.revision, after.revision + 1);
+  assert.deepEqual(undone.design, before.design);
+  const stale = core.execute({
+    baseRevision: after.revision,
+    operations: [{ kind: 'add-junction', junction: { id: 'j9' } }],
+  });
+  assert.equal(stale.diagnostics[0].code, 'stale-revision');
+  const redone = ok(core.restore(after));
+  assert.deepEqual(redone.realization, after.realization);
+  const moved = {
+    ...before,
+    realization: {
+      ...before.realization,
+      poses: before.realization.poses.map((p) => ({
+        ...p,
+        worldPose: { ...p.worldPose, position: { x: 5, y: 5, z: 5 } },
+      })),
+    },
+  };
+  assert.equal(core.restore(moved).ok, false);
+  assert.equal(core.snapshot.revision, redone.revision);
+});
