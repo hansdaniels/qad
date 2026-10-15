@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vite-plus/test';
 import {
   DEFAULT_TOLERANCE, checkBuildability, findOpenEnds, quadroCollisionGeometry, quadroConnectionEvaluators,
   quadroPartCatalog, solveRealization,
-} from '../dist/index.js';
-import { qaxisAngle, qmul as qmulLocal, vec } from '../dist/math.js';
+} from '../src/index.ts';
+import { qaxisAngle, qmul as qmulLocal, vec } from '../src/math.ts';
 
 const options = { tolerance: DEFAULT_TOLERANCE, connectionEvaluators: quadroConnectionEvaluators };
 const checkOptions = { ...options, minClearanceMm: 0, maxRemediesPerFinding: 3 };
@@ -21,7 +21,7 @@ const opposite = { '+x': '-x', '-x': '+x', '+y': '-y', '-y': '+y', '+z': '-z', '
 
 /** tubes: [id, family, fromJunction, toJunction, direction at from]. */
 function design(tubes, { anchor = { id: 'anchor', target: { kind: 'junction', id: 'j1' }, worldPose: origin }, variant } = {}) {
-  const junctions = [...new Set(tubes.flatMap(([, , a, b]) => [a, b]))].sort();
+  const junctions = [...new Set(tubes.flatMap(([, , a, b]) => [a, b]))].sort((x, y) => x.localeCompare(y));
   return {
     id: 'd', catalog: quadroPartCatalog.ref, plates: [], anchors: [anchor],
     junctions: junctions.map((id) => ({ id })),

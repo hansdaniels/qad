@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { checkBuildability } from '../dist/buildability-checker.js';
+import { test } from 'vite-plus/test';
+import { checkBuildability } from '../src/buildability-checker.ts';
 import { catalog, geometry, options, qmul, rot, square, withPoses } from './fixtures.mjs';
 
 const check = (snapshot, edit, cat = catalog(), opts = options) => checkBuildability(snapshot, cat, geometry, opts, edit);
@@ -108,7 +108,7 @@ test('structure errors name the offending objects', () => {
   for (const [code, corrupt] of variants) {
     const report = check(corrupt(base));
     assert.equal(report.verdict, 'not-buildable', code);
-    assert.ok(codes(report).includes(code), `${code}: ${codes(report)}`);
+    assert.ok(codes(report).includes(code), `${String(code)}: ${codes(report).join(',')}`);
     assert.ok(report.findings.every((f) => f.stage === 'structure' || f.diagnostic.code !== 'loop-closure-conflict'), code);
   }
 });
@@ -161,7 +161,7 @@ test('a proven error outranks missing catalog data', () => {
 });
 
 test('residuals of a rotated rule are reported in site a axes with correct signs', async () => {
-  const { compose, inverse, qaxisAngle, qconj, qmul, rotate, vec } = await import('../dist/math.js');
+  const { compose, inverse, qaxisAngle, qconj, qmul, rotate, vec } = await import('../src/math.ts');
   const tiltedA = { position: vec(10, 20, 5), orientation: qmul(qaxisAngle(vec(1, 1, 0), 0.7), qaxisAngle(vec(0, 0, 1), 0.3)) };
   const rule = { position: vec(3, -2, 1), orientation: qmul(qaxisAngle(vec(1, 0, 0), Math.PI / 2), qaxisAngle(vec(0, 1, 0), 0.4)) };
   const q = rule.orientation;
@@ -290,7 +290,7 @@ test('a tube moved into another assembly collides; a free move stays valid', asy
 
 test('overlap inside the allowed volume of a connection is no collision; beyond it is', async () => {
   const { geometryProvider } = await import('./fixtures.mjs');
-  const { vec } = await import('../dist/math.js');
+  const { vec } = await import('../src/math.ts');
   const cat = catalog();
   cat.connectionTypes = cat.connectionTypes.map((t) => ({ ...t, allowedOverlap: { key: 'socket-overlap' } }));
   // In site a axes (z out of the hub): the hub interior down to 45 mm behind the shoulder.
@@ -330,7 +330,7 @@ test('missing collision geometry leaves the verdict undetermined', async () => {
 });
 
 test('a design with plates stays undetermined until plate mounts are checked', async () => {
-  const { checkBuildability: exported, PLATE_MOUNTS_PENDING } = await import('../dist/index.js');
+  const { checkBuildability: exported, PLATE_MOUNTS_PENDING } = await import('../src/index.ts');
   const snapshot = square();
   const plate = {
     id: 'p1', familyId: 'panel', variant: { mode: 'automatic' }, appearance: { colour: 'blue' },

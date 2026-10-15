@@ -5,8 +5,11 @@
   "packageManager": "pnpm@12.11.2",
   "description": "QUADRO-Modellierungsprogramm: Modellkern und Editor",
   "scripts": {
-    "check": "pnpm -r run check",
-    "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "check": "vp run -r check",
+    "build": "vp run -r build",
+    "test": "vp run -r test"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
   }
 }

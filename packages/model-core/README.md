@@ -7,19 +7,22 @@ und ausdrücklich als solche gekennzeichnet ([GEOMETRIE.md](../../GEOMETRIE.md))
 
 ## Entwicklung
 
+Werkzeug ist [Vite+](https://viteplus.dev) (`vp`), konfiguriert im Wurzelverzeichnis
+des Workspace (Lint, Format) und in `vite.config.ts` dieses Pakets (Pack).
+
 ```sh
-pnpm install
-pnpm run check
-pnpm run build
-pnpm test
+vp install
+vp check   # Format, Lint und Typprüfung
+vp test    # Vitest, direkt auf den TypeScript-Quellen
+vp pack    # ESM und Typdeklarationen nach dist/
 ```
 
-Das Projekt erzeugt ESM und Typdeklarationen in `dist/`. Zod 4 prüft das
-Speicherformat zur Laufzeit. Der Kern verwendet keine DOM- oder Node-APIs und soll
-im Browser, in einem Worker und unabhängig von der Darstellung laufen.
-Die TypeScript-Konfiguration enthält die DOM-Typbibliothek, weil Zods Deklarationen
-den Webstandard-Typ `URL` referenzieren. Build-Werkzeuge verwenden Node.js.
-`check` prüft auch das [Beispiel zum Anlegen eines Rohrs](./examples/add-tube.ts).
+Zod 4 prüft das Speicherformat zur Laufzeit; `zod` bleibt beim Packen eine externe
+Abhängigkeit. Der Kern verwendet keine DOM- oder Node-APIs und soll im Browser, in
+einem Worker und unabhängig von der Darstellung laufen. Die TypeScript-Konfiguration
+enthält die DOM-Typbibliothek, weil Zods Deklarationen den Webstandard-Typ `URL`
+referenzieren. `vp check` prüft auch das
+[Beispiel zum Anlegen eines Rohrs](./examples/add-tube.ts).
 
 ## Öffentliche Schnittstelle
 

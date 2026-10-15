@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vite-plus/test';
 import {
   DEFAULT_TOLERANCE, checkBuildability, quadroCollisionGeometry, quadroConnectionEvaluators, quadroPartCatalog,
-} from '../dist/index.js';
-import { compose, inverse, qangle, qaxisAngle, qconj, qmul, vec } from '../dist/math.js';
+} from '../src/index.ts';
+import { compose, inverse, qangle, qaxisAngle, qconj, qmul, vec } from '../src/math.ts';
 
 const options = {
   tolerance: DEFAULT_TOLERANCE, minClearanceMm: 0, maxRemediesPerFinding: 3,

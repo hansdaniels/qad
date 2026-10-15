@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vite-plus/test';
 import {
   DEFAULT_TOLERANCE, createModelCore, quadroCollisionGeometry, quadroConnectionEvaluators, quadroPartCatalog,
-} from '../dist/index.js';
-import { qaxisAngle, vec } from '../dist/math.js';
+} from '../src/index.ts';
+import { qaxisAngle, vec } from '../src/math.ts';
 
 const options = { tolerance: DEFAULT_TOLERANCE, connectionEvaluators: quadroConnectionEvaluators, geometry: quadroCollisionGeometry };
 const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };

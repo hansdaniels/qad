@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { quadroArticleCatalog, resolveArticle } from '../dist/index.js';
+import { test } from 'vite-plus/test';
+import { quadroArticleCatalog, resolveArticle } from '../src/index.ts';
 
 const { colours, entries } = quadroArticleCatalog;
 
@@ -133,9 +133,10 @@ function axisRotations() {
   return rotations;
 }
 const rotations = axisRotations();
+const byText = (a, b) => a.localeCompare(b);
 const canonical = (directions) => rotations
-  .map((rotate) => directions.map(rotate).sort().join(' '))
-  .sort()[0];
+  .map((rotate) => directions.map(rotate).sort(byText).join(' '))
+  .sort(byText)[0];
 
 test('there are 24 axis rotations', () => {
   assert.equal(rotations.length, 24);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { findOpenEnds } from '../dist/index.js';
+import { test } from 'vite-plus/test';
+import { findOpenEnds } from '../src/index.ts';
 
 const identity = { x: 0, y: 0, z: 0, w: 1 };
 

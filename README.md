@@ -19,8 +19,12 @@ Fachliche Dokumente:
 
 ## Entwicklung
 
+Werkzeug ist [Vite+](https://viteplus.dev); `vp run -r` führt die Paketskripte im
+ganzen Workspace aus.
+
 ```sh
-pnpm install
-pnpm run check
-pnpm test
+vp install
+vp run -r check
+vp run -r test
+vp run -r build
 ```

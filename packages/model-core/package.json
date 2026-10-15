@@ -6,18 +6,17 @@
   "description": "Browser-independent domain contracts for the QUADRO modelling core",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "check": "tsc --project tsconfig.check.json",
-    "build": "tsc",
-    "test": "pnpm run build && node --test test/*.test.mjs",
-    "clean": "node --input-type=module -e 'import { rmSync } from \"node:fs\"; rmSync(\"dist\", { recursive: true, force: true })'"
+    "check": "vp check",
+    "build": "vp pack",
+    "test": "vp test"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

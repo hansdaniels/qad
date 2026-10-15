@@ -1,11 +1,10 @@
 // Synthetic test catalog and a square frame in a 400 mm grid (BAUBARKEIT.md, section 7).
-import { compose, inverse, qaxisAngle, qmul, vec } from '../dist/math.js';
+import { compose, inverse, qaxisAngle, qmul, vec } from '../src/math.ts';
 
 const deg = Math.PI / 180;
 export const rot = (axis, degrees) => qaxisAngle(axis, degrees * deg);
 const X = vec(1, 0, 0);
 const Y = vec(0, 1, 0);
-const Z = vec(0, 0, 1);
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
 
 /**

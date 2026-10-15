@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { ConstructionDocumentSchema, parseConstructionDocument } from '../dist/index.js';
+import { test } from 'vite-plus/test';
+import { ConstructionDocumentSchema, parseConstructionDocument } from '../src/index.ts';
 
 function document() {
   const pose = {
@@ -112,7 +112,7 @@ const corruptions = [
   ['null appearance', (d) => { d.snapshot.design.tubes[0].appearance = null; }],
 ];
 for (const [name, corrupt] of corruptions) {
-  test(`rejects ${name}`, () => {
+  test(`rejects ${String(name)}`, () => {
     const input = document();
     corrupt(input);
     const result = parseConstructionDocument(JSON.stringify(input));
