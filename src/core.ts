@@ -1,3 +1,4 @@
+import type { CollisionGeometryProvider } from './buildability.js';
 import type { PartCatalog } from './catalog.js';
 import type { EditCommand } from './commands.js';
 import type { ConstructionDesign } from './design.js';
@@ -67,11 +68,18 @@ export interface ModelCore {
   execute(command: EditCommand): Result<ConstructionSnapshot>;
 }
 
+/** Solving plus the independent buildability check before every commit. */
+export interface ModelCoreOptions extends SolveOptions {
+  readonly geometry: CollisionGeometryProvider;
+  /** Distances below this between unconnected parts yield a warning; default 0. */
+  readonly minClearanceMm?: number;
+}
+
 export interface ModelCoreFactory {
   /** Validates the catalog, references and all aggregate invariants. */
   create(
     design: ConstructionDesign,
     catalog: PartCatalog,
-    options: SolveOptions,
+    options: ModelCoreOptions,
   ): Result<ModelCore>;
 }

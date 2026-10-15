@@ -322,7 +322,7 @@ setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausg
 | Thema | Festlegung |
 | --- | --- |
 | Toleranzen | Standard 1 mm und 1° (`DEFAULT_TOLERANCE`); der Aufrufer übergibt sie. |
-| Anker | Er legt die Lage des primären Teils seines Ziels fest: Rolle `body` bei Rohr und Platte, Rolle `connector` beim Verbindungspunkt. Hat der Verbindungspunkt keine Kupplung (offenes Ende), ist das Rohr dort das Startteil; seine Stirnseite muss eine Armlänge vor dem Punkt liegen, seine freie Drehung wird übernommen. Von dort wird alles neu berechnet. |
+| Anker | Er legt die Lage des primären Teils seines Ziels fest: Rolle `body` bei Rohr und Platte, Rolle `connector` beim Verbindungspunkt. Ein Verbindungspunkt ohne Rohre hat nichts zu platzieren (leerer Anfang einer Sitzung). Hat der Verbindungspunkt keine Kupplung (offenes Ende), ist das Rohr dort das Startteil; seine Stirnseite muss eine Armlänge vor dem Punkt liegen, seine freie Drehung wird übernommen. Von dort wird alles neu berechnet. |
 | Verbindungspunkt-Rahmen | Steht in `intentPoses` und gehört zur gewählten Realisierung. Die Kupplung muss im Punkt sitzen und darin achsparallel gedreht sein (eine der 24 Drehungen). |
 | Rohrrichtung | Das Rohrende im Entwurf zeigt mit +Z ins Rohr, die Anschlussstelle mit +Z hinaus. Bei freier Drehstellung wird nur die Richtung verglichen, bei fester die volle Orientierung. |
 | Parametrische Verbindungen | Ihr Auswerter kommt über `connectionEvaluators`; fehlt er, ist das fehlendes Katalogdatum (`undetermined`). |

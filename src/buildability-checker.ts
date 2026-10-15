@@ -381,6 +381,10 @@ function buildComponents(ctx: Context): Component[] {
   const anchorsByRoot = new Map<PartId, { anchorId: string; partId: PartId; pose: Pose; broken: boolean }[]>();
   for (const anchor of design.anchors) {
     const p = primaryPart(ctx, anchor.target);
+    // A junction without tubes has nothing to place, e.g. the empty start of an edit session.
+    const bare = anchor.target.kind === 'junction'
+      && !design.tubes.some((t) => t.a.junctionId === anchor.target.id || t.b.junctionId === anchor.target.id);
+    if (!p && bare) continue;
     const open = p ? undefined : openEndRoot(ctx, anchor.target, anchor.worldPose);
     if (!p && !open) {
       report(ctx, 'structure', 'unresolved-placement', `Anker ${anchor.id} trifft kein realisiertes Teil.`, [intent(anchor.target)]);

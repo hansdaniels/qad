@@ -1,8 +1,9 @@
 # QAD-Modellkern
 
 TypeScript-Schnittstellen für den QUADRO-Modellkern gemäß [SPEC.md](./SPEC.md).
-Die erste Ausbaustufe enthält die Verträge, noch keinen Solver und keine
-ausführbaren Modelloperationen. Es werden keine ungeprüften Herstellermaße hinterlegt.
+Er enthält die Verträge, den Solver, die Baubarkeitsprüfung und `ModelCore`, der
+Bearbeitungen anwendet, löst, prüft und übernimmt. Die QUADRO-Geometrie ist vorläufig
+und ausdrücklich als solche gekennzeichnet ([GEOMETRIE.md](./GEOMETRIE.md)).
 
 ## Entwicklung
 
@@ -44,6 +45,7 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `commands` | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte |
 | `diagnostics` | Strukturierte Konflikte mit Referenzen für Markierungen im Editor |
 | `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](./BAUBARKEIT.md)) |
+| `model-core` | `createModelCore`: Befehle anwenden, lösen, prüfen, nur Baubares übernehmen (`preview`, `execute`) |
 | `solver` | Realisierung aus dem Entwurf: Auto-Kupplung, Lagen, Drehstellungen, Ringschluss (`solveRealization`) |
 | `buildability-checker` | Umsetzung der Prüfung, Stufen 1–4 (`checkBuildability`, `DEFAULT_TOLERANCE`) |
 | `collision` | Konvexe Kollisionsformen: GJK-Abstand, Eindringtiefe, Achsenkreuzung |
@@ -105,6 +107,7 @@ Rohre und Bogenrohre an achsparallelen Verbindungspunkten mit Auto-Kupplung, sch
 Rohre über Winkelkupplungen, Ringschluss und offene Enden. Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4
 um und bestätigt jede Lösung des Solvers unabhängig. `quadroPartCatalog` ist ein
 vorläufiger Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
-([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. Nächste Schritte:
-`ModelCore` (Bearbeitungen anwenden, lösen, prüfen, übernehmen), Stufe 5 (Platten) nach
-Klärung der Bohrungsmaße.
+([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. `createModelCore` bildet die Konsistenzgrenze
+(SPEC 8): Jede Bearbeitung wird auf einer Kopie angewendet, gelöst und unabhängig
+geprüft; nur ein baubares Ergebnis wird übernommen. Nächste Schritte: Viewer und Editor,
+Stufe 5 (Platten) nach Klärung der Bohrungsmaße.
