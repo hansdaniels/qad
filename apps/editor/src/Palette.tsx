@@ -1,4 +1,5 @@
 import { quadroArticleCatalog, type ColourId, type FamilyId } from '@qad/model-core';
+import { fitColour, tubeColours, type ColourRange } from './colours';
 
 export interface PaletteChoice {
   readonly familyId: FamilyId;
@@ -13,16 +14,16 @@ const FIRST = 'tube-35cm';
 const FAMILIES = quadroArticleCatalog.entries
   .filter((e) => e.category === 'tube' && e.stage === 'initial' && e.drilling.kind === 'standard')
   .sort((a, b) => Number(b.familyId === FIRST) - Number(a.familyId === FIRST));
-const COLOUR_NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
 const DEFAULT_COLOUR = quadroArticleCatalog.defaultColours.tube ?? 'red';
 
 interface PaletteProps {
   readonly choice: PaletteChoice | undefined;
+  readonly range: ColourRange;
   readonly onChoose: (choice: PaletteChoice | undefined) => void;
 }
 
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */
-export function Palette({ choice, onChoose }: PaletteProps) {
+export function Palette({ choice, range, onChoose }: PaletteProps) {
   const current = FAMILIES.find((f) => f.familyId === choice?.familyId);
   return (
     <section>
@@ -38,7 +39,14 @@ export function Palette({ choice, onChoose }: PaletteProps) {
               disabled={!supported}
               title={supported ? undefined : 'Folgt: Biegeebene muss wählbar sein'}
               onClick={() =>
-                onChoose(active ? undefined : { familyId: family.familyId, colour: choice?.colour ?? DEFAULT_COLOUR })
+                onChoose(
+                  active
+                    ? undefined
+                    : {
+                        familyId: family.familyId,
+                        colour: fitColour(family.familyId, choice?.colour ?? DEFAULT_COLOUR, range),
+                      },
+                )
               }
               style={{
                 textAlign: 'left',
@@ -60,9 +68,9 @@ export function Palette({ choice, onChoose }: PaletteProps) {
         <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
           Farbe{' '}
           <select value={choice.colour} onChange={(e) => onChoose({ ...choice, colour: e.target.value })}>
-            {current.articles.map((a) => (
-              <option key={a.colour} value={a.colour}>
-                {COLOUR_NAMES.get(a.colour) ?? a.colour}
+            {tubeColours(current.familyId, range).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>

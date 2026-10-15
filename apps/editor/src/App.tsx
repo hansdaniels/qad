@@ -10,35 +10,26 @@ import {
   removeTube,
   tubeOfPart,
   type AttachPoint,
-  type ColourId,
   type Diagnostic,
   type EditCommand,
   type PartId,
 } from '@qad/model-core';
+import { COLOUR_RANGES, colourName, fitColour, tubeColours, type ColourRange } from './colours';
 import { demoModel } from './demo';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
-import { SelectionTrash } from './SelectionTrash';
+import { SelectionTools } from './SelectionTools';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 
 const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
-const COLOUR_NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
-
-/** Colours offered for a tube: those of its family's standard variant. */
-function coloursOfFamily(familyId: string): readonly ColourId[] {
-  const entry = quadroArticleCatalog.entries.find(
-    (e) => e.familyId === familyId && e.category === 'tube' && e.drilling.kind === 'standard',
-  );
-  return entry?.articles.map((a) => a.colour) ?? [];
-}
-
 export function App() {
   const core = useMemo(() => demoModel(), []);
   const { snapshot, canUndo, canRedo, commit, undo, redo } = useHistory(core);
   const [selected, setSelected] = useState<PartId | undefined>();
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
+  const [range, setRange] = useState<ColourRange>('both');
   const [notice, setNotice] = useState<readonly Diagnostic[]>([]);
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
@@ -71,6 +62,10 @@ export function App() {
   const remove = () => {
     if (!selectedTube) return;
     if (apply(removeTube(snapshot, selectedTube))) setSelected(undefined);
+  };
+  const chooseRange = (next: ColourRange) => {
+    setRange(next);
+    if (choice) setChoice({ ...choice, colour: fitColour(choice.familyId, choice.colour, next) });
   };
   const run = (step: () => readonly Diagnostic[]) => {
     setHover(undefined);
@@ -137,7 +132,17 @@ export function App() {
             ) : null}
           </ModelScene>
           {selected && selectedTube ? (
-            <SelectionTrash partId={selected} revision={snapshot.revision} onDelete={remove} />
+            <SelectionTools
+              key={selected}
+              partId={selected}
+              revision={snapshot.revision}
+              colours={selectedTubeIntent ? tubeColours(selectedTubeIntent.familyId, range) : []}
+              colour={selectedTubeIntent?.appearance.colour}
+              onRecolour={(colour) =>
+                selectedTubeIntent && apply(recolourTube(snapshot, selectedTubeIntent.id, colour))
+              }
+              onDelete={remove}
+            />
           ) : null}
           <OrbitControls makeDefault target={[200, 100, -200]} />
         </Canvas>
@@ -157,7 +162,17 @@ export function App() {
             Wiederholen
           </button>
         </div>
-        <Palette choice={choice} onChoose={setChoice} />
+        <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
+          Farben{' '}
+          <select value={range} onChange={(e) => chooseRange(e.target.value as ColourRange)}>
+            {COLOUR_RANGES.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Palette choice={choice} range={range} onChoose={setChoice} />
         {problems.length > 0 ? (
           <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
             <p style={{ margin: '0 0 4px' }}>Nicht baubar:</p>
@@ -177,20 +192,7 @@ export function App() {
             <dd>{current.article?.article.articleNumber ?? '–'}</dd>
             <dt>Farbe</dt>
             <dd>
-              {selectedTubeIntent ? (
-                <select
-                  value={selectedTubeIntent.appearance.colour}
-                  onChange={(e) => apply(recolourTube(snapshot, selectedTubeIntent.id, e.target.value))}
-                >
-                  {coloursOfFamily(selectedTubeIntent.familyId).map((c) => (
-                    <option key={c} value={c}>
-                      {COLOUR_NAMES.get(c) ?? c}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                (COLOUR_NAMES.get(current.article?.article.colour ?? '') ?? '–')
-              )}
+              {colourName(selectedTubeIntent?.appearance.colour ?? current.article?.article.colour)}
               {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
             </dd>
             <dt>ID</dt>

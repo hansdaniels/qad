@@ -1,4 +1,4 @@
-import type { ColourId } from '@qad/model-core';
+import { quadroArticleCatalog, type ColourId, type FamilyId } from '@qad/model-core';
 
 /** Display colours for the catalog's colour keys; approximations, not manufacturer values. */
 const COLOURS: Readonly<Record<ColourId, string>> = {
@@ -19,6 +19,47 @@ const COLOURS: Readonly<Record<ColourId, string>> = {
   transparent: '#cfe8ff',
   metallic: '#a8acb0',
 };
+
+/** Which tube colours the editor offers: the four classic ones, the newer ones, or all. */
+export type ColourRange = 'both' | 'classic' | 'modern';
+
+export const COLOUR_RANGES: readonly { readonly id: ColourRange; readonly name: string }[] = [
+  { id: 'both', name: 'Klassisch und Modern' },
+  { id: 'classic', name: 'Klassisch' },
+  { id: 'modern', name: 'Modern' },
+];
+
+const CLASSIC: ReadonlySet<ColourId> = new Set(['red', 'green', 'blue', 'yellow']);
+
+export function inRange(colour: ColourId, range: ColourRange): boolean {
+  return range === 'both' || CLASSIC.has(colour) === (range === 'classic');
+}
+
+export interface ColourOption {
+  readonly id: ColourId;
+  readonly name: string;
+}
+
+const NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
+
+export const colourName = (colour: ColourId | undefined): string => (colour && NAMES.get(colour)) ?? colour ?? '–';
+
+/** Colours a tube family comes in, within the range: those of its standard variant. */
+export function tubeColours(familyId: FamilyId, range: ColourRange): ColourOption[] {
+  const entry = quadroArticleCatalog.entries.find(
+    (e) => e.familyId === familyId && e.category === 'tube' && e.drilling.kind === 'standard',
+  );
+  return (entry?.articles ?? [])
+    .filter((a) => inRange(a.colour, range))
+    .map((a) => ({ id: a.colour, name: colourName(a.colour) }));
+}
+
+/** The colour itself if the family offers it within the range, else the default or the first offered. */
+export function fitColour(familyId: FamilyId, colour: ColourId, range: ColourRange): ColourId {
+  const offered = tubeColours(familyId, range).map((c) => c.id);
+  const fallback = quadroArticleCatalog.defaultColours.tube ?? 'red';
+  return offered.includes(colour) ? colour : offered.includes(fallback) ? fallback : (offered[0] ?? colour);
+}
 
 export function displayColour(colour: ColourId | undefined): string {
   return (colour && COLOURS[colour]) ?? '#888888';
