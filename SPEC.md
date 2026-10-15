@@ -296,7 +296,7 @@ Three.js-Szenenobjekte bilden nicht das persistierte Fachmodell. Kamerabewegunge
 
 ### 13.4 Platzieren und Vorschau
 
-Jedes neue Rohr und jede neue Platte erhält eine Farbe; der Editor belegt sie mit der Standardfarbe des Katalogs vor (Rohre Rot, Platten Blau) und gibt sie immer mit.
+Jedes neue Rohr und jede neue Platte erhält eine Farbe; sie ist ein Pflichtfeld. Der Editor belegt sie mit der Standardfarbe des Katalogs vor (Rohre Rot, Platten Blau) und gibt sie immer mit. Fehlt sie in einer Datei, setzt das Einlesen diese Standardfarbe ein.
 
 Beim Anbauen werden gültige Anschlussrichtungen und Platzierungskandidaten sichtbar angeboten. Eine Vorschau zeigt das entstehende Rohr und die betroffene Realisierung. Die Domänenlogik bestimmt zulässige Positionen und Einrastmöglichkeiten.
 

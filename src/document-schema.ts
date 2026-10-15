@@ -2,7 +2,8 @@ import * as z from 'zod';
 import type { ConstructionSnapshot } from './core.js';
 
 // File-format schemas only: references, catalog compatibility and geometry are
-// validated by the domain layer after parsing. No coercion or silent defaults.
+// validated by the domain layer after parsing. No coercion or silent defaults,
+// except the documented default colours of tubes and plates.
 const id = z.string().min(1);
 const vector = z.strictObject({ x: z.number(), y: z.number(), z: z.number() });
 const quaternion = z.strictObject({
@@ -24,6 +25,9 @@ const variant = z.discriminatedUnion('mode', [
   z.strictObject({ mode: z.literal('fixed'), typeId: id }),
 ]);
 const appearance = z.strictObject({ colour: id });
+// Catalog defaults (BAUTEILKATALOG.md, Farben); fresh objects keep results unshared.
+const tubeAppearance = appearance.default(() => ({ colour: 'red' }));
+const plateAppearance = appearance.default(() => ({ colour: 'blue' }));
 const endpoint = z.strictObject({
   junctionId: id,
   orientation: quaternion,
@@ -35,7 +39,7 @@ const tube = z.strictObject({
   a: endpoint,
   b: endpoint,
   variant,
-  appearance: appearance.exactOptional(),
+  appearance: tubeAppearance,
 });
 const mount = z.strictObject({
   plateSiteId: id,
@@ -52,7 +56,7 @@ const plate = z.strictObject({
   variant,
   placement: z.strictObject({ junctionId: id, pose }),
   mounts: z.array(mount),
-  appearance: appearance.exactOptional(),
+  appearance: plateAppearance,
 });
 const design = z.strictObject({
   id,

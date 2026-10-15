@@ -10,8 +10,8 @@ export type VariantPolicy =
   | { readonly mode: 'fixed'; readonly typeId: PartTypeId };
 
 /**
- * The editor always sets the colour of tubes and plates, preset to the catalog
- * default. Without it, e.g. in a hand-written file, the default applies.
+ * Required for tubes and plates. The editor presets the catalog default; reading
+ * a file without a colour fills in red for tubes and blue for plates.
  */
 export interface Appearance {
   /** Colour key of the article catalog, not a renderer material. */
@@ -37,7 +37,7 @@ export interface TubeIntent {
   readonly a: TubeEndpoint;
   readonly b: TubeEndpoint;
   readonly variant: VariantPolicy;
-  readonly appearance?: Appearance;
+  readonly appearance: Appearance;
 }
 
 export interface JunctionIntent {
@@ -70,7 +70,7 @@ export interface PlateIntent {
     readonly pose: Pose;
   };
   readonly mounts: readonly PlateMountIntent[];
-  readonly appearance?: Appearance;
+  readonly appearance: Appearance;
 }
 
 export interface PlacementAnchor {

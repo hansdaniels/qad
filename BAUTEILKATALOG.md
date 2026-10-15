@@ -117,9 +117,10 @@ zur gewählten Variante und Farbe die Artikelnummer, z. B. `tube-35cm` + `red` �
 3. sonst die erste Farbe des Eintrags, z. B. Rot beim Doppelrohrverbinder, den es
    nicht in Schwarz gibt.
 
-Der Editor gibt für jedes Rohr und jede Platte eine Farbe mit und belegt sie mit
-der Standardfarbe vor. Fehlt sie trotzdem, etwa in einer von Hand geschriebenen
-Datei, gilt die Standardfarbe. Jedes Rohr ist in Rot erhältlich, jede
+Die Farbe ist bei Rohr und Platte ein Pflichtfeld (`appearance`). Der Editor gibt
+sie immer mit und belegt sie mit der Standardfarbe vor. Fehlt sie in einer Datei,
+etwa einer von Hand geschriebenen, setzt das Einlesen die Standardfarbe ein: Rot für
+Rohre, Blau für Platten. Jedes Rohr ist in Rot erhältlich, jede
 Rasterkupplung in Schwarz.
 
 ### Farbe und Bohrungsvarianten

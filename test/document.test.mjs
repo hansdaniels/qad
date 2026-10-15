@@ -64,10 +64,21 @@ function document() {
 
 test('reads the complete wire shape without changing values or materialising optional fields', () => {
   const input = document();
+  input.snapshot.design.plates[0].appearance = { colour: 'dark-grey' };
   const result = parseConstructionDocument(JSON.stringify(input));
   assert.equal(result.ok, true);
   assert.deepEqual(result.value, input);
-  assert.equal('appearance' in result.value.snapshot.design.plates[0], false);
+  assert.equal('preferredRad' in result.value.snapshot.design.tubes[0].a.roll, false);
+});
+
+test('fills in default colours: red for tubes, blue for plates', () => {
+  const input = document();
+  delete input.snapshot.design.tubes[0].appearance;
+  const result = parseConstructionDocument(JSON.stringify(input));
+  assert.equal(result.ok, true);
+  const { tubes, plates } = result.value.snapshot.design;
+  assert.deepEqual(tubes[0].appearance, { colour: 'red' });
+  assert.deepEqual(plates[0].appearance, { colour: 'blue' });
 });
 
 test('reports JSON syntax errors without throwing', () => {
@@ -97,6 +108,8 @@ const corruptions = [
   ['missing fixed variant', (d) => { delete d.snapshot.design.plates[0].variant.typeId; }],
   ['negative mount station', (d) => { d.snapshot.design.plates[0].mounts[0].stationMm = -1; }],
   ['missing quaternion component', (d) => { delete d.snapshot.design.tubes[0].a.orientation.w; }],
+  ['empty colour', (d) => { d.snapshot.design.tubes[0].appearance.colour = ''; }],
+  ['null appearance', (d) => { d.snapshot.design.tubes[0].appearance = null; }],
 ];
 for (const [name, corrupt] of corruptions) {
   test(`rejects ${name}`, () => {

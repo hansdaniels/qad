@@ -27,6 +27,8 @@ export function previewFirstTube(
           a: { junctionId: ids.start, orientation: forward, roll: { mode: 'free' } },
           b: { junctionId: ids.end, orientation: backward, roll: { mode: 'free' } },
           variant: { mode: 'automatic' },
+          // The editor always passes a colour, preset to the catalog default.
+          appearance: { colour: 'red' },
         },
       },
       {

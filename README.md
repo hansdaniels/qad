@@ -56,8 +56,10 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 `parseConstructionDocument(json)` prüft Formatkennung, Schemaversion und die
 vollständige verschachtelte Struktur. Unbekannte Felder werden abgelehnt;
 es gibt keine automatische Typumwandlung, Ergänzung von Standardwerten oder
-stillschweigende Entfernung von Daten. Zahlen müssen endlich, Revisionen ganze
-nichtnegative Zahlen und IDs nichtleer sein. Optionale Felder dürfen fehlen.
+stillschweigende Entfernung von Daten. Einzige Ausnahme ist die Farbe von Rohren
+und Platten: Fehlt sie, wird Rot bzw. Blau eingesetzt. Zahlen müssen endlich,
+Revisionen ganze nichtnegative Zahlen und IDs nichtleer sein. Optionale Felder
+dürfen fehlen.
 
 Der Typ `ConstructionDocument` wird aus `ConstructionDocumentSchema` abgeleitet.
 Das Snapshot-Schema wird beim Übersetzen gegen `ConstructionSnapshot` geprüft;
