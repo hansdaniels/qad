@@ -54,10 +54,15 @@ test('free arms are shown as stubs and a click picks the attach point', async ()
 });
 
 test('a valid preview shows the new tube as a ghost', async () => {
-  const { attachTube } = await import('@qad/model-core');
+  const { attachTube, quadroPartCatalog } = await import('@qad/model-core');
   const core = demoModel();
   const preview = core.preview(
-    attachTube(core.snapshot, { junctionId: 'j1', direction: '+z' }, { familyId: 'tube-25cm', colour: 'green' }),
+    attachTube(
+      core.snapshot,
+      { junctionId: 'j1', direction: '+z' },
+      { familyId: 'tube-25cm', colour: 'green' },
+      quadroPartCatalog,
+    ),
   );
   expect(preview.status).toBe('valid');
   if (preview.status !== 'valid') return;

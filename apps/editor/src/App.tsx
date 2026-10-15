@@ -37,7 +37,7 @@ export function App() {
 
   const pick = (point: AttachPoint) => {
     if (!choice) return;
-    const command = attachTube(snapshot, point, choice);
+    const command = attachTube(snapshot, point, choice, quadroPartCatalog);
     setPending({ point, command, preview: core.preview(command) });
   };
   const confirm = () => {

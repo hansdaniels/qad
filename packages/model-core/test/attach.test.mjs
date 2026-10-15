@@ -43,7 +43,9 @@ function start() {
 }
 
 const attach = (core, junctionId, direction, familyId = 'tube-35cm') => {
-  const result = core.execute(attachTube(core.snapshot, { junctionId, direction }, { familyId, colour: 'red' }));
+  const result = core.execute(
+    attachTube(core.snapshot, { junctionId, direction }, { familyId, colour: 'red' }, quadroPartCatalog),
+  );
   assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
   return result.value;
 };
@@ -112,4 +114,26 @@ test('an arm carrying an angle adapter is occupied', () => {
 test('next IDs continue the numbering', () => {
   assert.equal(nextId('t', ['t1', 't7', 'x3']), 't8');
   assert.equal(nextId('j', []), 'j1');
+});
+
+test('a tube whose far end meets an existing junction closes the ring there', () => {
+  const core = start();
+  attach(core, 'j1', '+x');
+  attach(core, 'j2', '+y');
+  attach(core, 'j3', '-x');
+  const closed = attach(core, 'j4', '-y');
+  assert.equal(closed.design.junctions.length, 4);
+  assert.equal(closed.design.tubes.at(-1).b.junctionId, 'j1');
+  const j1 = closed.realization.parts.find((p) => p.origin.intent.id === 'j1' && p.origin.role === 'connector');
+  assert.equal(j1.typeId, 'elbow-connector');
+  assert.deepEqual(free(closed, 'j1'), ['-x', '-y', '+z', '-z']);
+});
+
+test('a tube of another length ends in a new junction instead', () => {
+  const core = start();
+  attach(core, 'j1', '+x');
+  attach(core, 'j2', '+y');
+  attach(core, 'j3', '-x');
+  const longer = attach(core, 'j4', '-y', 'tube-25cm');
+  assert.equal(longer.design.junctions.length, 5);
 });

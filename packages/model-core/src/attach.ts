@@ -4,7 +4,7 @@ import type { EditCommand } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
 import type { ColourId, FamilyId, JunctionId } from './ids.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import { AXIS_ROTATIONS, compose, dot, length, qconj, qmul, rotate, vec } from './math.js';
+import { AXIS_ROTATIONS, add, compose, dot, length, qconj, qmul, rotate, scale, sub, vec } from './math.js';
 
 /** A free axis direction at a junction, where the editor offers a virtual arm. */
 export interface AttachPoint {
@@ -98,25 +98,34 @@ export function nextId(prefix: string, existing: readonly string[]): string {
   return `${prefix}${n}`;
 }
 
-/** Command that attaches a straight tube at a free direction, ending in a new junction. */
+/**
+ * Command that attaches a straight tube at a free direction. Where the far end
+ * meets an existing junction point, the tube joins it and closes the ring; the
+ * auto connector there follows from the solver. Otherwise a new junction is added.
+ */
 export function attachTube(
   snapshot: ConstructionSnapshot,
   at: { readonly junctionId: JunctionId; readonly direction: GridDirection },
   tube: { readonly familyId: FamilyId; readonly colour: ColourId },
+  catalog: PartCatalog,
+  toleranceMm = 1,
 ): EditCommand {
   const { design } = snapshot;
-  const junctionId = nextId(
-    'j',
-    design.junctions.map((j) => j.id),
-  );
   const tubeId = nextId(
     't',
     design.tubes.map((t) => t.id),
   );
+  const existing = farEndJunction(snapshot, at, tube.familyId, catalog, toleranceMm);
+  const junctionId =
+    existing ??
+    nextId(
+      'j',
+      design.junctions.map((j) => j.id),
+    );
   return {
     baseRevision: snapshot.revision,
     operations: [
-      { kind: 'add-junction', junction: { id: junctionId } },
+      ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
       {
         kind: 'add-tube',
         tube: {
@@ -130,4 +139,33 @@ export function attachTube(
       },
     ],
   };
+}
+
+/**
+ * Existing junction where the far end of a straight tube of the family lands:
+ * centre distance is the tube length between its end faces plus one arm length
+ * at each end.
+ */
+function farEndJunction(
+  snapshot: ConstructionSnapshot,
+  at: { readonly junctionId: JunctionId; readonly direction: GridDirection },
+  familyId: FamilyId,
+  catalog: PartCatalog,
+  toleranceMm: number,
+): JunctionId | undefined {
+  const type = catalog.partTypes.find((t) => t.kind === 'tube' && t.familyId === familyId && t.standardVariant);
+  if (type?.kind !== 'tube' || type.shape !== 'straight') return undefined;
+  const ends = [type.ends.a, type.ends.b].map((id) => type.sites.find((s) => s.id === id)?.frame.position);
+  if (!ends[0] || !ends[1]) return undefined;
+  const socket = catalog.partTypes
+    .flatMap((t) => (t.kind === 'connector' ? t.sites : []))
+    .find((s) => s.role === 'socket');
+  const pitch = length(sub(ends[1], ends[0])) + 2 * (socket ? length(socket.frame.position) : 0);
+  const poses = snapshot.realization.intentPoses.filter((p) => p.intent.kind === 'junction');
+  const start = poses.find((p) => p.intent.id === at.junctionId)?.worldPose;
+  if (!start) return undefined;
+  const direction = rotate(qmul(start.orientation, towardDirection(at.direction)), Z);
+  const target = add(start.position, scale(direction, pitch));
+  return poses.find((p) => p.intent.id !== at.junctionId && length(sub(p.worldPose.position, target)) <= toleranceMm)
+    ?.intent.id;
 }

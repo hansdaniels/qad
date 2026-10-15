@@ -5,10 +5,14 @@ export interface PaletteChoice {
   readonly colour: ColourId;
 }
 
-/** Tube families of the first stage: one entry per family, its standard variant names it. */
-const FAMILIES = quadroArticleCatalog.entries.filter(
-  (e) => e.category === 'tube' && e.stage === 'initial' && e.drilling.kind === 'standard',
-);
+/**
+ * Tube families of the first stage, one entry per family named by its standard
+ * variant. The 35 cm tube is by far the most used part and comes first.
+ */
+const FIRST = 'tube-35cm';
+const FAMILIES = quadroArticleCatalog.entries
+  .filter((e) => e.category === 'tube' && e.stage === 'initial' && e.drilling.kind === 'standard')
+  .sort((a, b) => Number(b.familyId === FIRST) - Number(a.familyId === FIRST));
 const COLOUR_NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
 const DEFAULT_COLOUR = quadroArticleCatalog.defaultColours.tube ?? 'red';
 
