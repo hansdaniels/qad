@@ -1,15 +1,5 @@
-import {
-  DEFAULT_TOLERANCE,
-  createModelCore,
-  math,
-  quadroCollisionGeometry,
-  quadroConnectionEvaluators,
-  quadroPartCatalog,
-  type DesignOperation,
-  type ModelCore,
-  type Quaternion,
-  type TubeIntent,
-} from '@qad/model-core';
+import { math, type DesignOperation, type ModelCore, type Quaternion, type TubeIntent } from '@qad/model-core';
+import { emptyModel } from './models';
 
 const { qaxisAngle, vec } = math;
 const IDENTITY: Quaternion = { x: 0, y: 0, z: 0, w: 1 };
@@ -60,30 +50,7 @@ const junction = (id: string): DesignOperation => ({ kind: 'add-junction', junct
 
 /** A frame with a post and an oblique tube, built through ModelCore commands. */
 export function demoModel(): ModelCore {
-  const created = createModelCore(
-    {
-      id: 'demo',
-      catalog: quadroPartCatalog.ref,
-      tubes: [],
-      junctions: [{ id: 'j1' }],
-      plates: [],
-      anchors: [
-        {
-          id: 'anchor',
-          target: { kind: 'junction', id: 'j1' },
-          worldPose: { position: vec(0, 0, 0), orientation: IDENTITY },
-        },
-      ],
-    },
-    quadroPartCatalog,
-    {
-      tolerance: DEFAULT_TOLERANCE,
-      connectionEvaluators: quadroConnectionEvaluators,
-      geometry: quadroCollisionGeometry,
-    },
-  );
-  if (!created.ok) throw new Error(created.diagnostics.map((d) => d.message).join('\n'));
-  const core = created.value;
+  const core = emptyModel('demo');
   const steps: DesignOperation[][] = [
     [junction('j2'), straight('t1', 'j1', 'j2', '+x', 'red')],
     [junction('j3'), straight('t2', 'j2', 'j3', '+y', 'blue')],

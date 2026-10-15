@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { ConstructionSnapshot, Diagnostic, ModelCore } from '@qad/model-core';
 
 interface History {
+  readonly core: ModelCore;
   readonly snapshot: ConstructionSnapshot;
   readonly past: readonly ConstructionSnapshot[];
   readonly future: readonly ConstructionSnapshot[];
@@ -10,12 +11,18 @@ interface History {
 /**
  * Undo and redo over committed states. Every step goes through ModelCore.restore,
  * so a restored state is verified again and becomes the core's next revision.
+ * Another core, e.g. an opened file, starts a new history.
  */
 export function useHistory(core: ModelCore) {
-  const [history, setHistory] = useState<History>({ snapshot: core.snapshot, past: [], future: [] });
+  const fresh = (): History => ({ core, snapshot: core.snapshot, past: [], future: [] });
+  let [history, setHistory] = useState<History>(fresh);
+  if (history.core !== core) {
+    history = fresh();
+    setHistory(history);
+  }
 
   const commit = useCallback((next: ConstructionSnapshot) => {
-    setHistory((h) => ({ snapshot: next, past: [...h.past, h.snapshot], future: [] }));
+    setHistory((h) => ({ ...h, snapshot: next, past: [...h.past, h.snapshot], future: [] }));
   }, []);
 
   const step = useCallback(
@@ -26,8 +33,8 @@ export function useHistory(core: ModelCore) {
       if (!result.ok) return result.diagnostics;
       setHistory((h) =>
         direction === 'undo'
-          ? { snapshot: result.value, past: h.past.slice(0, -1), future: [h.snapshot, ...h.future] }
-          : { snapshot: result.value, past: [...h.past, h.snapshot], future: h.future.slice(1) },
+          ? { ...h, snapshot: result.value, past: h.past.slice(0, -1), future: [h.snapshot, ...h.future] }
+          : { ...h, snapshot: result.value, past: [...h.past, h.snapshot], future: h.future.slice(1) },
       );
       return [];
     },

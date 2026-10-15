@@ -23,6 +23,18 @@ function requestedColour(snapshot: ConstructionSnapshot, partId: PartId): string
   return undefined;
 }
 
+/** Placed junctions without tubes, e.g. the start point of an empty model. */
+function useLoneJunctions(snapshot: ConstructionSnapshot) {
+  return useMemo(() => {
+    const used = new Set(snapshot.design.tubes.flatMap((t) => [t.a.junctionId, t.b.junctionId]));
+    return snapshot.realization.intentPoses.flatMap((p) =>
+      p.intent.kind === 'junction' && !used.has(p.intent.id)
+        ? [{ id: p.intent.id, position: p.worldPose.position }]
+        : [],
+    );
+  }, [snapshot]);
+}
+
 /** Parts with pose, collision shapes and resolved article. */
 export function useParts(snapshot: ConstructionSnapshot) {
   return useMemo(
@@ -95,6 +107,7 @@ function GhostParts({ snapshot, candidate }: { snapshot: ConstructionSnapshot; c
 export function ModelScene({ snapshot, selected, onSelect, candidate, children }: ModelSceneProps) {
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
+  const lone = useLoneJunctions(snapshot);
   return (
     <group name="model" rotation={[-Math.PI / 2, 0, 0]}>
       {parts.map(({ part, pose, shapes, article }) =>
@@ -114,6 +127,12 @@ export function ModelScene({ snapshot, selected, onSelect, candidate, children }
         <mesh key={key} name={`open:${key}`} position={[position.x, position.y, position.z]}>
           <sphereGeometry args={[12, 16, 16]} />
           <meshStandardMaterial color="#ff7a00" />
+        </mesh>
+      ))}
+      {lone.map(({ id, position }) => (
+        <mesh key={id} name={`junction:${id}`} position={[position.x, position.y, position.z]}>
+          <sphereGeometry args={[25, 24, 24]} />
+          <meshStandardMaterial color="#6b7480" />
         </mesh>
       ))}
       {candidate ? <GhostParts snapshot={snapshot} candidate={candidate} /> : null}
