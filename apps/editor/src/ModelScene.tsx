@@ -4,6 +4,7 @@ import {
   quadroArticleCatalog,
   quadroCollisionGeometry,
   quadroPartCatalog,
+  requestedColour,
   resolveArticle,
   type ConstructionSnapshot,
   type PartId,
@@ -12,16 +13,6 @@ import { displayColour } from './colours';
 import { PartMesh } from './PartMesh';
 
 const types = new Map(quadroPartCatalog.partTypes.map((t) => [t.id, t]));
-
-/** Requested colour of a tube or plate intent; parts of junctions take the catalog default. */
-function requestedColour(snapshot: ConstructionSnapshot, partId: PartId): string | undefined {
-  const part = snapshot.realization.parts.find((p) => p.id === partId);
-  if (!part) return undefined;
-  const { intent } = part.origin;
-  if (intent.kind === 'tube') return snapshot.design.tubes.find((t) => t.id === intent.id)?.appearance.colour;
-  if (intent.kind === 'plate') return snapshot.design.plates.find((p) => p.id === intent.id)?.appearance.colour;
-  return undefined;
-}
 
 /** Placed junctions without tubes, e.g. the start point of an empty model. */
 function useLoneJunctions(snapshot: ConstructionSnapshot) {
@@ -43,7 +34,7 @@ export function useParts(snapshot: ConstructionSnapshot) {
         const pose = snapshot.realization.poses.find((p) => p.partId === part.id)?.worldPose;
         const type = types.get(part.typeId);
         const shapes = (type && quadroCollisionGeometry.shapes(type.geometry.collision)) ?? [];
-        const article = resolveArticle(quadroArticleCatalog, part.typeId, requestedColour(snapshot, part.id));
+        const article = resolveArticle(quadroArticleCatalog, part.typeId, requestedColour(snapshot, part));
         return { part, pose, shapes, article };
       }),
     [snapshot],
@@ -67,6 +58,8 @@ export function useOpenEnds(snapshot: ConstructionSnapshot) {
 interface ModelSceneProps {
   readonly snapshot: ConstructionSnapshot;
   readonly selected: PartId | undefined;
+  /** Further parts drawn like the selected one, e.g. those of a parts-list line. */
+  readonly highlighted?: ReadonlySet<PartId> | undefined;
   readonly onSelect: (id: PartId) => void;
   /** Candidate of a pending edit; its new or changed parts are drawn as ghosts. */
   readonly candidate?: ConstructionSnapshot | undefined;
@@ -104,7 +97,7 @@ function GhostParts({ snapshot, candidate }: { snapshot: ConstructionSnapshot; c
 }
 
 /** The realised model in model coordinates (z up), turned into the y-up Three.js world. */
-export function ModelScene({ snapshot, selected, onSelect, candidate, children }: ModelSceneProps) {
+export function ModelScene({ snapshot, selected, highlighted, onSelect, candidate, children }: ModelSceneProps) {
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
   const lone = useLoneJunctions(snapshot);
@@ -118,7 +111,7 @@ export function ModelScene({ snapshot, selected, onSelect, candidate, children }
             pose={pose}
             shapes={shapes}
             colour={displayColour(article?.article.colour)}
-            selected={part.id === selected}
+            selected={part.id === selected || (highlighted?.has(part.id) ?? false)}
             onSelect={() => onSelect(part.id)}
           />
         ) : null,

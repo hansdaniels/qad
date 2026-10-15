@@ -73,7 +73,11 @@ export function openModel(json: string): Result<ModelCore> {
 
 /** Offers the model as a JSON file to download. */
 export function downloadModel(snapshot: ConstructionSnapshot, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([encodeConstruction(snapshot)], { type: 'application/json' }));
+  download(encodeConstruction(snapshot), 'application/json', fileName);
+}
+
+export function download(content: string, type: string, fileName: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;

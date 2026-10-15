@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   attachPoints,
   attachTube,
+  billOfMaterials,
   quadroArticleCatalog,
   quadroPartCatalog,
   recolourTube,
@@ -15,12 +16,13 @@ import {
   type ModelCore,
   type PartId,
 } from '@qad/model-core';
+import { BillOfMaterials, billCsv } from './BillOfMaterials';
 import { COLOUR_RANGES, colourName, fitColour, tubeColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
 import { SelectionTools } from './SelectionTools';
 import { emptyModel } from './models';
-import { DEFAULT_FILE_NAME, downloadModel, openModel, restoreModel, storeModel } from './storage';
+import { DEFAULT_FILE_NAME, download, downloadModel, openModel, restoreModel, storeModel } from './storage';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 
@@ -46,6 +48,8 @@ export function App() {
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
   const [range, setRange] = useState<ColourRange>('both');
+  const [view, setView] = useState<'build' | 'bill'>('build');
+  const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
   const [notice, setNotice] = useState<Notice | undefined>(
     restored.problems && {
       title: 'Das zuletzt bearbeitete Modell ließ sich nicht öffnen:',
@@ -56,6 +60,7 @@ export function App() {
   const openEnds = useOpenEnds(snapshot);
   const points = useMemo(() => (choice ? attachPoints(snapshot, quadroPartCatalog) : []), [choice, snapshot]);
   const current = parts.find((p) => p.part.id === selected);
+  const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog), [snapshot]);
 
   // Preview of attaching the chosen tube at the arm under the pointer.
   const plan = useMemo(() => {
@@ -117,6 +122,7 @@ export function App() {
     if (opened.ok) switchTo(opened.value, file.name);
     else setNotice({ title: `${file.name} ließ sich nicht öffnen:`, diagnostics: opened.diagnostics });
   };
+  const exportBill = () => download(billCsv(bill), 'text/csv', `${fileName.replace(/\.json$/i, '')}-stueckliste.csv`);
   const saveFile = () => {
     downloadModel(snapshot, fileName);
     setSavedDesign(snapshot.design);
@@ -175,6 +181,7 @@ export function App() {
           <ModelScene
             snapshot={snapshot}
             selected={selected}
+            highlighted={view === 'bill' ? highlighted : undefined}
             onSelect={setSelected}
             candidate={plan?.preview.status === 'valid' ? plan.preview.candidate : undefined}
           >
@@ -233,66 +240,98 @@ export function App() {
           {fileName}
           {unsaved ? <span style={{ color: '#8a5a00' }}> · nicht gespeichert</span> : null}
         </p>
-        <p style={{ color: '#555', fontSize: 14 }}>
-          Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene Enden
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" disabled={!canUndo} onClick={() => run(undo)} title="Strg+Z">
-            Zurück
-          </button>
-          <button type="button" disabled={!canRedo} onClick={() => run(redo)} title="Strg+Y oder Strg+Umschalt+Z">
-            Wiederholen
-          </button>
-        </div>
-        <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
-          Farben{' '}
-          <select value={range} onChange={(e) => chooseRange(e.target.value as ColourRange)}>
-            {COLOUR_RANGES.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Palette choice={choice} range={range} onChoose={setChoice} />
-        {shown ? (
-          <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
-            <p style={{ margin: '0 0 4px' }}>{shown.title}</p>
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {shown.diagnostics.map((d, i) => (
-                <li key={i}>{d.message}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Auswahl</h3>
-        {current ? (
-          <dl style={{ fontSize: 14 }}>
-            <dt>Teil</dt>
-            <dd>{articleName(current.part.typeId)}</dd>
-            <dt>Artikelnummer</dt>
-            <dd>{current.article?.article.articleNumber ?? '–'}</dd>
-            <dt>Farbe</dt>
-            <dd>
-              {colourName(selectedTubeIntent?.appearance.colour ?? current.article?.article.colour)}
-              {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
-            </dd>
-            <dt>ID</dt>
-            <dd style={{ fontFamily: 'monospace' }}>{current.part.id}</dd>
-          </dl>
-        ) : null}
-        {current ? (
-          selectedTube ? (
-            <button type="button" onClick={remove} title="Entf">
-              {current.part.origin.intent.kind === 'tube' ? 'Rohr löschen' : 'Schräges Rohr löschen'}
+        <div role="tablist" style={{ display: 'flex', gap: 4, margin: '12px 0 0', borderBottom: '1px solid #d0d5db' }}>
+          {(
+            [
+              ['build', 'Bauen'],
+              ['bill', 'Stückliste'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              onClick={() => setView(id)}
+              style={{
+                padding: '6px 10px',
+                border: 'none',
+                borderBottom: view === id ? '2px solid #1f5fbf' : '2px solid transparent',
+                background: 'none',
+                fontWeight: view === id ? 600 : 400,
+                cursor: 'pointer',
+              }}
+            >
+              {label}
             </button>
-          ) : (
-            <p style={{ fontSize: 13, color: '#555' }}>
-              Kupplungen entstehen automatisch aus den Rohren und verschwinden mit ihnen.
-            </p>
-          )
+          ))}
+        </div>
+        {view === 'bill' ? (
+          <BillOfMaterials lines={bill} onHighlight={(ids) => setHighlighted(new Set(ids))} onExport={exportBill} />
         ) : (
-          <p style={{ fontSize: 14 }}>Teil anklicken für Details.</p>
+          <>
+            <p style={{ color: '#555', fontSize: 14 }}>
+              Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene Enden
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" disabled={!canUndo} onClick={() => run(undo)} title="Strg+Z">
+                Zurück
+              </button>
+              <button type="button" disabled={!canRedo} onClick={() => run(redo)} title="Strg+Y oder Strg+Umschalt+Z">
+                Wiederholen
+              </button>
+            </div>
+            <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
+              Farben{' '}
+              <select value={range} onChange={(e) => chooseRange(e.target.value as ColourRange)}>
+                {COLOUR_RANGES.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Palette choice={choice} range={range} onChoose={setChoice} />
+            {shown ? (
+              <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
+                <p style={{ margin: '0 0 4px' }}>{shown.title}</p>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {shown.diagnostics.map((d, i) => (
+                    <li key={i}>{d.message}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Auswahl</h3>
+            {current ? (
+              <dl style={{ fontSize: 14 }}>
+                <dt>Teil</dt>
+                <dd>{articleName(current.part.typeId)}</dd>
+                <dt>Artikelnummer</dt>
+                <dd>{current.article?.article.articleNumber ?? '–'}</dd>
+                <dt>Farbe</dt>
+                <dd>
+                  {colourName(selectedTubeIntent?.appearance.colour ?? current.article?.article.colour)}
+                  {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
+                </dd>
+                <dt>ID</dt>
+                <dd style={{ fontFamily: 'monospace' }}>{current.part.id}</dd>
+              </dl>
+            ) : null}
+            {current ? (
+              selectedTube ? (
+                <button type="button" onClick={remove} title="Entf">
+                  {current.part.origin.intent.kind === 'tube' ? 'Rohr löschen' : 'Schräges Rohr löschen'}
+                </button>
+              ) : (
+                <p style={{ fontSize: 13, color: '#555' }}>
+                  Kupplungen entstehen automatisch aus den Rohren und verschwinden mit ihnen.
+                </p>
+              )
+            ) : (
+              <p style={{ fontSize: 14 }}>Teil anklicken für Details.</p>
+            )}
+          </>
         )}
       </aside>
     </div>
