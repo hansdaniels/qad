@@ -101,10 +101,10 @@ gewählte Stellung steht in der Realisierung. Auswahl soll gültige bisherige Te
 bevorzugen und bei gleichen Eingaben reproduzierbar bleiben.
 
 Der Solver (`solveRealization`) ermittelt aus dem Entwurf die Realisierung für gerade
-Rohre und Bogenrohre an achsparallelen Verbindungspunkten mit Auto-Kupplung, Ringschluss
-und offenen Enden. Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4
+Rohre und Bogenrohre an achsparallelen Verbindungspunkten mit Auto-Kupplung, schräge
+Rohre über Winkelkupplungen, Ringschluss und offene Enden. Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4
 um und bestätigt jede Lösung des Solvers unabhängig. `quadroPartCatalog` ist ein
 vorläufiger Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
 ([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. Nächste Schritte:
-`ModelCore` (Bearbeitungen anwenden, lösen, prüfen, übernehmen), Winkelkupplungen im
-Solver, Stufe 5 (Platten) nach Klärung der Bohrungsmaße.
+`ModelCore` (Bearbeitungen anwenden, lösen, prüfen, übernehmen), Stufe 5 (Platten) nach
+Klärung der Bohrungsmaße.

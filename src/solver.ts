@@ -33,6 +33,21 @@ interface EndRef {
   readonly end: TubeEnd;
 }
 
+/** Angle adapter between a connector arm and an oblique tube end. */
+interface AdapterChoice {
+  readonly type: PartType;
+  readonly sleeve: AttachmentSite;
+  readonly spigot: AttachmentSite;
+}
+
+/** Tube frame relative to the connector frame, with the parameters of each link. */
+interface Chain {
+  readonly tubeInConnector: Pose;
+  readonly params: readonly Params[];
+  /** Adapter frame relative to the connector frame. */
+  readonly adapterInConnector?: Pose;
+}
+
 class Conflict extends Error {
   constructor(readonly diagnostic: Diagnostic) {
     super(diagnostic.message);
@@ -69,8 +84,9 @@ class Solver {
   private readonly connectorPoses = new Map<JunctionId, Pose>();
   private readonly tubeTypes = new Map<TubeId, TubeType>();
   private readonly tubePoses = new Map<TubeId, Pose>();
-  /** Connection parameters per tube end on a connector. */
-  private readonly links = new Map<string, Params>();
+  private readonly adapters = new Map<string, AdapterChoice>();
+  /** Chosen chain per tube end on a connector: one link, or two via an adapter. */
+  private readonly links = new Map<string, Chain>();
   private readonly armOffset: number;
 
   constructor(
@@ -134,15 +150,26 @@ class Solver {
     const ends = this.ends.get(junctionId) ?? [];
     if (ends.length < 2) return;
     const tol = this.options.tolerance.angleRad;
-    const directions = ends.map((e) => {
+    const axial = ends.map((e) => {
       const d = rotate(e.tube[e.end].orientation, Z);
       const axis = nearestAxis(d);
-      if (Math.acos(clamp(dot(d, axis))) > tol) {
+      return Math.acos(clamp(dot(d, axis))) <= tol ? axis : undefined;
+    });
+    const used = axial.filter((a): a is Vector3 => a !== undefined);
+    const directions = ends.map((e, i) => {
+      const axis = axial[i];
+      if (axis) return axis;
+      const d = rotate(e.tube[e.end].orientation, Z);
+      const adapter = this.adapterFor(d, used);
+      if (!adapter) {
+        const nearest = nearestAxis(d);
         conflict('junction-angle-unsupported',
-          `Rohr ${e.tube.id} trifft nicht achsparallel auf Verbindungspunkt ${junctionId}; Winkelkupplungen werden noch nicht gewählt.`,
-          [junctionRef(junctionId), tubeRef(e.tube.id)], { deviationDeg: round(deg(Math.acos(clamp(dot(d, axis))))) });
+          `Rohr ${e.tube.id} trifft an Verbindungspunkt ${junctionId} in einem Winkel, den keine Kupplung und keine Winkelkupplung bietet.`,
+          [junctionRef(junctionId), tubeRef(e.tube.id)], { deviationDeg: round(deg(Math.acos(clamp(dot(d, nearest))))) });
       }
-      return axis;
+      used.push(adapter.arm);
+      this.adapters.set(endKey(e), adapter.choice);
+      return adapter.arm;
     });
     const previousPart = this.previousPart({ kind: 'junction', id: junctionId }, 'connector');
     const previousRotation = this.previousConnectorRotation(junctionId);
@@ -173,6 +200,34 @@ class Solver {
     }
     conflict('junction-angle-unsupported', `Keine Kupplung für die Rohrrichtungen an Verbindungspunkt ${junctionId}.`,
       [junctionRef(junctionId), ...ends.map((e) => tubeRef(e.tube.id))], { tubes: ends.length });
+  }
+
+  /**
+   * Arm direction and adapter whose spigot points along d. Arm frames are
+   * axis-aligned and adapter parameters step in quarter turns, so a canonical
+   * arm frame per axis decides feasibility for every connector.
+   */
+  private adapterFor(d: Vector3, used: readonly Vector3[]): { arm: Vector3; choice: AdapterChoice } | undefined {
+    const tol = this.options.tolerance.angleRad;
+    const socket = this.catalog.partTypes.flatMap((t) => (t.kind === 'connector' ? t.sites : [])).find((s) => s.role === 'socket');
+    if (!socket) return undefined;
+    const adapters = this.catalog.partTypes.filter((t) => t.kind === 'adapter').sort((a, b) => compare(a.id, b.id));
+    for (const type of adapters) {
+      const sleeve = type.sites.find((s) => s.role === 'tube-end');
+      const spigot = type.sites.find((s) => s.role === 'socket');
+      if (!sleeve || !spigot) continue;
+      for (const arm of AXES) {
+        if (used.some((u) => dot(u, arm) > 1 - 1e-9)) continue;
+        const canonicalArm: AttachmentSite = {
+          ...socket, frame: { position: vec(0, 0, 0), orientation: AXIS_ROTATIONS.find((r) => dot(rotate(r, Z), arm) > 1 - 1e-9)! },
+        };
+        const choice = { type, sleeve, spigot };
+        const reachable = this.adapterChains(canonicalArm, choice, undefined).some((c) =>
+          angleBetween(rotate(compose(c.adapterInConnector!, spigot.frame).orientation, Z), d) <= tol);
+        if (reachable) return { arm, choice };
+      }
+    }
+    return undefined;
   }
 
   // ------------------------------------------------------------ placement
@@ -269,11 +324,11 @@ class Solver {
         [tubeRef(e.tube.id), junctionRef(endpoint.junctionId)]);
     }
     this.tubePoses.set(e.tube.id, chosen.pose);
-    if (chosen.params) this.links.set(endKey(e), chosen.params);
+    if (chosen.chain) this.links.set(endKey(e), chosen.chain);
   }
 
   /** Candidate tube poses from the junction end, previous parameters first. */
-  private tubeCandidates(e: EndRef, junction: Pose, type: TubeType): { pose: Pose; params?: Params }[] {
+  private tubeCandidates(e: EndRef, junction: Pose, type: TubeType): { pose: Pose; chain?: Chain }[] {
     const endSite = endSiteOf(type, e.end);
     const choice = this.connectors.get(e.tube[e.end].junctionId);
     const connectorPose = this.connectorPoses.get(e.tube[e.end].junctionId);
@@ -282,14 +337,46 @@ class Solver {
       const frames = this.openEndFrames(junction, e.tube[e.end]);
       return frames.map((frame) => ({ pose: compose(frame, inverse(endSite.frame)) }));
     }
+    return this.chains(e, choice, endSite).map((chain) => ({ pose: compose(connectorPose, chain.tubeInConnector), chain }));
+  }
+
+  /** All ways from the connector to the tube end: directly or via the chosen adapter. */
+  private chains(e: EndRef, choice: ConnectorChoice, endSite: AttachmentSite): Chain[] {
     const arm = choice.sockets.get(endKey(e))!;
-    const { type: connection, armIsA } = this.connectionBetween(arm, endSite, e);
-    return this.parameterSets(connection, e, choice.type.id).map((params) => {
-      const relative = this.evaluate(connection, params, e);
-      const armWorld = compose(connectorPose, arm.frame);
-      const endWorld = armIsA ? compose(armWorld, relative) : compose(armWorld, inverse(relative));
-      return { pose: compose(endWorld, inverse(endSite.frame)), params };
-    });
+    const adapter = this.adapters.get(endKey(e));
+    if (adapter) return this.adapterChains(arm, adapter, { e, endSite, connectorTypeId: choice.type.id });
+    const link = this.connectionBetween(arm, endSite, e);
+    return this.parameterSets(link.type, e, choice.type.id).map((params) => ({
+      tubeInConnector: compose(compose(arm.frame, this.armTo(link, params, e)), inverse(endSite.frame)),
+      params: [params],
+    }));
+  }
+
+  private adapterChains(arm: AttachmentSite, adapter: AdapterChoice,
+    tube: { e: EndRef; endSite: AttachmentSite; connectorTypeId: string } | undefined): Chain[] {
+    const e = tube?.e ?? { tube: this.design.tubes[0]!, end: 'a' as TubeEnd };
+    const first = this.connectionBetween(arm, adapter.sleeve, e);
+    const chains: Chain[] = [];
+    for (const p1 of this.parameterSets(first.type, undefined, '')) {
+      const adapterInConnector = compose(compose(arm.frame, this.armTo(first, p1, e)), inverse(adapter.sleeve.frame));
+      if (!tube) {
+        chains.push({ tubeInConnector: adapterInConnector, params: [p1], adapterInConnector });
+        continue;
+      }
+      const second = this.connectionBetween(adapter.spigot, tube.endSite, e);
+      for (const p2 of this.parameterSets(second.type, tube.e, tube.connectorTypeId)) {
+        const tubeInConnector = compose(compose(compose(adapterInConnector, adapter.spigot.frame), this.armTo(second, p2, e)),
+          inverse(tube.endSite.frame));
+        chains.push({ tubeInConnector, params: [p1, p2], adapterInConnector });
+      }
+    }
+    return chains;
+  }
+
+  /** Frame of the far site in the arm site's frame for a link with the given parameters. */
+  private armTo(link: { type: ConnectionType; armIsA: boolean }, params: Params, e: EndRef): Pose {
+    const relative = this.evaluate(link.type, params, e);
+    return link.armIsA ? relative : inverse(relative);
   }
 
   /** Places or verifies the junction at a tube end that is already placed. */
@@ -313,15 +400,11 @@ class Solver {
       return;
     }
     if (this.links.has(endKey(e))) return;
-    const arm = choice.sockets.get(endKey(e))!;
-    const { type: connection, armIsA } = this.connectionBetween(arm, endSite, e);
     const expectedOrientation = qmul(orientation, choice.rotation);
     const existing = this.connectorPoses.get(junctionId);
     let closest = Infinity;
-    for (const params of this.parameterSets(connection, e, choice.type.id)) {
-      const relative = this.evaluate(connection, params, e);
-      const armWorld = armIsA ? compose(endWorld, inverse(relative)) : compose(endWorld, relative);
-      const connectorPose = compose(armWorld, inverse(arm.frame));
+    for (const chain of this.chains(e, choice, endSite)) {
+      const connectorPose = compose(pose, inverse(chain.tubeInConnector));
       const turn = qangle(qmul(qconj(expectedOrientation), connectorPose.orientation));
       if (turn > tol.angleRad) continue;
       if (existing) {
@@ -331,7 +414,7 @@ class Solver {
       } else {
         this.placeJunction(junctionId, { position: connectorPose.position, orientation });
       }
-      this.links.set(endKey(e), params);
+      this.links.set(endKey(e), chain);
       return;
     }
     if (existing && Number.isFinite(closest)) {
@@ -381,14 +464,14 @@ class Solver {
   }
 
   /** Discrete parameter sets, the previous choice for this tube end first. */
-  private parameterSets(type: ConnectionType, e: EndRef, connectorTypeId: string): Params[] {
+  private parameterSets(type: ConnectionType, e: EndRef | undefined, connectorTypeId: string): Params[] {
     if (type.kinematics.kind === 'fixed') return [{}];
     let sets: Record<string, number>[] = [{}];
     for (const parameter of type.kinematics.parameters) {
       const values = parameter.domain.kind === 'discrete' ? parameter.domain.values : [parameter.domain.min];
       sets = sets.flatMap((set) => values.map((v) => ({ ...set, [parameter.name]: v })));
     }
-    const previous = this.previousLinkParameters(e, connectorTypeId);
+    const previous = e && this.previousLinkParameters(e, connectorTypeId);
     if (!previous) return sets;
     const same = (s: Params) => Object.keys(s).every((k) => Math.abs((s[k] ?? NaN) - (previous[k] ?? NaN)) < 1e-9);
     return [...sets.filter(same), ...sets.filter((s) => !same(s))];
@@ -432,6 +515,16 @@ class Solver {
 
   // ------------------------------------------------------------ output
 
+  /** Connection record with the rule's a/b order; a previous ID is kept. */
+  private connection(armRef: { partId: PartId; siteId: string }, arm: AttachmentSite,
+    endRef: { partId: PartId; siteId: string }, end: AttachmentSite, parameters: Params, e: EndRef): Connection {
+    const { type, armIsA } = this.connectionBetween(arm, end, e);
+    const [a, b] = armIsA ? [armRef, endRef] : [endRef, armRef];
+    const previousId = this.previous?.connections.find((c) =>
+      c.a.partId === a.partId && c.a.siteId === a.siteId && c.b.partId === b.partId && c.b.siteId === b.siteId)?.id;
+    return { id: previousId ?? `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`, a, b, typeId: type.id, parameters };
+  }
+
   private partId(intent: IntentRef, role: string): PartId {
     return this.previousPart(intent, role)?.id ?? `${intent.kind}:${intent.id}/${role}`;
   }
@@ -457,19 +550,26 @@ class Solver {
       poses.push({ partId: id, worldPose: pose });
       for (const end of ['a', 'b'] as const) {
         const e = { tube: this.design.tubes.find((t) => t.id === tubeId)!, end };
-        const choice = this.connectors.get(e.tube[end].junctionId);
-        const params = this.links.get(endKey(e));
-        if (!choice || !params) continue;
+        const junctionId = e.tube[end].junctionId;
+        const choice = this.connectors.get(junctionId);
+        const chain = this.links.get(endKey(e));
+        const connectorPose = this.connectorPoses.get(junctionId);
+        if (!choice || !chain || !connectorPose) continue;
         const arm = choice.sockets.get(endKey(e))!;
         const endSite = endSiteOf(type, end);
-        const { type: connection, armIsA } = this.connectionBetween(arm, endSite, e);
-        const connectorId = this.partId({ kind: 'junction', id: e.tube[end].junctionId }, 'connector');
-        const armRef = { partId: connectorId, siteId: arm.id };
-        const endRef = { partId: id, siteId: endSite.id };
-        const [a, b] = armIsA ? [armRef, endRef] : [endRef, armRef];
-        const previousId = this.previous?.connections.find((c) =>
-          c.a.partId === a.partId && c.a.siteId === a.siteId && c.b.partId === b.partId && c.b.siteId === b.siteId)?.id;
-        connections.push({ id: previousId ?? `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`, a, b, typeId: connection.id, parameters: params });
+        const connectorId = this.partId({ kind: 'junction', id: junctionId }, 'connector');
+        const adapter = this.adapters.get(endKey(e));
+        const tubeEnd = { partId: id, siteId: endSite.id };
+        if (!adapter) {
+          connections.push(this.connection({ partId: connectorId, siteId: arm.id }, arm, tubeEnd, endSite, chain.params[0]!, e));
+          continue;
+        }
+        const role = `angle-adapter:${tubeId}:${end}`;
+        const adapterId = this.partId({ kind: 'junction', id: junctionId }, role);
+        parts.push({ id: adapterId, typeId: adapter.type.id, origin: { intent: { kind: 'junction', id: junctionId }, role } });
+        poses.push({ partId: adapterId, worldPose: compose(connectorPose, chain.adapterInConnector!) });
+        connections.push(this.connection({ partId: connectorId, siteId: arm.id }, arm, { partId: adapterId, siteId: adapter.sleeve.id }, adapter.sleeve, chain.params[0]!, e));
+        connections.push(this.connection({ partId: adapterId, siteId: adapter.spigot.id }, adapter.spigot, tubeEnd, endSite, chain.params[1]!, e));
       }
     }
     return {
@@ -488,9 +588,10 @@ function endSiteOf(type: TubeType, end: TubeEnd): AttachmentSite {
   return type.sites.find((s) => s.id === type.ends[end])!;
 }
 
+const AXES: readonly Vector3[] = [vec(1, 0, 0), vec(-1, 0, 0), vec(0, 1, 0), vec(0, -1, 0), vec(0, 0, 1), vec(0, 0, -1)];
+
 function nearestAxis(d: Vector3): Vector3 {
-  const axes = [vec(1, 0, 0), vec(-1, 0, 0), vec(0, 1, 0), vec(0, -1, 0), vec(0, 0, 1), vec(0, 0, -1)];
-  return axes.reduce((best, a) => (dot(a, d) > dot(best, d) ? a : best));
+  return AXES.reduce((best, a) => (dot(a, d) > dot(best, d) ? a : best));
 }
 
 function angleBetween(a: Vector3, b: Vector3): number {

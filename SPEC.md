@@ -156,7 +156,8 @@ Die erste Umsetzung (`src/solver.ts`) arbeitet so:
 - Lagen werden vom Anker aus über die Verbindungsregeln berechnet, Drehstellungen aus deren Wertebereich gewählt, bisherige bevorzugt. Ein Ring, der einen bereits platzierten Punkt verfehlt, ist ein Konflikt.
 - Ein offenes Rohrende hat keine Kupplung; sein Verbindungspunkt liegt eine Armlänge vor der Stirnseite.
 - Teile behalten ihre ID über Herkunft und Rolle; neue IDs sind `tube:<id>/body` und `junction:<id>/connector`.
-- Winkelkupplungen und Platten realisiert die erste Umsetzung noch nicht; sie führen zu einem Konflikt.
+- Ein Rohrende auf einer 45°-Diagonale zwischen zwei Achsen erhält eine Winkelkupplung auf einem freien Arm der Auto-Kupplung (Rolle `angle-adapter:<Rohr>:<Ende>`). Jede Diagonale ist über zwei Arme erreichbar; gewählt wird der erste freie in fester Reihenfolge (+x, −x, +y, −y, +z, −z). Ein Ring, der nur mit dem anderen Arm schließt, wird noch als Konflikt gemeldet.
+- Andere Winkel und Platten realisiert die erste Umsetzung nicht; sie führen zu einem Konflikt.
 
 Der Benutzer kann eine Variante fixieren. Dann ist sie eine Bedingung der Lösungsfindung. Kann der Aufbau damit nicht realisiert werden, wird ein Konflikt gemeldet; die Fixierung wird nicht stillschweigend aufgehoben.
 

@@ -4,7 +4,7 @@ import {
   DEFAULT_TOLERANCE, checkBuildability, findOpenEnds, quadroCollisionGeometry, quadroConnectionEvaluators,
   quadroPartCatalog, solveRealization,
 } from '../dist/index.js';
-import { qaxisAngle, vec } from '../dist/math.js';
+import { qaxisAngle, qmul as qmulLocal, vec } from '../dist/math.js';
 
 const options = { tolerance: DEFAULT_TOLERANCE, connectionEvaluators: quadroConnectionEvaluators };
 const checkOptions = { ...options, minClearanceMm: 0, maxRemediesPerFinding: 3 };
@@ -49,7 +49,7 @@ function solveAndCheck(d, previous) {
 
 const near = (actual, expected) => assert.ok(Math.hypot(actual.x - expected.x, actual.y - expected.y, actual.z - expected.z) < 1e-6,
   `${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);
-const typeOf = (realization, intentId) => realization.parts.find((p) => p.origin.intent.id === intentId)?.typeId;
+const typeOf = (realization, intentId) => realization.parts.find((p) => p.origin.intent.id === intentId && ['connector', 'body'].includes(p.origin.role))?.typeId;
 const poseOf = (realization, intentId) => realization.intentPoses.find((p) => p.intent.id === intentId)?.worldPose.position;
 
 test('a square drawn from tubes alone gets elbow connectors and closes in the 400 grid', () => {
@@ -95,9 +95,9 @@ test('mixed lengths in a ring that cannot close are a conflict', () => {
   assert.ok(Math.abs(solved.diagnostics[0].details.offsetMm - 100) < 1e-6);
 });
 
-test('a tube that is not axis-parallel at a junction is explained', () => {
+test('a tube that is neither axis-parallel nor on a 45° diagonal is explained', () => {
   const d = design(SQUARE);
-  d.tubes[0] = { ...d.tubes[0], a: { ...d.tubes[0].a, orientation: qaxisAngle(vec(0, 1, 0), Math.PI / 4) } };
+  d.tubes[0] = { ...d.tubes[0], a: { ...d.tubes[0].a, orientation: qaxisAngle(vec(0, 1, 0), Math.PI / 6) } };
   const solved = solveRealization(d, quadroPartCatalog, options);
   assert.equal(solved.ok, false);
   assert.equal(solved.diagnostics[0].code, 'junction-angle-unsupported');
@@ -135,4 +135,43 @@ test('plates are not realised yet', () => {
   d.plates = [{ id: 'p', familyId: 'panel', variant: { mode: 'automatic' }, appearance: { colour: 'blue' },
     placement: { junctionId: 'j1', pose: origin }, mounts: [] }];
   assert.equal(solveRealization(d, quadroPartCatalog, options).diagnostics[0].code, 'no-realization');
+});
+
+test('an oblique tube gets an angle connector on a free arm of the auto connector', () => {
+  const c = Math.SQRT1_2;
+  const d = design([['t1', 'tube-35cm', 'j1', 'j2', '+x']]);
+  // Up-left at 45° in the xy plane: reachable from the -y arm (the +x arm is taken).
+  const oblique = { x: -c, y: c, z: 0 };
+  const turn = qaxisAngle(vec(1, 0, 0), -Math.PI / 2);          // +Z onto +y
+  const tilt = qaxisAngle(vec(0, 0, 1), Math.PI / 4);           // +y onto (-c, c)
+  const into = qmulLocal(tilt, turn);
+  d.tubes.push({
+    id: 't2', familyId: 'tube-35cm',
+    a: { junctionId: 'j1', orientation: into, roll: { mode: 'free' } },
+    b: { junctionId: 'j3', orientation: qmulLocal(qaxisAngle(vec(0, 0, 1), Math.PI), into), roll: { mode: 'free' } },
+    variant: { mode: 'automatic' }, appearance: { colour: 'red' },
+  });
+  d.junctions.push({ id: 'j3' });
+  const r = solveAndCheck(d);
+  const adapter = r.parts.find((p) => p.typeId === 'diagonal-connector');
+  assert.ok(adapter, JSON.stringify(r.parts.map((p) => p.typeId)));
+  assert.deepEqual(adapter.origin, { intent: { kind: 'junction', id: 'j1' }, role: 'angle-adapter:t2:a' });
+  assert.equal(typeOf(r, 'j1'), 'elbow-connector');
+  // Virtual centre 36 behind the axis crossing at 108.3 on the -y arm, then 400 along the tube.
+  const v = vec(-36 * c, -108.3 + 36 * c, 0);
+  near(poseOf(r, 'j3'), vec(v.x + 400 * oblique.x, v.y + 400 * oblique.y, 0));
+  assert.deepEqual(solveAndCheck(d, r), r);
+});
+
+test('an angle no adapter reaches stays a conflict', () => {
+  const d = design([['t1', 'tube-35cm', 'j1', 'j2', '+x']]);
+  d.tubes.push({
+    id: 't2', familyId: 'tube-35cm',
+    a: { junctionId: 'j1', orientation: qaxisAngle(vec(1, 0, 0), -Math.PI / 6), roll: { mode: 'free' } },
+    b: { junctionId: 'j3', orientation: qaxisAngle(vec(1, 0, 0), Math.PI - Math.PI / 6), roll: { mode: 'free' } },
+    variant: { mode: 'automatic' }, appearance: { colour: 'red' },
+  });
+  d.junctions.push({ id: 'j3' });
+  const solved = solveRealization(d, quadroPartCatalog, options);
+  assert.equal(solved.diagnostics[0].code, 'junction-angle-unsupported');
 });
