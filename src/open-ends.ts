@@ -9,7 +9,7 @@ export interface OpenEnd extends TubeEndRef {
 /**
  * Tube ends without a counterpart. Connectors derive their arms from the tubes
  * attached (auto connector), so free connector arms do not occur; only tube ends
- * can be open. Not a buildability finding: intermediate states may be open.
+ * can be open. A connector fixed explicitly (later, SPEC 9) may add free arms. Not a buildability finding: intermediate states may be open.
  * Ordered by tube ID, then end a before b. The highlight position is the
  * junction's entry in Realization.intentPoses.
  */

@@ -214,6 +214,7 @@ Im Sinne von DDD bildet die Konstruktion die Konsistenzgrenze für Änderungen. 
 | Räder, Lager und Flexikupplungen | Typisierte Verbindungen mit Parametern | Gelenkverhalten und gegebenenfalls zusätzliche Solverlogik |
 | Textilien, Netze und Poolfolien | Referenzen auf mehrere Befestigungen | Rahmenbedingungen und vereinfachte Darstellung |
 | Schrauben und andere Befestigungsmittel | Auswertbare montierte Verbindungen | Automatische Stücklistenableitung |
+| Fest gewählte Kupplung, z. B. 6-armig als Vorbereitung für einen Anbau | Auto-Kupplung als Standard, Verbindungspunkte mit stabiler Identität | Fixierung am `JunctionIntent` analog zur Rohrvariante; freie Arme in `findOpenEnds` melden |
 | Kopffallenprüfung | Rohrlagen und Plattenbefestigungen der Realisierung | Eigene Prüffunktion neben der Baubarkeitsprüfung, nach der Regel in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md) |
 
 Gelenke werden im Modellkonzept berücksichtigt. Die erste Umsetzung benötigt keine Bewegungssimulation und unterstützt nur festgelegte Stellungen. Bewegliche geschlossene Mechanismen erfordern später zusätzliche Berechnungslogik.
