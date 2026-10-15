@@ -332,9 +332,12 @@ setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausg
 | Kreuzung | Zwei gerade Rohre, deren Achsen sich innerhalb der Toleranz schneiden, ohne direkte Verbindung; Stationen ab Ende a. |
 | Stufe 5 | Noch nicht umgesetzt (Bohrungsmaße fehlen). Ein Entwurf mit Platten ist deshalb `undetermined` (`stage:plate-mounts`), nie `buildable`. |
 | Hinweise | `remedies` bleiben vorerst leer. |
+| QUADRO-Katalog | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme. |
 
 Die Abnahmetests aus Abschnitt 7 stehen in `test/buildability.test.mjs` mit einem
 synthetischen Katalog (`test/fixtures.mjs`); offen sind 6 bis 8 (Platten).
+`test/quadro.test.mjs` prüft den vorläufigen QUADRO-Katalog: 35er-Rahmen, falsches
+Rohr im Ring, Bogenrohr als Rahmeneck und Winkelkupplung mit schrägem Rohr.
 
 ## 9. Später: Hinweis auf zusätzliche Bohrungen
 

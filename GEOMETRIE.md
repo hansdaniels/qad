@@ -1,7 +1,8 @@
 # Geometriedaten aus dem QUADRO-Designprogramm
 
 Status: Kandidatenwerte, 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitt 11.
-Noch nicht am Teil nachgemessen und deshalb nicht im Katalog.
+Noch nicht am Teil nachgemessen. Als vorläufiger Geometriekatalog umgesetzt in
+`src/quadro-geometry.ts` (`quadroPartCatalog`).
 
 ## 1. Quelle und Methode
 

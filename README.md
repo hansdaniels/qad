@@ -51,6 +51,7 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
 | `article-catalog` | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](./BAUTEILKATALOG.md)) |
 | `open-ends` | Offene Rohrenden für die Hervorhebung im Editor (`findOpenEnds`) |
+| `quadro-geometry` | Vorläufiger QUADRO-Geometriekatalog, Kollisionsformen und Verbindungsauswerter |
 | `quadro-articles` | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`) |
 | `document-schema` | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp |
 | `parse-document` | JSON einlesen und Formatfehler mit Pfadangaben melden |
@@ -99,7 +100,8 @@ gewählte Stellung steht in der Realisierung. Auswahl soll gültige bisherige Te
 bevorzugen und bei gleichen Eingaben reproduzierbar bleiben.
 
 Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4 um und ist mit
-einem synthetischen Prüfkatalog getestet. Nächste Schritte: Stufe 5 (Platten) nach
-Klärung der Bohrungsmaße, danach der Solver für starre Verbindungen und Ringschlüsse.
-Reale Katalogteile folgen mit geprüften Anschlussmaßen; welche Teile das sind, legt der
-[Bauteilkatalog](./BAUTEILKATALOG.md) fest.
+einem synthetischen Prüfkatalog getestet. `quadroPartCatalog` ist ein vorläufiger
+Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
+([GEOMETRIE.md](./GEOMETRIE.md)), noch nicht am Teil gemessen. Nächste Schritte: Stufe 5
+(Platten) nach Klärung der Bohrungsmaße, danach der Solver für starre Verbindungen und
+Ringschlüsse.

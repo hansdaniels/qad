@@ -18,3 +18,4 @@ export {
 } from './buildability-checker.js';
 export { findOpenEnds } from './open-ends.js';
 export { quadroArticleCatalog } from './quadro-articles.js';
+export { quadroCollisionGeometry, quadroConnectionEvaluators, quadroPartCatalog } from './quadro-geometry.js';

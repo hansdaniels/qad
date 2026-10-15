@@ -156,7 +156,7 @@ und Holzgitter), werden sie nicht übernommen, bis sie geprüft sind.
 ## 7. Offene Punkte
 
 - Geometrie aller `initial`-Einträge: Anschlusslagen, Einstecktiefen, Bohrungsmuster
-  (SPEC 11). Erst damit entstehen `PartType`s. Kandidatenwerte für Raster, Rohr,
-  Kupplung und Winkelkupplung stehen in [GEOMETRIE.md](./GEOMETRIE.md).
+  (SPEC 11). Vorläufige `PartType`s mit den Werten aus [GEOMETRIE.md](./GEOMETRIE.md)
+  stehen in `quadroPartCatalog` (`src/quadro-geometry.ts`), ohne Bohrungen.
 - Die Zod-Prüfung des Dateiformats kennt den Katalog nicht; ob ein Farbschlüssel
   existiert, gehört zur fachlichen Prüfung beim Laden.
