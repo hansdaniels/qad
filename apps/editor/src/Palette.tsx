@@ -69,7 +69,9 @@ export function Palette({ choice, onChoose }: PaletteProps) {
         </label>
       ) : null}
       <p style={{ fontSize: 13, color: '#555' }}>
-        {choice ? 'Einen freien Arm (grau) anklicken.' : 'Rohr wählen, dann an einem freien Arm anbauen.'}
+        {choice
+          ? 'Freien Arm (grau) anklicken; Esc legt das Rohr ab.'
+          : 'Rohr wählen, dann an einem freien Arm anbauen.'}
       </p>
     </section>
   );

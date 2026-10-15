@@ -43,7 +43,12 @@ test('free arms are shown as stubs and a click picks the attach point', async ()
   const picked: string[] = [];
   const renderer = await ReactThreeTestRenderer.create(
     <ModelScene snapshot={snapshot} selected={undefined} onSelect={() => {}}>
-      <VirtualArms points={points} pending={undefined} onPick={(p) => picked.push(`${p.junctionId}:${p.direction}`)} />
+      <VirtualArms
+        points={points}
+        hovered={undefined}
+        onHover={() => {}}
+        onPick={(p) => picked.push(`${p.junctionId}:${p.direction}`)}
+      />
     </ModelScene>,
   );
   const arms = renderer.scene.findAll((node) => String(node.props.name).startsWith('arm:'));

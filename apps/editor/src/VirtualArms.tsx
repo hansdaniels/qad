@@ -1,23 +1,24 @@
-import { useState } from 'react';
 import type { AttachPoint } from '@qad/model-core';
+
+export const armKey = (p: AttachPoint) => `${p.junctionId}:${p.direction}`;
 
 interface VirtualArmsProps {
   readonly points: readonly AttachPoint[];
-  readonly pending: AttachPoint | undefined;
+  /** Key of the arm under the pointer and whether attaching there would be valid. */
+  readonly hovered: { readonly key: string; readonly valid: boolean } | undefined;
+  readonly onHover: (point: AttachPoint | undefined) => void;
   readonly onPick: (point: AttachPoint) => void;
 }
 
-const key = (p: AttachPoint) => `${p.junctionId}:${p.direction}`;
-
 /** Free directions as translucent stubs from the arm shoulder outwards (model coordinates). */
-export function VirtualArms({ points, pending, onPick }: VirtualArmsProps) {
-  const [hovered, setHovered] = useState<string | undefined>();
+export function VirtualArms({ points, hovered, onHover, onPick }: VirtualArmsProps) {
   return (
     <group name="virtual-arms">
       {points.map((point) => {
         const { position: p, orientation: q } = point.worldPose;
-        const id = key(point);
-        const active = id === hovered || (pending && id === key(pending));
+        const id = armKey(point);
+        const state = hovered?.key === id ? (hovered.valid ? 'valid' : 'invalid') : 'idle';
+        const colour = state === 'valid' ? '#1f5fbf' : state === 'invalid' ? '#c62828' : '#8a9099';
         return (
           <group key={id} name={`arm:${id}`} position={[p.x, p.y, p.z]} quaternion={[q.x, q.y, q.z, q.w]}>
             {/* Cylinders run along y; turn them onto the arm's +Z and start at the shoulder. */}
@@ -30,12 +31,12 @@ export function VirtualArms({ points, pending, onPick }: VirtualArmsProps) {
               }}
               onPointerOver={(event) => {
                 event.stopPropagation();
-                setHovered(id);
+                onHover(point);
               }}
-              onPointerOut={() => setHovered((h) => (h === id ? undefined : h))}
+              onPointerOut={() => onHover(undefined)}
             >
               <cylinderGeometry args={[16, 16, 50, 20]} />
-              <meshStandardMaterial color={active ? '#1f5fbf' : '#8a9099'} transparent opacity={active ? 0.85 : 0.45} />
+              <meshStandardMaterial color={colour} transparent opacity={state === 'idle' ? 0.45 : 0.85} />
             </mesh>
           </group>
         );

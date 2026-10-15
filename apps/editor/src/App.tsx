@@ -7,56 +7,73 @@ import {
   quadroArticleCatalog,
   quadroPartCatalog,
   type AttachPoint,
-  type EditCommand,
-  type EditPreview,
+  type Diagnostic,
   type PartId,
 } from '@qad/model-core';
 import { demoModel } from './demo';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
-import { VirtualArms } from './VirtualArms';
+import { useHistory } from './useHistory';
+import { VirtualArms, armKey } from './VirtualArms';
 
 const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
 
-interface Pending {
-  readonly point: AttachPoint;
-  readonly command: EditCommand;
-  readonly preview: EditPreview;
-}
-
 export function App() {
   const core = useMemo(() => demoModel(), []);
-  const [snapshot, setSnapshot] = useState(core.snapshot);
+  const { snapshot, canUndo, canRedo, commit, undo, redo } = useHistory(core);
   const [selected, setSelected] = useState<PartId | undefined>();
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
-  const [pending, setPending] = useState<Pending | undefined>();
+  const [hover, setHover] = useState<AttachPoint | undefined>();
+  const [notice, setNotice] = useState<readonly Diagnostic[]>([]);
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
   const points = useMemo(() => (choice ? attachPoints(snapshot, quadroPartCatalog) : []), [choice, snapshot]);
   const current = parts.find((p) => p.part.id === selected);
 
+  // Preview of attaching the chosen tube at the arm under the pointer.
+  const plan = useMemo(() => {
+    if (!choice || !hover) return undefined;
+    const command = attachTube(snapshot, hover, choice, quadroPartCatalog);
+    return { key: armKey(hover), command, preview: core.preview(command) };
+  }, [choice, hover, snapshot, core]);
+
   const pick = (point: AttachPoint) => {
     if (!choice) return;
-    const command = attachTube(snapshot, point, choice, quadroPartCatalog);
-    setPending({ point, command, preview: core.preview(command) });
+    const command = plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog);
+    const result = core.execute(command);
+    if (result.ok) {
+      commit(result.value);
+      setNotice([]);
+    } else {
+      setNotice(result.diagnostics);
+    }
   };
-  const confirm = () => {
-    if (!pending) return;
-    const result = core.execute(pending.command);
-    if (result.ok) setSnapshot(result.value);
-    setPending(undefined);
+  const run = (step: () => readonly Diagnostic[]) => {
+    setHover(undefined);
+    setNotice(step());
   };
-  const choose = (next: PaletteChoice | undefined) => {
-    setChoice(next);
-    setPending(undefined);
-  };
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPending(undefined);
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        run(event.shiftKey ? redo : undo);
+      } else if (mod && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        run(redo);
+      } else if (event.key === 'Escape') {
+        setChoice(undefined);
+        setHover(undefined);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  });
+
+  const problems = plan?.preview.status === 'invalid' ? plan.preview.diagnostics : notice;
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -80,9 +97,16 @@ export function App() {
             snapshot={snapshot}
             selected={selected}
             onSelect={setSelected}
-            candidate={pending?.preview.status === 'valid' ? pending.preview.candidate : undefined}
+            candidate={plan?.preview.status === 'valid' ? plan.preview.candidate : undefined}
           >
-            {choice ? <VirtualArms points={points} pending={pending?.point} onPick={pick} /> : null}
+            {choice ? (
+              <VirtualArms
+                points={points}
+                hovered={plan ? { key: plan.key, valid: plan.preview.status === 'valid' } : undefined}
+                onHover={setHover}
+                onPick={pick}
+              />
+            ) : null}
           </ModelScene>
           <OrbitControls makeDefault target={[200, 100, -200]} />
         </Canvas>
@@ -94,34 +118,23 @@ export function App() {
         <p style={{ color: '#555', fontSize: 14 }}>
           Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene Enden
         </p>
-        <Palette choice={choice} onChoose={choose} />
-        {pending ? (
-          <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#f6f7f9' }}>
-            {pending.preview.status === 'valid' ? (
-              <>
-                <p style={{ margin: '0 0 8px' }}>
-                  Vorschau: Rohr an {pending.point.junctionId}, Richtung {pending.point.direction}.
-                </p>
-                <button type="button" onClick={confirm}>
-                  Anbauen
-                </button>{' '}
-                <button type="button" onClick={() => setPending(undefined)}>
-                  Abbrechen
-                </button>
-              </>
-            ) : (
-              <>
-                <p style={{ margin: '0 0 8px', color: '#b00020' }}>Nicht baubar:</p>
-                <ul style={{ margin: '0 0 8px', paddingLeft: 18 }}>
-                  {pending.preview.diagnostics.map((d, i) => (
-                    <li key={i}>{d.message}</li>
-                  ))}
-                </ul>
-                <button type="button" onClick={() => setPending(undefined)}>
-                  Schließen
-                </button>
-              </>
-            )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" disabled={!canUndo} onClick={() => run(undo)} title="Strg+Z">
+            Zurück
+          </button>
+          <button type="button" disabled={!canRedo} onClick={() => run(redo)} title="Strg+Y oder Strg+Umschalt+Z">
+            Wiederholen
+          </button>
+        </div>
+        <Palette choice={choice} onChoose={setChoice} />
+        {problems.length > 0 ? (
+          <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
+            <p style={{ margin: '0 0 4px' }}>Nicht baubar:</p>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {problems.map((d, i) => (
+                <li key={i}>{d.message}</li>
+              ))}
+            </ul>
           </section>
         ) : null}
         <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Auswahl</h3>
