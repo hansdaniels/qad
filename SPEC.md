@@ -75,12 +75,12 @@ Katalogversionen sind identifizierbar. Ein gespeichertes Modell muss die verwend
 
 ### 4.2 Entwurfsobjekte und Identität
 
-| Objekt | Inhalt |
-| --- | --- |
-| `TubeIntent` | Stabile Rohr-ID, Form-/Längenfamilie, Beziehungen seiner Enden, Farbe und Variantenwahlregel |
-| `JunctionIntent` | Stabile Verbindungspunkt-ID und die dort gewünschten Anschlussbeziehungen |
-| `PlateIntent` | Stabile Platten-ID, Typfamilie, gewünschte Lage relativ zu den tragenden Rohren und Befestigungsanforderungen |
-| `PlacementAnchor` | Äußere Position und Orientierung einer zusammenhängenden Baugruppe |
+| Objekt            | Inhalt                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `TubeIntent`      | Stabile Rohr-ID, Form-/Längenfamilie, Beziehungen seiner Enden, Farbe und Variantenwahlregel                  |
+| `JunctionIntent`  | Stabile Verbindungspunkt-ID und die dort gewünschten Anschlussbeziehungen                                     |
+| `PlateIntent`     | Stabile Platten-ID, Typfamilie, gewünschte Lage relativ zu den tragenden Rohren und Befestigungsanforderungen |
+| `PlacementAnchor` | Äußere Position und Orientierung einer zusammenhängenden Baugruppe                                            |
 
 Rohre referenzieren bestehende Verbindungspunkte über IDs. Beim Schließen einer Konstruktion wird der vorhandene Punkt wiederverwendet. Objektgraphen werden über Referenzen gespeichert, nicht durch rekursives Einbetten ganzer Objekte.
 
@@ -215,17 +215,17 @@ Im Sinne von DDD bildet die Konstruktion die Konsistenzgrenze für Änderungen. 
 
 ## 9. Erweiterbarkeit und Reihenfolge
 
-| Spätere Erweiterung | Bereits vorzusehende Grundlage | Später nötige Arbeit |
-| --- | --- | --- |
-| Weitere Längen, Bohrungsvarianten und Plattenformen | Katalog, Befestigungsstellen und Variantenwahl | Geometrien, Daten und Auswahlregeln |
-| Kappen und Bodenverankerungen | Allgemeine Bauteile und Anschlusstypen | Teiledefinitionen und Montagebedingungen |
-| Klammern und Doppelrohrverbinder | Befestigungen auch außerhalb der Rohrenden | Konkrete seitliche Befestigungsregeln |
-| Rutschen und weiteres starres Zubehör | Teile mit mehreren Befestigungsstellen | Geometrien, Montagebedingungen und Baugruppenkomfort |
-| Räder, Lager und Flexikupplungen | Typisierte Verbindungen mit Parametern | Gelenkverhalten und gegebenenfalls zusätzliche Solverlogik |
-| Textilien, Netze und Poolfolien | Referenzen auf mehrere Befestigungen | Rahmenbedingungen und vereinfachte Darstellung |
-| Schrauben und andere Befestigungsmittel | Auswertbare montierte Verbindungen | Automatische Stücklistenableitung |
-| Fest gewählte Kupplung, z. B. 6-armig als Vorbereitung für einen Anbau | Auto-Kupplung als Standard, Verbindungspunkte mit stabiler Identität | Fixierung am `JunctionIntent` analog zur Rohrvariante; freie Arme in `findOpenEnds` melden |
-| Kopffallenprüfung | Rohrlagen und Plattenbefestigungen der Realisierung | Eigene Prüffunktion neben der Baubarkeitsprüfung, nach der Regel in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md) |
+| Spätere Erweiterung                                                    | Bereits vorzusehende Grundlage                                       | Später nötige Arbeit                                                                                             |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Weitere Längen, Bohrungsvarianten und Plattenformen                    | Katalog, Befestigungsstellen und Variantenwahl                       | Geometrien, Daten und Auswahlregeln                                                                              |
+| Kappen und Bodenverankerungen                                          | Allgemeine Bauteile und Anschlusstypen                               | Teiledefinitionen und Montagebedingungen                                                                         |
+| Klammern und Doppelrohrverbinder                                       | Befestigungen auch außerhalb der Rohrenden                           | Konkrete seitliche Befestigungsregeln                                                                            |
+| Rutschen und weiteres starres Zubehör                                  | Teile mit mehreren Befestigungsstellen                               | Geometrien, Montagebedingungen und Baugruppenkomfort                                                             |
+| Räder, Lager und Flexikupplungen                                       | Typisierte Verbindungen mit Parametern                               | Gelenkverhalten und gegebenenfalls zusätzliche Solverlogik                                                       |
+| Textilien, Netze und Poolfolien                                        | Referenzen auf mehrere Befestigungen                                 | Rahmenbedingungen und vereinfachte Darstellung                                                                   |
+| Schrauben und andere Befestigungsmittel                                | Auswertbare montierte Verbindungen                                   | Automatische Stücklistenableitung                                                                                |
+| Fest gewählte Kupplung, z. B. 6-armig als Vorbereitung für einen Anbau | Auto-Kupplung als Standard, Verbindungspunkte mit stabiler Identität | Fixierung am `JunctionIntent` analog zur Rohrvariante; freie Arme in `findOpenEnds` melden                       |
+| Kopffallenprüfung                                                      | Rohrlagen und Plattenbefestigungen der Realisierung                  | Eigene Prüffunktion neben der Baubarkeitsprüfung, nach der Regel in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md) |
 
 Gelenke werden im Modellkonzept berücksichtigt. Die erste Umsetzung benötigt keine Bewegungssimulation und unterstützt nur festgelegte Stellungen. Bewegliche geschlossene Mechanismen erfordern später zusätzliche Berechnungslogik.
 

@@ -40,13 +40,15 @@ const resolve = (typeId, colour) => resolveArticle(quadroArticleCatalog, typeId,
 
 test('resolves a requested colour that is offered', () => {
   assert.deepEqual(resolve('tube-35cm', 'pearl-white'), {
-    article: { articleNumber: '70082', colour: 'pearl-white' }, substituted: false,
+    article: { articleNumber: '70082', colour: 'pearl-white' },
+    substituted: false,
   });
 });
 
 test('tubes default to red, plates to blue and connectors to black', () => {
   assert.deepEqual(resolve('tube-35cm'), {
-    article: { articleNumber: '00535', colour: 'red' }, substituted: false,
+    article: { articleNumber: '00535', colour: 'red' },
+    substituted: false,
   });
   assert.equal(resolve('curved-tube').article.colour, 'red');
   assert.equal(resolve('3way-connector').article.colour, 'black');
@@ -56,7 +58,8 @@ test('tubes default to red, plates to blue and connectors to black', () => {
 
 test('an unavailable colour falls back to the default instead of failing', () => {
   assert.deepEqual(resolve('tube-35cm-90deg-4hole', 'pearl-white'), {
-    article: { articleNumber: '41535', colour: 'red' }, substituted: true,
+    article: { articleNumber: '41535', colour: 'red' },
+    substituted: true,
   });
 });
 
@@ -72,7 +75,10 @@ test('default colours exist and every tube is offered in red', () => {
     assert.ok(colourIds.has(colour), colour);
   }
   for (const tube of entries.filter((e) => e.category === 'tube')) {
-    assert.ok(tube.articles.some((a) => a.colour === 'red'), tube.id);
+    assert.ok(
+      tube.articles.some((a) => a.colour === 'red'),
+      tube.id,
+    );
   }
 });
 
@@ -105,9 +111,17 @@ test('initial stage covers the first implementation scope of SPEC 2', () => {
 
 test('excluded shop products are not listed', () => {
   const excluded = [
-    'wood-tube-core', 'wing-screw', 'slip-and-slide', 'multiwheel', 'caster-v2',
-    'panel-set-l', 'modular-slide', 'modular-slide-frame', 'screw-key',
-    'integrated-slide', 'acrylic-glass-integrated-slide',
+    'wood-tube-core',
+    'wing-screw',
+    'slip-and-slide',
+    'multiwheel',
+    'caster-v2',
+    'panel-set-l',
+    'modular-slide',
+    'modular-slide-frame',
+    'screw-key',
+    'integrated-slide',
+    'acrylic-glass-integrated-slide',
   ];
   const ids = new Set(entries.map((e) => e.id));
   for (const id of excluded) assert.equal(ids.has(id), false, id);
@@ -117,11 +131,18 @@ test('excluded shop products are not listed', () => {
 const axes = ['x', 'y', 'z'];
 function axisRotations() {
   const rotations = [];
-  for (const perm of [[0, 1, 2], [1, 2, 0], [2, 0, 1], [0, 2, 1], [2, 1, 0], [1, 0, 2]]) {
-    const parity = perm[0] === 0 && perm[1] === 1 || perm[0] === 1 && perm[1] === 2
-      || perm[0] === 2 && perm[1] === 0 ? 1 : -1;
+  for (const perm of [
+    [0, 1, 2],
+    [1, 2, 0],
+    [2, 0, 1],
+    [0, 2, 1],
+    [2, 1, 0],
+    [1, 0, 2],
+  ]) {
+    const parity =
+      (perm[0] === 0 && perm[1] === 1) || (perm[0] === 1 && perm[1] === 2) || (perm[0] === 2 && perm[1] === 0) ? 1 : -1;
     for (let signs = 0; signs < 8; signs++) {
-      const s = [0, 1, 2].map((i) => (signs >> i & 1 ? -1 : 1));
+      const s = [0, 1, 2].map((i) => ((signs >> i) & 1 ? -1 : 1));
       if (parity * s[0] * s[1] * s[2] !== 1) continue;
       rotations.push((direction) => {
         const i = axes.indexOf(direction[1]);
@@ -134,9 +155,8 @@ function axisRotations() {
 }
 const rotations = axisRotations();
 const byText = (a, b) => a.localeCompare(b);
-const canonical = (directions) => rotations
-  .map((rotate) => directions.map(rotate).sort(byText).join(' '))
-  .sort(byText)[0];
+const canonical = (directions) =>
+  rotations.map((rotate) => directions.map(rotate).sort(byText).join(' ')).sort(byText)[0];
 
 test('there are 24 axis rotations', () => {
   assert.equal(rotations.length, 24);
@@ -145,11 +165,16 @@ test('there are 24 axis rotations', () => {
 
 test('arm directions match the arm count of grid connectors', () => {
   const grid = entries.filter((e) => e.armDirections);
-  assert.deepEqual(
-    grid.map((e) => e.id).sort(),
-    ['3way-connector', '4way-connector', '5way-connector', '6way-connector',
-      'cross-connector', 'elbow-connector', 'straight-connector', 't-connector'],
-  );
+  assert.deepEqual(grid.map((e) => e.id).sort(), [
+    '3way-connector',
+    '4way-connector',
+    '5way-connector',
+    '6way-connector',
+    'cross-connector',
+    'elbow-connector',
+    'straight-connector',
+    't-connector',
+  ]);
   for (const e of grid) {
     assert.equal(e.armDirections.length, e.arms, e.id);
     assert.equal(new Set(e.armDirections).size, e.arms, e.id);
@@ -158,9 +183,12 @@ test('arm directions match the arm count of grid connectors', () => {
 
 test('every arrangement of 2 to 6 axis directions has exactly one connector', () => {
   const all = ['+x', '-x', '+y', '-y', '+z', '-z'];
-  const byShape = groupBy(entries.filter((e) => e.armDirections), (e) => canonical(e.armDirections));
+  const byShape = groupBy(
+    entries.filter((e) => e.armDirections),
+    (e) => canonical(e.armDirections),
+  );
   for (let mask = 0; mask < 64; mask++) {
-    const directions = all.filter((_, i) => mask >> i & 1);
+    const directions = all.filter((_, i) => (mask >> i) & 1);
     if (directions.length < 2) continue;
     const matches = byShape.get(canonical(directions)) ?? [];
     assert.equal(matches.length, 1, directions.join(' '));

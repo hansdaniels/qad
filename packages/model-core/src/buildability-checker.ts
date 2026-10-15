@@ -1,6 +1,12 @@
 import type {
-  BuildabilityChecker, BuildabilityFinding, BuildabilityOptions, BuildabilityReport,
-  CheckStage, ClosureResidual, CollisionGeometryProvider, EditContext,
+  BuildabilityChecker,
+  BuildabilityFinding,
+  BuildabilityOptions,
+  BuildabilityReport,
+  CheckStage,
+  ClosureResidual,
+  CollisionGeometryProvider,
+  EditContext,
 } from './buildability.js';
 import type { AttachmentSite, ConnectionType, PartCatalog, PartType, TubeType } from './catalog.js';
 import type { ConstructionSnapshot } from './core.js';
@@ -8,8 +14,22 @@ import type { Diagnostic, DiagnosticCode, SubjectRef } from './diagnostics.js';
 import type { GeometryRef, GeometryTolerance, Pose, Quaternion, Vector3 } from './geometry.js';
 import type { ConnectionId, IntentRef, PartId } from './ids.js';
 import {
-  AXIS_ROTATIONS, compose, cross, dot, inverse, qangle, qaxisAngle, qconj, qmul, qnorm, rotate,
-  sub, length, tiltTwist, transformPoint, vec,
+  AXIS_ROTATIONS,
+  compose,
+  cross,
+  dot,
+  inverse,
+  qangle,
+  qaxisAngle,
+  qconj,
+  qmul,
+  qnorm,
+  rotate,
+  sub,
+  length,
+  tiltTwist,
+  transformPoint,
+  vec,
 } from './math.js';
 import type { Connection, PartInstance } from './realization.js';
 import { containsPoint, segmentParameters, separation, toWorld, type WorldShape } from './collision.js';
@@ -63,7 +83,9 @@ export function checkBuildability(
   edit?: EditContext,
 ): BuildabilityReport {
   const ctx: Context = {
-    snapshot, catalog, options,
+    snapshot,
+    catalog,
+    options,
     findings: [],
     missing: new Map(),
     types: new Map(catalog.partTypes.map((t) => [t.id, t])),
@@ -102,8 +124,13 @@ export function checkBuildability(
 // ---------------------------------------------------------------- findings
 
 function report(
-  ctx: Context, stage: CheckStage, code: DiagnosticCode, message: string,
-  subjects: readonly SubjectRef[], details?: Diagnostic['details'], closure?: ClosureResidual,
+  ctx: Context,
+  stage: CheckStage,
+  code: DiagnosticCode,
+  message: string,
+  subjects: readonly SubjectRef[],
+  details?: Diagnostic['details'],
+  closure?: ClosureResidual,
 ): void {
   const diagnostic: Diagnostic = details
     ? { code, severity: code === 'clearance' ? 'warning' : 'error', message, subjects, details }
@@ -117,18 +144,25 @@ const intent = (ref: IntentRef): SubjectRef => ({ kind: 'intent', ref });
 
 function subjectKey(s: SubjectRef): string {
   switch (s.kind) {
-    case 'part': return `part:${s.id}`;
-    case 'connection': return `connection:${s.id}`;
-    case 'intent': return `intent:${s.ref.kind}:${s.ref.id}`;
-    case 'attachment': return `attachment:${s.ref.partId}:${s.ref.siteId}`;
+    case 'part':
+      return `part:${s.id}`;
+    case 'connection':
+      return `connection:${s.id}`;
+    case 'intent':
+      return `intent:${s.ref.kind}:${s.ref.id}`;
+    case 'attachment':
+      return `attachment:${s.ref.partId}:${s.ref.siteId}`;
   }
 }
 
 function sortFindings(findings: BuildabilityFinding[]): BuildabilityFinding[] {
   const key = (f: BuildabilityFinding) => f.diagnostic.subjects.map(subjectKey).join('|');
-  return [...findings].sort((a, b) =>
-    STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage) || compareIds(key(a), key(b))
-    || compareIds(a.diagnostic.code, b.diagnostic.code));
+  return [...findings].sort(
+    (a, b) =>
+      STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage) ||
+      compareIds(key(a), key(b)) ||
+      compareIds(a.diagnostic.code, b.diagnostic.code),
+  );
 }
 
 function compareIds(a: string, b: string): number {
@@ -138,12 +172,16 @@ function compareIds(a: string, b: string): number {
 // ---------------------------------------------------------------- stage 1
 
 function checkStructure(ctx: Context): readonly Component[] {
-  const { snapshot: { design, realization }, catalog } = ctx;
+  const {
+    snapshot: { design, realization },
+    catalog,
+  } = ctx;
   const stage = 'structure';
 
   if (design.catalog.id !== catalog.ref.id || design.catalog.version !== catalog.ref.version) {
     report(ctx, stage, 'catalog-mismatch', 'Katalog des Modells passt nicht zum geladenen Katalog.', [], {
-      expected: `${catalog.ref.id}@${catalog.ref.version}`, actual: `${design.catalog.id}@${design.catalog.version}`,
+      expected: `${catalog.ref.id}@${catalog.ref.version}`,
+      actual: `${design.catalog.id}@${design.catalog.version}`,
     });
   }
 
@@ -154,35 +192,65 @@ function checkStructure(ctx: Context): readonly Component[] {
       seen.add(id);
     }
   };
-  duplicates('Rohr', design.tubes.map((t) => t.id), (id) => intent({ kind: 'tube', id }));
-  duplicates('Verbindungspunkt', design.junctions.map((j) => j.id), (id) => intent({ kind: 'junction', id }));
-  duplicates('Platte', design.plates.map((p) => p.id), (id) => intent({ kind: 'plate', id }));
+  duplicates(
+    'Rohr',
+    design.tubes.map((t) => t.id),
+    (id) => intent({ kind: 'tube', id }),
+  );
+  duplicates(
+    'Verbindungspunkt',
+    design.junctions.map((j) => j.id),
+    (id) => intent({ kind: 'junction', id }),
+  );
+  duplicates(
+    'Platte',
+    design.plates.map((p) => p.id),
+    (id) => intent({ kind: 'plate', id }),
+  );
   const anchorIds = new Set<string>();
   for (const anchor of design.anchors) {
-    if (anchorIds.has(anchor.id)) report(ctx, stage, 'duplicate-id', `Doppelte ID ${anchor.id} (Anker).`, [intent(anchor.target)]);
+    if (anchorIds.has(anchor.id))
+      report(ctx, stage, 'duplicate-id', `Doppelte ID ${anchor.id} (Anker).`, [intent(anchor.target)]);
     anchorIds.add(anchor.id);
   }
-  duplicates('Teil', realization.parts.map((p) => p.id), part);
-  duplicates('Verbindung', realization.connections.map((c) => c.id), connection);
+  duplicates(
+    'Teil',
+    realization.parts.map((p) => p.id),
+    part,
+  );
+  duplicates(
+    'Verbindung',
+    realization.connections.map((c) => c.id),
+    connection,
+  );
 
   const junctions = new Set(design.junctions.map((j) => j.id));
   const exists = (ref: IntentRef) =>
-    ref.kind === 'junction' ? junctions.has(ref.id)
-      : ref.kind === 'tube' ? design.tubes.some((t) => t.id === ref.id)
+    ref.kind === 'junction'
+      ? junctions.has(ref.id)
+      : ref.kind === 'tube'
+        ? design.tubes.some((t) => t.id === ref.id)
         : design.plates.some((p) => p.id === ref.id);
 
   for (const tube of design.tubes) {
     for (const end of [tube.a, tube.b]) {
       if (!junctions.has(end.junctionId)) {
-        report(ctx, stage, 'missing-reference', `Rohr ${tube.id} verweist auf unbekannten Verbindungspunkt ${end.junctionId}.`,
-          [intent({ kind: 'tube', id: tube.id })]);
+        report(
+          ctx,
+          stage,
+          'missing-reference',
+          `Rohr ${tube.id} verweist auf unbekannten Verbindungspunkt ${end.junctionId}.`,
+          [intent({ kind: 'tube', id: tube.id })],
+        );
       }
       checkQuaternion(ctx, end.orientation, [intent({ kind: 'tube', id: tube.id })]);
     }
   }
   for (const anchor of design.anchors) {
     if (!exists(anchor.target)) {
-      report(ctx, stage, 'missing-reference', `Anker ${anchor.id} verweist auf ein unbekanntes Objekt.`, [intent(anchor.target)]);
+      report(ctx, stage, 'missing-reference', `Anker ${anchor.id} verweist auf ein unbekanntes Objekt.`, [
+        intent(anchor.target),
+      ]);
     }
     if (!checkPose(ctx, anchor.worldPose, [intent(anchor.target)])) ctx.brokenAnchors.add(anchor.id);
   }
@@ -221,7 +289,8 @@ function checkPose(ctx: Context, pose: Pose, subjects: readonly SubjectRef[]): b
 function checkQuaternion(ctx: Context, q: Quaternion, subjects: readonly SubjectRef[]): boolean {
   const n = qnorm(q);
   const unit = Number.isFinite(n) && Math.abs(n - 1) <= NORM_TOLERANCE;
-  if (!unit) report(ctx, 'structure', 'invalid-data', 'Orientierung ist kein Einheitsquaternion.', subjects, { norm: n });
+  if (!unit)
+    report(ctx, 'structure', 'invalid-data', 'Orientierung ist kein Einheitsquaternion.', subjects, { norm: n });
   return unit;
 }
 
@@ -238,29 +307,42 @@ function checkConnections(ctx: Context): void {
     const broken = () => ctx.brokenConnections.add(c.id);
     const type = ctx.connectionTypes.get(c.typeId);
     if (!type) {
-      report(ctx, stage, 'missing-reference', `Verbindung ${c.id} hat unbekannten Typ ${c.typeId}.`, [connection(c.id)]);
+      report(ctx, stage, 'missing-reference', `Verbindung ${c.id} hat unbekannten Typ ${c.typeId}.`, [
+        connection(c.id),
+      ]);
       broken();
     }
-    for (const [side, ref] of [['a', c.a], ['b', c.b]] as const) {
+    for (const [side, ref] of [
+      ['a', c.a],
+      ['b', c.b],
+    ] as const) {
       if (!ctx.parts.has(ref.partId)) {
-        report(ctx, stage, 'missing-reference', `Verbindung ${c.id} verweist auf unbekanntes Teil ${ref.partId}.`, [connection(c.id)]);
+        report(ctx, stage, 'missing-reference', `Verbindung ${c.id} verweist auf unbekanntes Teil ${ref.partId}.`, [
+          connection(c.id),
+        ]);
         broken();
         continue;
       }
       const s = site(ctx, ref.partId, ref.siteId);
       if (!s) {
         if (!ctx.brokenParts.has(ref.partId)) {
-          report(ctx, stage, 'missing-reference', `Teil ${ref.partId} hat keine Anschlussstelle ${ref.siteId}.`,
-            [connection(c.id), { kind: 'attachment', ref }]);
+          report(ctx, stage, 'missing-reference', `Teil ${ref.partId} hat keine Anschlussstelle ${ref.siteId}.`, [
+            connection(c.id),
+            { kind: 'attachment', ref },
+          ]);
         }
         broken();
         continue;
       }
       if (type && s.interfaceId !== (side === 'a' ? type.aInterfaceId : type.bInterfaceId)) {
-        report(ctx, stage, 'incompatible-attachment',
+        report(
+          ctx,
+          stage,
+          'incompatible-attachment',
           `Anschluss ${ref.partId}/${ref.siteId} passt nicht zur Verbindung ${c.id}.`,
           [connection(c.id), { kind: 'attachment', ref }],
-          { expected: side === 'a' ? type.aInterfaceId : type.bInterfaceId, actual: s.interfaceId });
+          { expected: side === 'a' ? type.aInterfaceId : type.bInterfaceId, actual: s.interfaceId },
+        );
         broken();
       }
       const key = `${ref.partId}\u0000${ref.siteId}`;
@@ -272,8 +354,10 @@ function checkConnections(ctx: Context): void {
     const ends = [`${c.a.partId}\u0000${c.a.siteId}`, `${c.b.partId}\u0000${c.b.siteId}`].sort().join('\u0001');
     const previous = pairs.get(ends);
     if (previous !== undefined) {
-      report(ctx, stage, 'duplicate-member', `Verbindung ${c.id} verbindet dieselben Stellen wie ${previous}.`,
-        [connection(previous), connection(c.id)]);
+      report(ctx, stage, 'duplicate-member', `Verbindung ${c.id} verbindet dieselben Stellen wie ${previous}.`, [
+        connection(previous),
+        connection(c.id),
+      ]);
       broken();
     } else {
       pairs.set(ends, c.id);
@@ -282,9 +366,14 @@ function checkConnections(ctx: Context): void {
   for (const [key, { site: s, refs }] of occupancy) {
     if (refs.length > s.capacity) {
       const [partId = '', siteId = ''] = key.split('\u0000');
-      report(ctx, stage, 'attachment-occupied', `Anschluss ${partId}/${siteId} ist mehrfach belegt.`,
+      report(
+        ctx,
+        stage,
+        'attachment-occupied',
+        `Anschluss ${partId}/${siteId} ist mehrfach belegt.`,
         [{ kind: 'attachment', ref: { partId, siteId } }, ...refs.map(connection)],
-        { capacity: s.capacity, used: refs.length });
+        { capacity: s.capacity, used: refs.length },
+      );
       for (const id of refs) ctx.brokenConnections.add(id);
     }
   }
@@ -294,18 +383,29 @@ function checkParameters(ctx: Context, c: Connection, type: ConnectionType): voi
   const declared = type.kinematics.kind === 'parametric' ? type.kinematics.parameters : [];
   for (const name of Object.keys(c.parameters)) {
     if (!declared.some((p) => p.name === name)) {
-      report(ctx, 'structure', 'invalid-data', `Verbindung ${c.id} hat unbekannten Parameter ${name}.`, [connection(c.id)]);
+      report(ctx, 'structure', 'invalid-data', `Verbindung ${c.id} hat unbekannten Parameter ${name}.`, [
+        connection(c.id),
+      ]);
       ctx.brokenConnections.add(c.id);
     }
   }
   for (const p of declared) {
     const value = c.parameters[p.name];
-    const inDomain = value !== undefined && Number.isFinite(value) && (p.domain.kind === 'interval'
-      ? value >= p.domain.min && value <= p.domain.max
-      : p.domain.values.some((v) => Math.abs(v - value) <= 1e-9));
+    const inDomain =
+      value !== undefined &&
+      Number.isFinite(value) &&
+      (p.domain.kind === 'interval'
+        ? value >= p.domain.min && value <= p.domain.max
+        : p.domain.values.some((v) => Math.abs(v - value) <= 1e-9));
     if (!inDomain) {
-      report(ctx, 'structure', 'invalid-data', `Parameter ${p.name} der Verbindung ${c.id} fehlt oder liegt außerhalb des Wertebereichs.`,
-        [connection(c.id)], value === undefined ? { parameter: p.name } : { parameter: p.name, value });
+      report(
+        ctx,
+        'structure',
+        'invalid-data',
+        `Parameter ${p.name} der Verbindung ${c.id} fehlt oder liegt außerhalb des Wertebereichs.`,
+        [connection(c.id)],
+        value === undefined ? { parameter: p.name } : { parameter: p.name, value },
+      );
       ctx.brokenConnections.add(c.id);
     }
   }
@@ -318,11 +418,16 @@ function checkDuplicateTubes(ctx: Context): void {
     for (let j = i + 1; j < tubes.length; j++) {
       const s = tubes[i]!;
       const t = tubes[j]!;
-      const same = (x: typeof s.a, y: typeof s.a) => x.junctionId === y.junctionId
-        && Math.acos(clamp(dotZ(x.orientation, y.orientation))) <= tol;
+      const same = (x: typeof s.a, y: typeof s.a) =>
+        x.junctionId === y.junctionId && Math.acos(clamp(dotZ(x.orientation, y.orientation))) <= tol;
       if ((same(s.a, t.a) && same(s.b, t.b)) || (same(s.a, t.b) && same(s.b, t.a))) {
-        report(ctx, 'structure', 'duplicate-member', `Rohre ${s.id} und ${t.id} liegen doppelt zwischen denselben Verbindungspunkten.`,
-          [intent({ kind: 'tube', id: s.id }), intent({ kind: 'tube', id: t.id })]);
+        report(
+          ctx,
+          'structure',
+          'duplicate-member',
+          `Rohre ${s.id} und ${t.id} liegen doppelt zwischen denselben Verbindungspunkten.`,
+          [intent({ kind: 'tube', id: s.id }), intent({ kind: 'tube', id: t.id })],
+        );
       }
     }
   }
@@ -382,23 +487,31 @@ function buildComponents(ctx: Context): Component[] {
   for (const anchor of design.anchors) {
     const p = primaryPart(ctx, anchor.target);
     // A junction without tubes has nothing to place, e.g. the empty start of an edit session.
-    const bare = anchor.target.kind === 'junction'
-      && !design.tubes.some((t) => t.a.junctionId === anchor.target.id || t.b.junctionId === anchor.target.id);
+    const bare =
+      anchor.target.kind === 'junction' &&
+      !design.tubes.some((t) => t.a.junctionId === anchor.target.id || t.b.junctionId === anchor.target.id);
     if (!p && bare) continue;
     const open = p ? undefined : openEndRoot(ctx, anchor.target, anchor.worldPose);
     if (!p && !open) {
-      report(ctx, 'structure', 'unresolved-placement', `Anker ${anchor.id} trifft kein realisiertes Teil.`, [intent(anchor.target)]);
+      report(ctx, 'structure', 'unresolved-placement', `Anker ${anchor.id} trifft kein realisiertes Teil.`, [
+        intent(anchor.target),
+      ]);
       continue;
     }
     if (open === 'mismatch') {
-      report(ctx, 'structure', 'invalid-data', `Rohr am offenen Ende liegt nicht am Anker ${anchor.id}.`, [intent(anchor.target)]);
+      report(ctx, 'structure', 'invalid-data', `Rohr am offenen Ende liegt nicht am Anker ${anchor.id}.`, [
+        intent(anchor.target),
+      ]);
       ctx.brokenAnchors.add(anchor.id);
     }
     const root = p ?? (open && open !== 'mismatch' ? open.part : undefined);
     if (!root) continue;
     const pose = p ? anchorPose(ctx, anchor.target, anchor.worldPose, p) : (open as { pose: Pose }).pose;
     const r = find(root.id);
-    anchorsByRoot.set(r, [...(anchorsByRoot.get(r) ?? []), { anchorId: anchor.id, partId: root.id, pose, broken: ctx.brokenAnchors.has(anchor.id) }]);
+    anchorsByRoot.set(r, [
+      ...(anchorsByRoot.get(r) ?? []),
+      { anchorId: anchor.id, partId: root.id, pose, broken: ctx.brokenAnchors.has(anchor.id) },
+    ]);
   }
 
   const components: Component[] = [];
@@ -409,14 +522,24 @@ function buildComponents(ctx: Context): Component[] {
     const connections = inside.filter((c) => !ctx.brokenConnections.has(c.id));
     const broken = members.some((m) => ctx.brokenParts.has(m)) || connections.length < inside.length;
     if (anchors.length !== 1) {
-      report(ctx, 'structure', anchors.length === 0 ? 'unresolved-placement' : 'duplicate-member',
+      report(
+        ctx,
+        'structure',
+        anchors.length === 0 ? 'unresolved-placement' : 'duplicate-member',
         anchors.length === 0 ? 'Baugruppe hat keinen Anker.' : 'Baugruppe hat mehrere Anker.',
-        members.map(part), { anchors: anchors.map((a) => a.anchorId).join(',') });
+        members.map(part),
+        { anchors: anchors.map((a) => a.anchorId).join(',') },
+      );
       components.push({ parts: members, connections, broken });
       continue;
     }
     const [anchor] = anchors;
-    components.push({ parts: members, connections, broken: broken || anchor!.broken, root: { partId: anchor!.partId, pose: anchor!.pose } });
+    components.push({
+      parts: members,
+      connections,
+      broken: broken || anchor!.broken,
+      root: { partId: anchor!.partId, pose: anchor!.pose },
+    });
   }
   // The anchor's component first, then by smallest part ID.
   return components.sort((a, b) => Number(!a.root) - Number(!b.root) || compareIds(a.parts[0] ?? '', b.parts[0] ?? ''));
@@ -440,7 +563,11 @@ function anchorPose(ctx: Context, target: IntentRef, world: Pose, p: PartInstanc
  * end face lies one arm length from the junction point along the design direction;
  * the roll about its own axis is free, so the stored pose is taken once verified.
  */
-function openEndRoot(ctx: Context, target: IntentRef, world: Pose): { part: PartInstance; pose: Pose } | 'mismatch' | undefined {
+function openEndRoot(
+  ctx: Context,
+  target: IntentRef,
+  world: Pose,
+): { part: PartInstance; pose: Pose } | 'mismatch' | undefined {
   if (target.kind !== 'junction') return undefined;
   const { design, realization } = ctx.snapshot;
   const tube = design.tubes.find((t) => t.a.junctionId === target.id || t.b.junctionId === target.id);
@@ -452,12 +579,17 @@ function openEndRoot(ctx: Context, target: IntentRef, world: Pose): { part: Part
   if (!body || type?.kind !== 'tube' || !stored) return undefined;
   const endSite = type.sites.find((s) => s.id === type.ends[end]);
   if (!endSite) return undefined;
-  const socket = ctx.catalog.partTypes.flatMap((t) => (t.kind === 'connector' ? t.sites : [])).find((s) => s.role === 'socket');
+  const socket = ctx.catalog.partTypes
+    .flatMap((t) => (t.kind === 'connector' ? t.sites : []))
+    .find((s) => s.role === 'socket');
   const armOffset = socket ? length(socket.frame.position) : 0;
   const direction = rotate(qmul(world.orientation, tube[end].orientation), vec(0, 0, 1));
   const face = compose(stored, endSite.frame);
-  const expected = vec(world.position.x + direction.x * armOffset, world.position.y + direction.y * armOffset,
-    world.position.z + direction.z * armOffset);
+  const expected = vec(
+    world.position.x + direction.x * armOffset,
+    world.position.y + direction.y * armOffset,
+    world.position.z + direction.z * armOffset,
+  );
   const outward = rotate(face.orientation, vec(0, 0, 1));
   const tol = ctx.options.tolerance;
   const aligned = Math.acos(clamp(-dot(outward, direction))) <= tol.angleRad;
@@ -588,13 +720,26 @@ function checkClosure(ctx: Context, component: Component, edit?: EditContext): n
       twistRad,
     };
     const tol = ctx.options.tolerance;
-    if (Math.abs(residual.axialMm) > tol.distanceMm || residual.lateralMm > tol.distanceMm
-      || residual.tiltRad > tol.angleRad || residual.twistRad > tol.angleRad) {
-      report(ctx, 'closure', 'loop-closure-conflict', `Ring über Verbindung ${c.id} schließt nicht.`,
+    if (
+      Math.abs(residual.axialMm) > tol.distanceMm ||
+      residual.lateralMm > tol.distanceMm ||
+      residual.tiltRad > tol.angleRad ||
+      residual.twistRad > tol.angleRad
+    ) {
+      report(
+        ctx,
+        'closure',
+        'loop-closure-conflict',
+        `Ring über Verbindung ${c.id} schließt nicht.`,
         [connection(c.id), ...residual.cycle.map(part)],
-        { axialMm: round(residual.axialMm), lateralMm: round(residual.lateralMm),
-          tiltDeg: round(deg(residual.tiltRad)), twistDeg: round(deg(residual.twistRad)) },
-        residual);
+        {
+          axialMm: round(residual.axialMm),
+          lateralMm: round(residual.lateralMm),
+          tiltDeg: round(deg(residual.tiltRad)),
+          twistDeg: round(deg(residual.twistRad)),
+        },
+        residual,
+      );
     }
   }
 
@@ -610,8 +755,14 @@ function checkClosure(ctx: Context, component: Component, edit?: EditContext): n
     const distance = length(sub(stored.position, computed.position));
     const angle = qangle(qmul(qconj(computed.orientation), stored.orientation));
     if (distance > ctx.options.tolerance.distanceMm || angle > ctx.options.tolerance.angleRad) {
-      report(ctx, 'closure', 'invalid-data', `Gespeicherte Lage von Teil ${id} weicht von der berechneten ab.`, [part(id)],
-        { distanceMm: round(distance), angleDeg: round(deg(angle)) });
+      report(
+        ctx,
+        'closure',
+        'invalid-data',
+        `Gespeicherte Lage von Teil ${id} weicht von der berechneten ab.`,
+        [part(id)],
+        { distanceMm: round(distance), angleDeg: round(deg(angle)) },
+      );
     }
   }
   for (const [id, pose] of poses) ctx.poses.set(id, pose);
@@ -652,9 +803,13 @@ function checkDesignAgreement(ctx: Context): void {
     realization.intentPoses.find((p) => p.intent.kind === 'junction' && p.intent.id === id)?.worldPose;
 
   for (const anchor of design.anchors) {
-    const stored = realization.intentPoses.find((p) => p.intent.kind === anchor.target.kind && p.intent.id === anchor.target.id);
+    const stored = realization.intentPoses.find(
+      (p) => p.intent.kind === anchor.target.kind && p.intent.id === anchor.target.id,
+    );
     if (stored && !sameFrame(stored.worldPose, anchor.worldPose, tol)) {
-      report(ctx, 'closure', 'invalid-data', `Gespeicherter Rahmen weicht vom Anker ${anchor.id} ab.`, [intent(anchor.target)]);
+      report(ctx, 'closure', 'invalid-data', `Gespeicherter Rahmen weicht vom Anker ${anchor.id} ab.`, [
+        intent(anchor.target),
+      ]);
     }
   }
 
@@ -663,28 +818,49 @@ function checkDesignAgreement(ctx: Context): void {
     if (!pose || p.origin.intent.kind !== 'junction' || p.origin.role !== CONNECTOR_ROLE) continue;
     const frame = junctionPose(p.origin.intent.id);
     if (!frame) {
-      report(ctx, 'closure', 'invalid-data', `Für Verbindungspunkt ${p.origin.intent.id} fehlt der Rahmen.`, [intent(p.origin.intent)]);
+      report(ctx, 'closure', 'invalid-data', `Für Verbindungspunkt ${p.origin.intent.id} fehlt der Rahmen.`, [
+        intent(p.origin.intent),
+      ]);
       continue;
     }
     const offset = length(sub(pose.position, frame.position));
     const turn = nearestAxisRotation(qmul(qconj(frame.orientation), pose.orientation)).angle;
     if (offset > tol.distanceMm || turn > tol.angleRad) {
-      report(ctx, 'closure', 'connection-misfit', `Kupplung ${p.id} sitzt nicht achsparallel auf Verbindungspunkt ${p.origin.intent.id}.`,
-        [part(p.id), intent(p.origin.intent)], { offsetMm: round(offset), angleDeg: round(deg(turn)) });
+      report(
+        ctx,
+        'closure',
+        'connection-misfit',
+        `Kupplung ${p.id} sitzt nicht achsparallel auf Verbindungspunkt ${p.origin.intent.id}.`,
+        [part(p.id), intent(p.origin.intent)],
+        { offsetMm: round(offset), angleDeg: round(deg(turn)) },
+      );
     }
   }
 
   for (const tube of design.tubes) {
-    const body = realization.parts.find((p) => p.origin.intent.kind === 'tube' && p.origin.intent.id === tube.id && p.origin.role === BODY_ROLE);
+    const body = realization.parts.find(
+      (p) => p.origin.intent.kind === 'tube' && p.origin.intent.id === tube.id && p.origin.role === BODY_ROLE,
+    );
     if (!body) continue;
     const type = ctx.types.get(body.typeId);
     if (tube.variant.mode === 'fixed' && tube.variant.typeId !== body.typeId) {
-      report(ctx, 'closure', 'fixed-variant-conflict', `Rohr ${tube.id} ist auf ${tube.variant.typeId} fixiert, realisiert ist ${body.typeId}.`,
-        [intent({ kind: 'tube', id: tube.id }), part(body.id)]);
+      report(
+        ctx,
+        'closure',
+        'fixed-variant-conflict',
+        `Rohr ${tube.id} ist auf ${tube.variant.typeId} fixiert, realisiert ist ${body.typeId}.`,
+        [intent({ kind: 'tube', id: tube.id }), part(body.id)],
+      );
     }
     if (type && type.familyId !== tube.familyId) {
-      report(ctx, 'closure', 'invalid-data', `Rohr ${tube.id} ist mit einem Teil einer anderen Familie realisiert.`,
-        [intent({ kind: 'tube', id: tube.id }), part(body.id)], { expected: tube.familyId, actual: type.familyId });
+      report(
+        ctx,
+        'closure',
+        'invalid-data',
+        `Rohr ${tube.id} ist mit einem Teil einer anderen Familie realisiert.`,
+        [intent({ kind: 'tube', id: tube.id }), part(body.id)],
+        { expected: tube.familyId, actual: type.familyId },
+      );
     }
     const pose = poses.get(body.id);
     if (!pose || type?.kind !== 'tube') continue;
@@ -700,11 +876,16 @@ function checkDesignAgreement(ctx: Context): void {
       const direction = Math.acos(clamp(dotZ(expected, actual.orientation)));
       const full = roll ? qangle(qmul(qconj(expected), actual.orientation)) : direction;
       if (direction > tol.angleRad || full > tol.angleRad) {
-        report(ctx, 'closure', 'connection-misfit',
-          roll ? `Rohr ${tube.id}, Ende ${end}: Richtung oder Drehstellung weicht vom Entwurf ab.`
+        report(
+          ctx,
+          'closure',
+          'connection-misfit',
+          roll
+            ? `Rohr ${tube.id}, Ende ${end}: Richtung oder Drehstellung weicht vom Entwurf ab.`
             : `Rohr ${tube.id}, Ende ${end}: Richtung weicht vom Entwurf ab.`,
           [intent({ kind: 'tube', id: tube.id }), intent({ kind: 'junction', id: endpoint.junctionId })],
-          { directionDeg: round(deg(direction)), angleDeg: round(deg(full)) });
+          { directionDeg: round(deg(direction)), angleDeg: round(deg(full)) },
+        );
       }
     }
   }
@@ -752,7 +933,10 @@ function bestAngleFit(desired: readonly Vector3[], sockets: readonly Vector3[], 
         let angle = Infinity;
         for (const i of free) {
           const a = Math.acos(clamp(dot(r, sockets[i]!)));
-          if (a < angle) { angle = a; pick = i; }
+          if (a < angle) {
+            angle = a;
+            pick = i;
+          }
         }
         free.delete(pick);
         deviations.push(angle);
@@ -776,14 +960,30 @@ function frameAlign(u0: Vector3, u1: Vector3 | undefined, d0: Vector3, d1: Vecto
   const [ux, uy, uz] = basis(u0, u1);
   const [dx, dy, dz] = basis(d0, d1);
   return matrixToQuaternion([
-    [dx.x * ux.x + dy.x * uy.x + dz.x * uz.x, dx.x * ux.y + dy.x * uy.y + dz.x * uz.y, dx.x * ux.z + dy.x * uy.z + dz.x * uz.z],
-    [dx.y * ux.x + dy.y * uy.x + dz.y * uz.x, dx.y * ux.y + dy.y * uy.y + dz.y * uz.y, dx.y * ux.z + dy.y * uy.z + dz.y * uz.z],
-    [dx.z * ux.x + dy.z * uy.x + dz.z * uz.x, dx.z * ux.y + dy.z * uy.y + dz.z * uz.y, dx.z * ux.z + dy.z * uy.z + dz.z * uz.z],
+    [
+      dx.x * ux.x + dy.x * uy.x + dz.x * uz.x,
+      dx.x * ux.y + dy.x * uy.y + dz.x * uz.y,
+      dx.x * ux.z + dy.x * uy.z + dz.x * uz.z,
+    ],
+    [
+      dx.y * ux.x + dy.y * uy.x + dz.y * uz.x,
+      dx.y * ux.y + dy.y * uy.y + dz.y * uz.y,
+      dx.y * ux.z + dy.y * uy.z + dz.y * uz.z,
+    ],
+    [
+      dx.z * ux.x + dy.z * uy.x + dz.z * uz.x,
+      dx.z * ux.y + dy.z * uy.y + dz.z * uz.y,
+      dx.z * ux.z + dy.z * uy.z + dz.z * uz.z,
+    ],
   ]);
 }
 
 function matrixToQuaternion(m: number[][]): Quaternion {
-  const [[a, b, c], [d, e, f], [g, h, i]] = m as [[number, number, number], [number, number, number], [number, number, number]];
+  const [[a, b, c], [d, e, f], [g, h, i]] = m as [
+    [number, number, number],
+    [number, number, number],
+    [number, number, number],
+  ];
   const trace = a + e + i;
   if (trace > 0) {
     const s = Math.sqrt(trace + 1) * 2;
@@ -815,15 +1015,25 @@ function checkJunctionAngles(ctx: Context): void {
   const types = connectorSockets(ctx);
   const tol = ctx.options.tolerance.angleRad;
   for (const junction of [...design.junctions].sort((a, b) => compareIds(a.id, b.id))) {
-    const ends = design.tubes.flatMap((t) => (['a', 'b'] as const)
-      .filter((e) => t[e].junctionId === junction.id)
-      .map((e) => ({ tubeId: t.id, direction: rotate(t[e].orientation, vec(0, 0, 1)) })));
+    const ends = design.tubes.flatMap((t) =>
+      (['a', 'b'] as const)
+        .filter((e) => t[e].junctionId === junction.id)
+        .map((e) => ({ tubeId: t.id, direction: rotate(t[e].orientation, vec(0, 0, 1)) })),
+    );
     if (ends.length < 2) continue;
-    const adapted = realization.parts.some((p) => p.origin.intent.kind === 'junction'
-      && p.origin.intent.id === junction.id && p.origin.role !== CONNECTOR_ROLE);
+    const adapted = realization.parts.some(
+      (p) =>
+        p.origin.intent.kind === 'junction' && p.origin.intent.id === junction.id && p.origin.role !== CONNECTOR_ROLE,
+    );
     if (adapted) continue;
     const fits = types
-      .map((t) => bestAngleFit(ends.map((e) => e.direction), t.directions, t.typeId))
+      .map((t) =>
+        bestAngleFit(
+          ends.map((e) => e.direction),
+          t.directions,
+          t.typeId,
+        ),
+      )
       .filter((f): f is AngleFit => f !== undefined)
       .sort((a, b) => a.worst - b.worst || compareIds(a.typeId, b.typeId));
     const best = fits[0];
@@ -831,15 +1041,21 @@ function checkJunctionAngles(ctx: Context): void {
     const details: Record<string, string | number> = { tubes: ends.length };
     if (best) {
       details.closestConnector = best.typeId;
-      ends.forEach((e, i) => { details[`deviationDeg:${e.tubeId}`] = round(deg(best.deviations[i]!)); });
+      ends.forEach((e, i) => {
+        details[`deviationDeg:${e.tubeId}`] = round(deg(best.deviations[i]!));
+      });
     }
     const worstEnd = best ? ends[best.deviations.indexOf(best.worst)] : undefined;
-    report(ctx, 'junction-angles', 'junction-angle-unsupported',
+    report(
+      ctx,
+      'junction-angles',
+      'junction-angle-unsupported',
       best && worstEnd
         ? `Keine Kupplung für Verbindungspunkt ${junction.id}: Rohr ${worstEnd.tubeId} weicht ${round(deg(best.worst))}° von der nächsten Muffe ab.`
         : `Keine Kupplung mit genügend Muffen für Verbindungspunkt ${junction.id}.`,
       [intent({ kind: 'junction', id: junction.id }), ...ends.map((e) => intent({ kind: 'tube', id: e.tubeId }))],
-      details);
+      details,
+    );
   }
 }
 
@@ -870,9 +1086,20 @@ function checkCollisions(ctx: Context, geometry: CollisionGeometryProvider, edit
     const shapes = local.map((s) => toWorld(s, pose));
     if (shapes.length === 0) continue;
     placed.push({
-      part: p, type, pose, shapes,
-      min: vec(Math.min(...shapes.map((s) => s.min.x)), Math.min(...shapes.map((s) => s.min.y)), Math.min(...shapes.map((s) => s.min.z))),
-      max: vec(Math.max(...shapes.map((s) => s.max.x)), Math.max(...shapes.map((s) => s.max.y)), Math.max(...shapes.map((s) => s.max.z))),
+      part: p,
+      type,
+      pose,
+      shapes,
+      min: vec(
+        Math.min(...shapes.map((s) => s.min.x)),
+        Math.min(...shapes.map((s) => s.min.y)),
+        Math.min(...shapes.map((s) => s.min.z)),
+      ),
+      max: vec(
+        Math.max(...shapes.map((s) => s.max.x)),
+        Math.max(...shapes.map((s) => s.max.y)),
+        Math.max(...shapes.map((s) => s.max.z)),
+      ),
     });
   }
   const affected = edit?.affectedParts ? new Set(edit.affectedParts) : undefined;
@@ -891,8 +1118,13 @@ function checkCollisions(ctx: Context, geometry: CollisionGeometryProvider, edit
     for (let j = i + 1; j < sorted.length; j++) {
       const b = sorted[j]!;
       if (b.min.x > a.max.x + margin) break;
-      if (b.min.y > a.max.y + margin || a.min.y > b.max.y + margin
-        || b.min.z > a.max.z + margin || a.min.z > b.max.z + margin) continue;
+      if (
+        b.min.y > a.max.y + margin ||
+        a.min.y > b.max.y + margin ||
+        b.min.z > a.max.z + margin ||
+        a.min.z > b.max.z + margin
+      )
+        continue;
       if (affected && !affected.has(a.part.id) && !affected.has(b.part.id)) continue;
       tested++;
       const [first, second] = compareIds(a.part.id, b.part.id) < 0 ? [a, b] : [b, a];
@@ -906,7 +1138,13 @@ function pairKey(a: PartId, b: PartId): string {
   return compareIds(a, b) < 0 ? `${a}\u0000${b}` : `${b}\u0000${a}`;
 }
 
-function checkPair(ctx: Context, a: Placed, b: Placed, links: readonly Connection[], geometry: CollisionGeometryProvider): void {
+function checkPair(
+  ctx: Context,
+  a: Placed,
+  b: Placed,
+  links: readonly Connection[],
+  geometry: CollisionGeometryProvider,
+): void {
   const tol = ctx.options.tolerance.distanceMm;
   let distance = Infinity;
   for (const sa of a.shapes) for (const sb of b.shapes) distance = Math.min(distance, separation(sa, sb));
@@ -915,25 +1153,38 @@ function checkPair(ctx: Context, a: Placed, b: Placed, links: readonly Connectio
   if (distance < -tol) {
     const crossing = tubeCrossing(ctx, a, b);
     if (crossing && links.length === 0) {
-      report(ctx, 'collision', 'crossing',
-        `Rohre ${a.part.id} und ${b.part.id} kreuzen sich ohne gemeinsamen Verbindungspunkt.`, subjects,
-        { stationAMm: round(crossing.stationA), stationBMm: round(crossing.stationB) });
+      report(
+        ctx,
+        'collision',
+        'crossing',
+        `Rohre ${a.part.id} und ${b.part.id} kreuzen sich ohne gemeinsamen Verbindungspunkt.`,
+        subjects,
+        { stationAMm: round(crossing.stationA), stationBMm: round(crossing.stationB) },
+      );
       return;
     }
     if (links.length > 0 && overlapAllowed(ctx, a, b, links, geometry)) return;
-    report(ctx, 'collision', 'collision', `Teile ${a.part.id} und ${b.part.id} durchdringen sich.`, subjects,
-      { depthMm: round(-distance) });
+    report(ctx, 'collision', 'collision', `Teile ${a.part.id} und ${b.part.id} durchdringen sich.`, subjects, {
+      depthMm: round(-distance),
+    });
     return;
   }
   if (links.length === 0 && distance < ctx.options.minClearanceMm) {
-    report(ctx, 'collision', 'clearance', `Teile ${a.part.id} und ${b.part.id} liegen sehr dicht beieinander.`, subjects,
-      { distanceMm: round(Math.max(0, distance)) });
+    report(
+      ctx,
+      'collision',
+      'clearance',
+      `Teile ${a.part.id} und ${b.part.id} liegen sehr dicht beieinander.`,
+      subjects,
+      { distanceMm: round(Math.max(0, distance)) },
+    );
   }
 }
 
 /** Intersecting centerlines of two straight tubes, as stations from end a. */
 function tubeCrossing(ctx: Context, a: Placed, b: Placed): { stationA: number; stationB: number } | undefined {
-  if (a.type.kind !== 'tube' || b.type.kind !== 'tube' || a.type.shape !== 'straight' || b.type.shape !== 'straight') return undefined;
+  if (a.type.kind !== 'tube' || b.type.kind !== 'tube' || a.type.shape !== 'straight' || b.type.shape !== 'straight')
+    return undefined;
   const line = (p: Placed & { type: TubeType }) => {
     const start = p.type.sites.find((s) => s.id === p.type.ends.a)!.frame.position;
     const end = p.type.sites.find((s) => s.id === p.type.ends.b)!.frame.position;
@@ -947,7 +1198,13 @@ function tubeCrossing(ctx: Context, a: Placed, b: Placed): { stationA: number; s
 }
 
 /** Every sampled point of the overlap must lie in an allowed volume of a linking connection. */
-function overlapAllowed(ctx: Context, a: Placed, b: Placed, links: readonly Connection[], geometry: CollisionGeometryProvider): boolean {
+function overlapAllowed(
+  ctx: Context,
+  a: Placed,
+  b: Placed,
+  links: readonly Connection[],
+  geometry: CollisionGeometryProvider,
+): boolean {
   const tol = ctx.options.tolerance.distanceMm;
   const allowed: WorldShape[] = [];
   for (const c of links) {
@@ -965,8 +1222,12 @@ function overlapAllowed(ctx: Context, a: Placed, b: Placed, links: readonly Conn
     allowed.push(...shapes.map((s) => toWorld(s, frame)));
   }
   if (allowed.length === 0) return false;
-  const inside = (shapes: readonly WorldShape[], p: Vector3, slack: number) => shapes.some((s) => containsPoint(s, p, slack));
-  for (const [x, y] of [[a, b], [b, a]] as const) {
+  const inside = (shapes: readonly WorldShape[], p: Vector3, slack: number) =>
+    shapes.some((s) => containsPoint(s, p, slack));
+  for (const [x, y] of [
+    [a, b],
+    [b, a],
+  ] as const) {
     for (const shape of x.shapes) {
       for (const p of shape.samples()) {
         if (inside(y.shapes, p, -tol) && !inside(allowed, p, tol)) return false;
@@ -977,8 +1238,10 @@ function overlapAllowed(ctx: Context, a: Placed, b: Placed, links: readonly Conn
 }
 
 function sameFrame(a: Pose, b: Pose, tol: { distanceMm: number; angleRad: number }): boolean {
-  return length(sub(a.position, b.position)) <= tol.distanceMm
-    && qangle(qmul(qconj(a.orientation), b.orientation)) <= tol.angleRad;
+  return (
+    length(sub(a.position, b.position)) <= tol.distanceMm &&
+    qangle(qmul(qconj(a.orientation), b.orientation)) <= tol.angleRad
+  );
 }
 
 function deg(rad: number): number {

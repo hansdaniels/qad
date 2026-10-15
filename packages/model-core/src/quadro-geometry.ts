@@ -36,18 +36,32 @@ const Z_TO: Readonly<Record<GridDirection, Quaternion>> = {
   '-z': qaxisAngle(Y, Math.PI),
 };
 const UNIT: Readonly<Record<GridDirection, Vector3>> = {
-  '+x': vec(1, 0, 0), '-x': vec(-1, 0, 0), '+y': vec(0, 1, 0), '-y': vec(0, -1, 0), '+z': vec(0, 0, 1), '-z': vec(0, 0, -1),
+  '+x': vec(1, 0, 0),
+  '-x': vec(-1, 0, 0),
+  '+y': vec(0, 1, 0),
+  '-y': vec(0, -1, 0),
+  '+z': vec(0, 0, 1),
+  '-z': vec(0, 0, -1),
 };
 
-const site = (id: string, role: AttachmentSite['role'], frame: Pose, interfaceId: string): AttachmentSite =>
-  ({ id, role, frame, interfaceId, capacity: 1 });
+const site = (id: string, role: AttachmentSite['role'], frame: Pose, interfaceId: string): AttachmentSite => ({
+  id,
+  role,
+  frame,
+  interfaceId,
+  capacity: 1,
+});
 
 function connectorType(article: ConnectorArticle): AccessoryType {
   return {
-    kind: 'connector', id: article.id, familyId: article.familyId, name: article.name,
+    kind: 'connector',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
     geometry: { display: { key: article.id }, collision: { key: 'quadro-connector-body' } },
     sites: (article.armDirections ?? []).map((d) =>
-      site(d, 'socket', { position: scale(UNIT[d], ARM_SHOULDER), orientation: Z_TO[d] }, ARM)),
+      site(d, 'socket', { position: scale(UNIT[d], ARM_SHOULDER), orientation: Z_TO[d] }, ARM),
+    ),
   };
 }
 
@@ -55,14 +69,21 @@ function connectorType(article: ConnectorArticle): AccessoryType {
 function straightTube(article: TubeArticle): TubeType {
   const length = (article.nominalLengthCm ?? 0) * 10;
   return {
-    kind: 'tube', id: article.id, familyId: article.familyId, name: article.name,
+    kind: 'tube',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
     geometry: { display: { key: article.id }, collision: { key: `quadro-tube-${length}` } },
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(length, 0, 0), orientation: Z_TO['+x'] }, TUBE_END),
     ],
-    shape: 'straight', nominalLengthMm: length, centerlineLengthMm: length,
-    ends: { a: 'a', b: 'b' }, holes: [], standardVariant: article.drilling.kind === 'standard',
+    shape: 'straight',
+    nominalLengthMm: length,
+    centerlineLengthMm: length,
+    ends: { a: 'a', b: 'b' },
+    holes: [],
+    standardVariant: article.drilling.kind === 'standard',
   };
 }
 
@@ -71,15 +92,21 @@ const BEND = { straight: 50, radius: 325 };
 function curvedTube(article: TubeArticle): TubeType {
   const reach = BEND.straight + BEND.radius;
   return {
-    kind: 'tube', id: article.id, familyId: article.familyId, name: article.name,
+    kind: 'tube',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
     geometry: { display: { key: article.id }, collision: { key: 'quadro-curved-tube' } },
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(reach, reach, 0), orientation: Z_TO['+y'] }, TUBE_END),
     ],
-    shape: 'bent', nominalLengthMm: 0,
+    shape: 'bent',
+    nominalLengthMm: 0,
     centerlineLengthMm: 2 * BEND.straight + (Math.PI / 2) * BEND.radius,
-    ends: { a: 'a', b: 'b' }, holes: [], standardVariant: article.drilling.kind === 'standard',
+    ends: { a: 'a', b: 'b' },
+    holes: [],
+    standardVariant: article.drilling.kind === 'standard',
   };
 }
 
@@ -98,7 +125,10 @@ function angleConnector(article: ConnectorArticle): AccessoryType {
   // +Z along the spigot: turn +Z onto +x, then 135° about z.
   const spigot = qmul(qaxisAngle(vec(0, 0, 1), (3 * Math.PI) / 4), Z_TO['+x']);
   return {
-    kind: 'adapter', id: article.id, familyId: article.familyId, name: article.name,
+    kind: 'adapter',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
     geometry: { display: { key: article.id }, collision: { key: 'quadro-angle-connector' } },
     sites: [
       site('sleeve', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
@@ -156,7 +186,12 @@ function arcCapsules(): CollisionShape[] {
   }
   const reach = BEND.straight + BEND.radius;
   shapes.push({ kind: 'capsule', a: vec(TUBE_RADIUS, 0, 0), b: vec(BEND.straight, 0, 0), radiusMm: TUBE_RADIUS });
-  shapes.push({ kind: 'capsule', a: vec(reach, BEND.radius, 0), b: vec(reach, reach - TUBE_RADIUS, 0), radiusMm: TUBE_RADIUS });
+  shapes.push({
+    kind: 'capsule',
+    a: vec(reach, BEND.radius, 0),
+    b: vec(reach, reach - TUBE_RADIUS, 0),
+    radiusMm: TUBE_RADIUS,
+  });
   return shapes;
 }
 
@@ -168,7 +203,10 @@ function cylinderPoints(a: Vector3, b: Vector3, radius: number): Vector3[] {
   const w = vec(axis.y * u.z - axis.z * u.y, axis.z * u.x - axis.x * u.z, axis.x * u.y - axis.y * u.x);
   const wl = Math.hypot(w.x, w.y, w.z) || 1;
   const n1 = scale(w, 1 / wl);
-  const n2 = scale(vec(axis.y * n1.z - axis.z * n1.y, axis.z * n1.x - axis.x * n1.z, axis.x * n1.y - axis.y * n1.x), 1 / len);
+  const n2 = scale(
+    vec(axis.y * n1.z - axis.z * n1.y, axis.z * n1.x - axis.x * n1.z, axis.x * n1.y - axis.y * n1.x),
+    1 / len,
+  );
   const points: Vector3[] = [];
   for (let i = 0; i < 12; i++) {
     const angle = (i * Math.PI) / 6;
@@ -189,7 +227,10 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
       // Body: cylinder Ø 50 along the spigot axis from the sleeve end (x = 70) to
       // the shoulder. Only 42 long, so a capsule would reach into the tube.
       const crossing = vec(ANGLE.crossing - ARM_SHOULDER, 0, 0);
-      const from = add(crossing, scale(SPIGOT_DIRECTION, (ANGLE.crossing - ARM_SHOULDER - ANGLE.sleeve) / Math.SQRT1_2));
+      const from = add(
+        crossing,
+        scale(SPIGOT_DIRECTION, (ANGLE.crossing - ARM_SHOULDER - ANGLE.sleeve) / Math.SQRT1_2),
+      );
       return [
         { kind: 'capsule', a: vec(TUBE_RADIUS, 0, 0), b: vec(ANGLE.sleeve - TUBE_RADIUS, 0, 0), radiusMm: TUBE_RADIUS },
         { kind: 'convex', points: cylinderPoints(from, SPIGOT_SHOULDER, TUBE_RADIUS) },
@@ -198,9 +239,10 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
     if (tube) {
       const length = Number(tube[1]);
-      return [{ kind: 'capsule', a: vec(TUBE_RADIUS, 0, 0), b: vec(length - TUBE_RADIUS, 0, 0), radiusMm: TUBE_RADIUS }];
+      return [
+        { kind: 'capsule', a: vec(TUBE_RADIUS, 0, 0), b: vec(length - TUBE_RADIUS, 0, 0), radiusMm: TUBE_RADIUS },
+      ];
     }
     return undefined;
   },
 };
-

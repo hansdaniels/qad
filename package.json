@@ -1,9 +1,8 @@
 {
   "name": "qad",
   "private": true,
-  "type": "module",
-  "packageManager": "pnpm@12.11.2",
   "description": "QUADRO-Modellierungsprogramm: Modellkern und Editor",
+  "type": "module",
   "scripts": {
     "check": "vp run -r check",
     "build": "vp run -r build",
@@ -11,5 +10,6 @@
   },
   "devDependencies": {
     "vite-plus": "catalog:"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

@@ -31,14 +31,22 @@ export function toWorld(shape: CollisionShape, pose: Pose): WorldShape {
       const axes = [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)].map((u) => rotate(pose.orientation, u));
       const h = [shape.halfExtents.x, shape.halfExtents.y, shape.halfExtents.z];
       const corners = [];
-      for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
-        corners.push(add(c, add(scale(axes[0]!, sx * h[0]!), add(scale(axes[1]!, sy * h[1]!), scale(axes[2]!, sz * h[2]!)))));
-      }
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1])
+          for (const sz of [-1, 1]) {
+            corners.push(
+              add(c, add(scale(axes[0]!, sx * h[0]!), add(scale(axes[1]!, sy * h[1]!), scale(axes[2]!, sz * h[2]!)))),
+            );
+          }
       return polytope(corners, () => {
         const points: Vector3[] = [];
-        for (const fx of [-1, -0.5, 0, 0.5, 1]) for (const fy of [-1, -0.5, 0, 0.5, 1]) for (const fz of [-1, -0.5, 0, 0.5, 1]) {
-          points.push(add(c, add(scale(axes[0]!, fx * h[0]!), add(scale(axes[1]!, fy * h[1]!), scale(axes[2]!, fz * h[2]!)))));
-        }
+        for (const fx of [-1, -0.5, 0, 0.5, 1])
+          for (const fy of [-1, -0.5, 0, 0.5, 1])
+            for (const fz of [-1, -0.5, 0, 0.5, 1]) {
+              points.push(
+                add(c, add(scale(axes[0]!, fx * h[0]!), add(scale(axes[1]!, fy * h[1]!), scale(axes[2]!, fz * h[2]!)))),
+              );
+            }
         return points;
       });
     }
@@ -56,8 +64,16 @@ function polytope(points: readonly Vector3[], samples: () => Vector3[]): WorldSh
   return {
     support: (d) => points.reduce((best, p) => (dot(p, d) > dot(best, d) ? p : best)),
     radius: 0,
-    min: vec(Math.min(...points.map((p) => p.x)), Math.min(...points.map((p) => p.y)), Math.min(...points.map((p) => p.z))),
-    max: vec(Math.max(...points.map((p) => p.x)), Math.max(...points.map((p) => p.y)), Math.max(...points.map((p) => p.z))),
+    min: vec(
+      Math.min(...points.map((p) => p.x)),
+      Math.min(...points.map((p) => p.y)),
+      Math.min(...points.map((p) => p.z)),
+    ),
+    max: vec(
+      Math.max(...points.map((p) => p.x)),
+      Math.max(...points.map((p) => p.y)),
+      Math.max(...points.map((p) => p.z)),
+    ),
     samples,
   };
 }
@@ -116,7 +132,12 @@ function closestOnSimplex(points: Vector3[]): { point: Vector3; simplex: Vector3
   const [a, b, c, d] = points as [Vector3, Vector3, Vector3, Vector3];
   if (containsOrigin(a, b, c, d)) return { point: vec(0, 0, 0), simplex: points };
   let best: { point: Vector3; simplex: Vector3[] } | undefined;
-  for (const face of [[a, b, c], [a, b, d], [a, c, d], [b, c, d]] as const) {
+  for (const face of [
+    [a, b, c],
+    [a, b, d],
+    [a, c, d],
+    [b, c, d],
+  ] as const) {
     const candidate = closestOnTriangle(face[0], face[1], face[2]);
     if (!best || dot(candidate.point, candidate.point) < dot(best.point, best.point)) best = candidate;
   }
@@ -194,7 +215,10 @@ function corePenetration(a: WorldShape, b: WorldShape): number {
   let value = Infinity;
   for (const d of DIRECTIONS) {
     const o = overlap(scale(d, -1));
-    if (o < value) { value = o; best = scale(d, -1); }
+    if (o < value) {
+      value = o;
+      best = scale(d, -1);
+    }
   }
   for (let step = 0.2; step > 1e-4; step /= 2) {
     let improved = true;
@@ -205,7 +229,11 @@ function corePenetration(a: WorldShape, b: WorldShape): number {
       for (const delta of [u, scale(u, -1), w, scale(w, -1)]) {
         const d = normalized(add(best, scale(delta, step)));
         const o = overlap(d);
-        if (o < value - 1e-12) { value = o; best = d; improved = true; }
+        if (o < value - 1e-12) {
+          value = o;
+          best = d;
+          improved = true;
+        }
       }
     }
   }
@@ -219,7 +247,12 @@ export function containsPoint(shape: WorldShape, p: Vector3, tolerance: number):
 }
 
 /** Closest points of two segments as parameters s, t in [0, 1] (Ericson 5.1.9). */
-export function segmentParameters(p1: Vector3, q1: Vector3, p2: Vector3, q2: Vector3): { s: number; t: number; distance: number } {
+export function segmentParameters(
+  p1: Vector3,
+  q1: Vector3,
+  p2: Vector3,
+  q2: Vector3,
+): { s: number; t: number; distance: number } {
   const d1 = sub(q1, p1);
   const d2 = sub(q2, p2);
   const r = sub(p1, p2);
@@ -234,7 +267,13 @@ export function segmentParameters(p1: Vector3, q1: Vector3, p2: Vector3, q2: Vec
   const denom = a * e - b * b;
   s = denom > 1e-12 ? clamp01((b * f - c * e) / denom) : 0;
   t = (b * s + f) / e;
-  if (t < 0) { t = 0; s = clamp01(-c / a); } else if (t > 1) { t = 1; s = clamp01((b - c) / a); }
+  if (t < 0) {
+    t = 0;
+    s = clamp01(-c / a);
+  } else if (t > 1) {
+    t = 1;
+    s = clamp01((b - c) / a);
+  }
   const distance = length(sub(add(p1, scale(d1, s)), add(p2, scale(d2, t))));
   return { s, t, distance };
 }

@@ -5,18 +5,18 @@ Die Typen stehen in [`packages/model-core/src/buildability.ts`](./packages/model
 
 ## 1. Zweck und Abgrenzung
 
-Die Baubarkeitsprüfung beantwortet die Frage: *Lässt sich das so aus den
-Katalogteilen zusammenstecken und verschrauben?* Sie prüft geometrische
+Die Baubarkeitsprüfung beantwortet die Frage: _Lässt sich das so aus den
+Katalogteilen zusammenstecken und verschrauben?_ Sie prüft geometrische
 Montierbarkeit im Rahmen der Katalogregeln, nicht Statik, Montagereihenfolge oder
 Erreichbarkeit von Schrauben (SPEC 2).
 
 Prüfer und Solver sind getrennt:
 
-| | Solver (`RealizationSolver`) | Prüfer (`BuildabilityChecker`) |
-| --- | --- | --- |
-| Eingabe | Entwurf, Katalog, vorige Realisierung | Entwurf, **fertige** Realisierung, Katalog |
-| Aufgabe | Teile, Varianten und Stellungen wählen | Gewählte Lösung unabhängig nachrechnen |
-| Ergebnis | Realisierung oder Konflikt | Bericht mit Urteil und Befunden |
+|          | Solver (`RealizationSolver`)           | Prüfer (`BuildabilityChecker`)             |
+| -------- | -------------------------------------- | ------------------------------------------ |
+| Eingabe  | Entwurf, Katalog, vorige Realisierung  | Entwurf, **fertige** Realisierung, Katalog |
+| Aufgabe  | Teile, Varianten und Stellungen wählen | Gewählte Lösung unabhängig nachrechnen     |
+| Ergebnis | Realisierung oder Konflikt             | Bericht mit Urteil und Befunden            |
 
 Der Prüfer ändert nichts. Er vertraut gespeicherten Posen nicht, sondern rechnet
 sie aus Anker, Anschlussstellen und Verbindungsregeln nach.
@@ -35,15 +35,15 @@ Bearbeitung → Solver (betroffener Bereich) → Prüfer (betroffener Bereich)
 Daraus folgt die zentrale Invariante: **Jeder übernommene Modellstand ist baubar.**
 Ein Schritt muss deshalb nur prüfen, was er berührt:
 
-| Schritt | Geprüft wird |
-| --- | --- |
-| Rohr an offenen Verbindungspunkt anbauen | Kupplungswahl und Winkel dort, Kollision des neuen Rohrs und der neuen/gewechselten Kupplung |
-| Rohr an bestehenden Punkt anbauen | wie oben, zusätzlich alle Teile, deren Kupplung gewechselt wurde |
-| Rohrenden verbinden (Ring schließen) | Ringschluss über den neuen Ring, dann wie oben |
-| Platte einsetzen | Lage gegenüber den tragenden Rohren, Bohrungen aller Platten an diesen Rohren, Kollision der Platte |
-| Variante oder Drehung fixieren | Ringe und Platten am betroffenen Rohr, ggf. Kollisionen bei Bogenrohren |
-| Teil entfernen | Struktur (keine hängenden Referenzen), zusätzlich Geometrie und Kollisionen aller vom Solver geänderten Teile |
-| Anker verschieben | Lagen aller Teile der Baugruppe neu ableiten; Kollisionen gegen alle übrigen Baugruppen prüfen. Innere Beziehungen bleiben erhalten. |
+| Schritt                                  | Geprüft wird                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Rohr an offenen Verbindungspunkt anbauen | Kupplungswahl und Winkel dort, Kollision des neuen Rohrs und der neuen/gewechselten Kupplung                                         |
+| Rohr an bestehenden Punkt anbauen        | wie oben, zusätzlich alle Teile, deren Kupplung gewechselt wurde                                                                     |
+| Rohrenden verbinden (Ring schließen)     | Ringschluss über den neuen Ring, dann wie oben                                                                                       |
+| Platte einsetzen                         | Lage gegenüber den tragenden Rohren, Bohrungen aller Platten an diesen Rohren, Kollision der Platte                                  |
+| Variante oder Drehung fixieren           | Ringe und Platten am betroffenen Rohr, ggf. Kollisionen bei Bogenrohren                                                              |
+| Teil entfernen                           | Struktur (keine hängenden Referenzen), zusätzlich Geometrie und Kollisionen aller vom Solver geänderten Teile                        |
+| Anker verschieben                        | Lagen aller Teile der Baugruppe neu ableiten; Kollisionen gegen alle übrigen Baugruppen prüfen. Innere Beziehungen bleiben erhalten. |
 
 Zwischenstände sind gültig, solange sie baubar sind: Ein offenes Rohrende, ein
 noch nicht geschlossener Rahmen oder ein Rohr ohne Platte sind keine Fehler.
@@ -171,12 +171,12 @@ Die erwartete Lage enthält die Einstecktiefe bereits über `bInA`. Es wird kein
 einer Konjugation mit der vollständigen Transformation eingeführt. Die Meldung
 wird daraus physisch lesbar zerlegt:
 
-| Anteil | Bedeutung bei einem Rohrende in einer Kupplung |
-| --- | --- |
+| Anteil               | Bedeutung bei einem Rohrende in einer Kupplung                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | axial (`deltaP_a.z`) | Abweichung entlang der nach außen gerichteten +Z-Achse von Stelle a: positiv Spalt (nicht vollständig gesteckt), negativ Überdeckung (tiefer als die Regel erlaubt) |
-| lateral | `sqrt(deltaP_a.x² + deltaP_a.y²)`, seitlicher Versatz in mm |
-| Kippwinkel | Kippanteil von `deltaQ_a` relativ zur lokalen Z-Achse |
-| Verdrehung um `z` | Verdrehanteil von `deltaQ_a` um die lokale Z-Achse (relevant bei Bogenrohren, Bohrungen) |
+| lateral              | `sqrt(deltaP_a.x² + deltaP_a.y²)`, seitlicher Versatz in mm                                                                                                         |
+| Kippwinkel           | Kippanteil von `deltaQ_a` relativ zur lokalen Z-Achse                                                                                                               |
+| Verdrehung um `z`    | Verdrehanteil von `deltaQ_a` um die lokale Z-Achse (relevant bei Bogenrohren, Bohrungen)                                                                            |
 
 Liegt einer der Anteile außerhalb der zentralen Toleranz, entsteht
 `loop-closure-conflict`. Alle Teile des Rings sind Subjekte; die schließende
@@ -205,8 +205,8 @@ Rohrlänge → `change-tube-family`; Winkelfehler entspricht einem Winkeladapter
 
 ### Stufe 3: Winkel an Verbindungspunkten
 
-Stufe 2 bestätigt, dass die *gewählten* Teile zusammenpassen. Stufe 3 erklärt,
-*warum* ein Verbindungspunkt keine Realisierung hat. Die gewünschten
+Stufe 2 bestätigt, dass die _gewählten_ Teile zusammenpassen. Stufe 3 erklärt,
+_warum_ ein Verbindungspunkt keine Realisierung hat. Die gewünschten
 Rohrrichtungen eines `JunctionIntent` müssen sich durch eine einzige Drehung auf
 paarweise verschiedene Muffen eines Kupplungstyps abbilden lassen, ggf. über
 Winkeladapter.
@@ -226,10 +226,10 @@ Anbauen die zulässigen Richtungen (SPEC 13.4).
   ausgedrückt im Rahmen von Stelle a. Ein verbundenes Paar ist nicht pauschal
   von der Prüfung befreit.
 
-| Code | Situation |
-| --- | --- |
-| `crossing` | Zwei Rohrachsen schneiden sich ohne gemeinsamen Verbindungspunkt |
-| `collision` | Sonstige Durchdringung, mit Eindringtiefe in mm |
+| Code        | Situation                                                            |
+| ----------- | -------------------------------------------------------------------- |
+| `crossing`  | Zwei Rohrachsen schneiden sich ohne gemeinsamen Verbindungspunkt     |
+| `collision` | Sonstige Durchdringung, mit Eindringtiefe in mm                      |
 | `clearance` | Warnung: Abstand kleiner als ein Mindestabstand, keine Durchdringung |
 
 Eine Kreuzung ist typischerweise ein vergessener Verbindungspunkt; der Befund
@@ -319,20 +319,20 @@ Mit einem kleinen synthetischen Prüfkatalog:
 `checkBuildability` in [`packages/model-core/src/buildability-checker.ts`](./packages/model-core/src/buildability-checker.ts)
 setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausgehen:
 
-| Thema | Festlegung |
-| --- | --- |
-| Toleranzen | Standard 1 mm und 1° (`DEFAULT_TOLERANCE`); der Aufrufer übergibt sie. |
-| Anker | Er legt die Lage des primären Teils seines Ziels fest: Rolle `body` bei Rohr und Platte, Rolle `connector` beim Verbindungspunkt. Ein Verbindungspunkt ohne Rohre hat nichts zu platzieren (leerer Anfang einer Sitzung). Hat der Verbindungspunkt keine Kupplung (offenes Ende), ist das Rohr dort das Startteil; seine Stirnseite muss eine Armlänge vor dem Punkt liegen, seine freie Drehung wird übernommen. Von dort wird alles neu berechnet. |
-| Verbindungspunkt-Rahmen | Steht in `intentPoses` und gehört zur gewählten Realisierung. Die Kupplung muss im Punkt sitzen und darin achsparallel gedreht sein (eine der 24 Drehungen). |
-| Rohrrichtung | Das Rohrende im Entwurf zeigt mit +Z ins Rohr, die Anschlussstelle mit +Z hinaus. Bei freier Drehstellung wird nur die Richtung verglichen, bei fester die volle Orientierung. |
-| Parametrische Verbindungen | Ihr Auswerter kommt über `connectionEvaluators`; fehlt er, ist das fehlendes Katalogdatum (`undetermined`). |
-| Gesperrte Baugruppen | Struktur- oder Ankerfehler sperren die Baugruppe für Stufe 2, ein Befund in Stufe 2 sperrt sie für Stufe 4. |
-| Stufe 3 | Prüft Verbindungspunkte mit mindestens zwei Rohren gegen alle Kupplungstypen des Katalogs; Verbindungspunkte mit Winkeladapter noch nicht. |
-| Stufe 4 | GJK-Abstand zwischen Kapseln, Quadern und konvexen Hüllen; Eindringtiefe als kleinste Überlappung über 262 Richtungen mit Verfeinerung. Berührung innerhalb der Toleranz ist keine Kollision. `allowedOverlap` wird über Stichprobenpunkte im Überlappungsbereich geprüft. Warnungen `clearance` nur zwischen nicht verbundenen Teilen. |
-| Kreuzung | Zwei gerade Rohre, deren Achsen sich innerhalb der Toleranz schneiden, ohne direkte Verbindung; Stationen ab Ende a. |
-| Stufe 5 | Noch nicht umgesetzt (Bohrungsmaße fehlen). Ein Entwurf mit Platten ist deshalb `undetermined` (`stage:plate-mounts`), nie `buildable`. |
-| Hinweise | `remedies` bleiben vorerst leer. |
-| QUADRO-Katalog | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme. |
+| Thema                      | Festlegung                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toleranzen                 | Standard 1 mm und 1° (`DEFAULT_TOLERANCE`); der Aufrufer übergibt sie.                                                                                                                                                                                                                                                                                                                                                                               |
+| Anker                      | Er legt die Lage des primären Teils seines Ziels fest: Rolle `body` bei Rohr und Platte, Rolle `connector` beim Verbindungspunkt. Ein Verbindungspunkt ohne Rohre hat nichts zu platzieren (leerer Anfang einer Sitzung). Hat der Verbindungspunkt keine Kupplung (offenes Ende), ist das Rohr dort das Startteil; seine Stirnseite muss eine Armlänge vor dem Punkt liegen, seine freie Drehung wird übernommen. Von dort wird alles neu berechnet. |
+| Verbindungspunkt-Rahmen    | Steht in `intentPoses` und gehört zur gewählten Realisierung. Die Kupplung muss im Punkt sitzen und darin achsparallel gedreht sein (eine der 24 Drehungen).                                                                                                                                                                                                                                                                                         |
+| Rohrrichtung               | Das Rohrende im Entwurf zeigt mit +Z ins Rohr, die Anschlussstelle mit +Z hinaus. Bei freier Drehstellung wird nur die Richtung verglichen, bei fester die volle Orientierung.                                                                                                                                                                                                                                                                       |
+| Parametrische Verbindungen | Ihr Auswerter kommt über `connectionEvaluators`; fehlt er, ist das fehlendes Katalogdatum (`undetermined`).                                                                                                                                                                                                                                                                                                                                          |
+| Gesperrte Baugruppen       | Struktur- oder Ankerfehler sperren die Baugruppe für Stufe 2, ein Befund in Stufe 2 sperrt sie für Stufe 4.                                                                                                                                                                                                                                                                                                                                          |
+| Stufe 3                    | Prüft Verbindungspunkte mit mindestens zwei Rohren gegen alle Kupplungstypen des Katalogs; Verbindungspunkte mit Winkeladapter noch nicht.                                                                                                                                                                                                                                                                                                           |
+| Stufe 4                    | GJK-Abstand zwischen Kapseln, Quadern und konvexen Hüllen; Eindringtiefe als kleinste Überlappung über 262 Richtungen mit Verfeinerung. Berührung innerhalb der Toleranz ist keine Kollision. `allowedOverlap` wird über Stichprobenpunkte im Überlappungsbereich geprüft. Warnungen `clearance` nur zwischen nicht verbundenen Teilen.                                                                                                              |
+| Kreuzung                   | Zwei gerade Rohre, deren Achsen sich innerhalb der Toleranz schneiden, ohne direkte Verbindung; Stationen ab Ende a.                                                                                                                                                                                                                                                                                                                                 |
+| Stufe 5                    | Noch nicht umgesetzt (Bohrungsmaße fehlen). Ein Entwurf mit Platten ist deshalb `undetermined` (`stage:plate-mounts`), nie `buildable`.                                                                                                                                                                                                                                                                                                              |
+| Hinweise                   | `remedies` bleiben vorerst leer.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| QUADRO-Katalog             | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme.                                                                                                                                                                |
 
 Die Abnahmetests aus Abschnitt 7 stehen in `packages/model-core/test/buildability.test.mjs` mit einem
 synthetischen Katalog (`packages/model-core/test/fixtures.mjs`); offen sind 6 bis 8 (Platten).
@@ -348,8 +348,8 @@ sich ohne Umbau nachrüsten:
 - Stufe 5 berechnet die erforderlichen Bohrungslagen (`RequiredHole`) ohnehin.
   Ein Vorschlag ist im Wesentlichen diese Liste, umgerechnet auf einen Kandidaten
   aus Variante und Drehung, mit der kleinsten Zahl fehlender Bohrungen.
-- Ein *Hinweis* braucht keine Datenänderung: neue Hinweisart, sonst nichts.
-- Erst eine *angenommene* Nachbohrung ändert das Modell: eine Bohrung am
+- Ein _Hinweis_ braucht keine Datenänderung: neue Hinweisart, sonst nichts.
+- Erst eine _angenommene_ Nachbohrung ändert das Modell: eine Bohrung am
   `TubeIntent`, ein neues Urteil „baubar mit Nacharbeit“, eine neue
   Schemaversion und Bohrregeln im Katalog (Abstand zu Enden und Bohrungen).
 

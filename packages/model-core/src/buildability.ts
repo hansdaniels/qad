@@ -3,9 +3,7 @@ import type { DesignOperation } from './commands.js';
 import type { ConstructionSnapshot, SolveOptions } from './core.js';
 import type { Diagnostic } from './diagnostics.js';
 import type { GeometryRef, Vector3 } from './geometry.js';
-import type {
-  ConnectionId, FamilyId, PartId, PartTypeId, PlateId, SiteId, TubeId,
-} from './ids.js';
+import type { ConnectionId, FamilyId, PartId, PartTypeId, PlateId, SiteId, TubeId } from './ids.js';
 
 export type BuildabilityVerdict =
   | 'buildable'

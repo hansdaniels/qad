@@ -16,27 +16,27 @@ Quellen:
 
 ## 1. Konstruktion
 
-| Regel | Quelle | Bedeutung für das Modell |
-| --- | --- | --- |
-| Auf jedes Rohr gehören immer zwei Kupplungszapfen; unverbundene oder unverschraubte Rohre und Kupplungszapfen sind nicht erlaubt. | Anleitung 1.1 | Ein fertiges Modell hat keine offenen Rohrenden und keine freien Kupplungsarme. Wird nicht geprüft; `findOpenEnds` ermittelt offene Rohrenden, damit der Editor sie hervorhebt. Freie Kupplungsarme entstehen nicht: Die Kupplung ermittelt ihre Arme automatisch aus den angeschlossenen Rohren (Auto-Kupplung), und zu jeder Anordnung gibt es eine exakt passende. |
-| Rohrschrauben werden durch eine 90°-Drehung fixiert. | Anleitung 1.1 | Verschraubung je Rohrende durch Rohrbohrung und Kupplungsarm. |
-| Platten nur belasten, wenn sie an allen vier Seiten mit Rohren verschraubt sind. | Anleitung 1.3 | Jede Platte braucht vier erfüllte Befestigungen (SPEC 7.3). |
-| Platten immer um 90° versetzt zueinander einsetzen, damit alle vier Plattenschrauben greifen. An Plattenstellen hält allein die Plattenschraube das Rohr. | Anleitung 1.3 | Die Plattenschraube sitzt in der Bohrung am Rohrende anstelle der Rohrschraube. Zwei Platten am selben Rohrende brauchen zwei Bohrungen; daher die Bohrungsvarianten (Abschnitt 4). |
-| Trifft eine waagerechte Platte auf eine senkrechte Halbplatte, wird die Halbplatte an der Perforation um 90° geknickt. | Anleitung 1.4 | Halbplatte hat eine zweite Einbauform. |
-| Rohr- und Schraubenfarbe stimmen immer überein. | Anleitung 9.4 | Stückliste: Rohrschrauben in der Farbe des Rohrs. |
-| Schrauben bei waagerechten Rohren nach unten, bei senkrechten nach innen. | Anleitung 9.5 | Empfehlung für die Drehstellung freier Rohre. |
-| Kupplungen dürfen nur rechtwinklig angeschlossen werden. | Programm, Meldung 4212 | Entspricht den sechs Achsrichtungen (BAUTEILKATALOG 4). |
+| Regel                                                                                                                                                     | Quelle                 | Bedeutung für das Modell                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auf jedes Rohr gehören immer zwei Kupplungszapfen; unverbundene oder unverschraubte Rohre und Kupplungszapfen sind nicht erlaubt.                         | Anleitung 1.1          | Ein fertiges Modell hat keine offenen Rohrenden und keine freien Kupplungsarme. Wird nicht geprüft; `findOpenEnds` ermittelt offene Rohrenden, damit der Editor sie hervorhebt. Freie Kupplungsarme entstehen nicht: Die Kupplung ermittelt ihre Arme automatisch aus den angeschlossenen Rohren (Auto-Kupplung), und zu jeder Anordnung gibt es eine exakt passende. |
+| Rohrschrauben werden durch eine 90°-Drehung fixiert.                                                                                                      | Anleitung 1.1          | Verschraubung je Rohrende durch Rohrbohrung und Kupplungsarm.                                                                                                                                                                                                                                                                                                         |
+| Platten nur belasten, wenn sie an allen vier Seiten mit Rohren verschraubt sind.                                                                          | Anleitung 1.3          | Jede Platte braucht vier erfüllte Befestigungen (SPEC 7.3).                                                                                                                                                                                                                                                                                                           |
+| Platten immer um 90° versetzt zueinander einsetzen, damit alle vier Plattenschrauben greifen. An Plattenstellen hält allein die Plattenschraube das Rohr. | Anleitung 1.3          | Die Plattenschraube sitzt in der Bohrung am Rohrende anstelle der Rohrschraube. Zwei Platten am selben Rohrende brauchen zwei Bohrungen; daher die Bohrungsvarianten (Abschnitt 4).                                                                                                                                                                                   |
+| Trifft eine waagerechte Platte auf eine senkrechte Halbplatte, wird die Halbplatte an der Perforation um 90° geknickt.                                    | Anleitung 1.4          | Halbplatte hat eine zweite Einbauform.                                                                                                                                                                                                                                                                                                                                |
+| Rohr- und Schraubenfarbe stimmen immer überein.                                                                                                           | Anleitung 9.4          | Stückliste: Rohrschrauben in der Farbe des Rohrs.                                                                                                                                                                                                                                                                                                                     |
+| Schrauben bei waagerechten Rohren nach unten, bei senkrechten nach innen.                                                                                 | Anleitung 9.5          | Empfehlung für die Drehstellung freier Rohre.                                                                                                                                                                                                                                                                                                                         |
+| Kupplungen dürfen nur rechtwinklig angeschlossen werden.                                                                                                  | Programm, Meldung 4212 | Entspricht den sechs Achsrichtungen (BAUTEILKATALOG 4).                                                                                                                                                                                                                                                                                                               |
 
 ## 2. Sicherheit
 
-| Regel | Quelle |
-| --- | --- |
-| Ab 60 cm Höhe müssen Öffnungen mit Innenmaß 35 × 15 cm durch eine Halbplatte 40 × 20 geschlossen werden (Strangulationsgefahr). | Anleitung 2 |
+| Regel                                                                                                                                                                                                                             | Quelle        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Ab 60 cm Höhe müssen Öffnungen mit Innenmaß 35 × 15 cm durch eine Halbplatte 40 × 20 geschlossen werden (Strangulationsgefahr).                                                                                                   | Anleitung 2   |
 | Bei einer Plattformhöhe über 60 cm muss das Modell dauerhaft an Wand oder Boden befestigt werden; im Freien mit Bodenverankerung (35-cm-Rohre, 4-armige Raum- und 3-armige Flächenkupplungen an den äußersten Ecken, 35 cm tief). | Anleitung 6.1 |
-| Modelle sind bis 100 kg belastbar; Eigenkonstruktionen auf Kippsicherheit prüfen. | Anleitung 6.2 |
-| Abstand von Etage zu Etage höchstens 40 cm. | Anleitung 7 |
-| Freie Fallhöhe je nach Boden bis 60, 100, 150 oder 250 cm; über 250 cm unzulässig. | Anleitung 7 |
-| Hindernisfreie Zone von 200 cm um das Modell. | Anleitung 8 |
+| Modelle sind bis 100 kg belastbar; Eigenkonstruktionen auf Kippsicherheit prüfen.                                                                                                                                                 | Anleitung 6.2 |
+| Abstand von Etage zu Etage höchstens 40 cm.                                                                                                                                                                                       | Anleitung 7   |
+| Freie Fallhöhe je nach Boden bis 60, 100, 150 oder 250 cm; über 250 cm unzulässig.                                                                                                                                                | Anleitung 7   |
+| Hindernisfreie Zone von 200 cm um das Modell.                                                                                                                                                                                     | Anleitung 8   |
 
 ## 3. Prüfungen im Designprogramm
 
@@ -74,12 +74,12 @@ genau die Zuordnung aus [BAUTEILKATALOG.md](./BAUTEILKATALOG.md), Abschnitt 4
 
 Aus den Abbildungen der Anleitung (Seiten 3 und 22), nicht gemessen:
 
-| Rohr | Bohrungen je Ende | Winkel zwischen den Bohrungen eines Endes |
-| --- | --- | --- |
-| Standard | 1, an beiden Enden auf derselben Seite | – |
-| 4 Löcher, 180° | 2 (Durchgangsbohrung) | 180° |
-| 4 Löcher, 90° | 2 | 90° |
-| 3 Löcher, 135° | 2 an einem Ende, 1 am anderen | 135° |
+| Rohr           | Bohrungen je Ende                      | Winkel zwischen den Bohrungen eines Endes |
+| -------------- | -------------------------------------- | ----------------------------------------- |
+| Standard       | 1, an beiden Enden auf derselben Seite | –                                         |
+| 4 Löcher, 180° | 2 (Durchgangsbohrung)                  | 180°                                      |
+| 4 Löcher, 90°  | 2                                      | 90°                                       |
+| 3 Löcher, 135° | 2 an einem Ende, 1 am anderen          | 135°                                      |
 
 Abstand der Bohrung vom Rohrende, Durchmesser und die Lage der Bohrungen beider
 Enden zueinander sind offen und am Teil zu messen.

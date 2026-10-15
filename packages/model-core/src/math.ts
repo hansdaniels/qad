@@ -106,9 +106,12 @@ export const AXIS_ROTATIONS: readonly Quaternion[] = (() => {
   const s = Math.SQRT1_2;
   const candidates: Quaternion[] = [];
   const values = [0, 0.5, -0.5, s, -s, 1, -1];
-  for (const w of values) for (const x of values) for (const y of values) for (const z of values) {
-    if (Math.abs(w * w + x * x + y * y + z * z - 1) < 1e-9) candidates.push({ x, y, z, w });
-  }
+  for (const w of values)
+    for (const x of values)
+      for (const y of values)
+        for (const z of values) {
+          if (Math.abs(w * w + x * x + y * y + z * z - 1) < 1e-9) candidates.push({ x, y, z, w });
+        }
   for (const q of candidates) {
     const ok = [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)].every((axis) => {
       const r = rotate(q, axis);

@@ -95,4 +95,3 @@ export interface PartCatalog {
   readonly partTypes: readonly PartType[];
   readonly connectionTypes: readonly ConnectionType[];
 }
-

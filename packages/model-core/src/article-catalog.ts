@@ -169,9 +169,7 @@ export function resolveArticle(
   if (!entry) return undefined;
   const offered = (colour: ColourId | undefined) =>
     colour === undefined ? undefined : entry.articles.find((a) => a.colour === colour);
-  const article = offered(requested)
-    ?? offered(catalog.defaultColours[entry.category])
-    ?? entry.articles[0];
+  const article = offered(requested) ?? offered(catalog.defaultColours[entry.category]) ?? entry.articles[0];
   if (!article) return undefined;
   return { article, substituted: requested !== undefined && article.colour !== requested };
 }

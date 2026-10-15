@@ -38,29 +38,29 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 }
 ```
 
-| Modul | Verantwortung |
-| --- | --- |
-| `ids` | Persistente Identitäten und Referenzen |
-| `geometry` | Millimeter, Radiant, vollständige lokale Bezugssysteme |
-| `catalog` | Versionierte Typen, Anschlüsse, Bohrungen und Verbindungsregeln |
-| `design` | Benutzerabsicht, Variantenbedingungen und Baugruppenanker |
-| `realization` | Konkrete Teile, Verbindungen, Plattenbefestigungen und berechnete Lagen |
-| `commands` | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte |
-| `diagnostics` | Strukturierte Konflikte mit Referenzen für Markierungen im Editor |
-| `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](../../BAUBARKEIT.md)) |
-| `model-core` | `createModelCore`: Befehle anwenden, lösen, prüfen, nur Baubares übernehmen (`preview`, `execute`) |
-| `solver` | Realisierung aus dem Entwurf: Auto-Kupplung, Lagen, Drehstellungen, Ringschluss (`solveRealization`) |
-| `buildability-checker` | Umsetzung der Prüfung, Stufen 1–4 (`checkBuildability`, `DEFAULT_TOLERANCE`) |
-| `collision` | Konvexe Kollisionsformen: GJK-Abstand, Eindringtiefe, Achsenkreuzung |
-| `math` | Posen, Quaternionen, die 24 Achsdrehungen |
-| `core` | Solver, Vorschau und geprüfte Übernahme eines Modellstands |
-| `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
-| `article-catalog` | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](../../BAUTEILKATALOG.md)) |
-| `open-ends` | Offene Rohrenden für die Hervorhebung im Editor (`findOpenEnds`) |
-| `quadro-geometry` | Vorläufiger QUADRO-Geometriekatalog, Kollisionsformen und Verbindungsauswerter |
-| `quadro-articles` | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`) |
-| `document-schema` | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp |
-| `parse-document` | JSON einlesen und Formatfehler mit Pfadangaben melden |
+| Modul                  | Verantwortung                                                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ids`                  | Persistente Identitäten und Referenzen                                                                                                                                     |
+| `geometry`             | Millimeter, Radiant, vollständige lokale Bezugssysteme                                                                                                                     |
+| `catalog`              | Versionierte Typen, Anschlüsse, Bohrungen und Verbindungsregeln                                                                                                            |
+| `design`               | Benutzerabsicht, Variantenbedingungen und Baugruppenanker                                                                                                                  |
+| `realization`          | Konkrete Teile, Verbindungen, Plattenbefestigungen und berechnete Lagen                                                                                                    |
+| `commands`             | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte                                                                                                   |
+| `diagnostics`          | Strukturierte Konflikte mit Referenzen für Markierungen im Editor                                                                                                          |
+| `buildability`         | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](../../BAUBARKEIT.md))                                                               |
+| `model-core`           | `createModelCore`: Befehle anwenden, lösen, prüfen, nur Baubares übernehmen (`preview`, `execute`)                                                                         |
+| `solver`               | Realisierung aus dem Entwurf: Auto-Kupplung, Lagen, Drehstellungen, Ringschluss (`solveRealization`)                                                                       |
+| `buildability-checker` | Umsetzung der Prüfung, Stufen 1–4 (`checkBuildability`, `DEFAULT_TOLERANCE`)                                                                                               |
+| `collision`            | Konvexe Kollisionsformen: GJK-Abstand, Eindringtiefe, Achsenkreuzung                                                                                                       |
+| `math`                 | Posen, Quaternionen, die 24 Achsdrehungen                                                                                                                                  |
+| `core`                 | Solver, Vorschau und geprüfte Übernahme eines Modellstands                                                                                                                 |
+| `persistence`          | Versioniertes Dokument und Vertrag für geprüftes Laden                                                                                                                     |
+| `article-catalog`      | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](../../BAUTEILKATALOG.md)) |
+| `open-ends`            | Offene Rohrenden für die Hervorhebung im Editor (`findOpenEnds`)                                                                                                           |
+| `quadro-geometry`      | Vorläufiger QUADRO-Geometriekatalog, Kollisionsformen und Verbindungsauswerter                                                                                             |
+| `quadro-articles`      | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`)                                                                                                                  |
+| `document-schema`      | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp                                                                                               |
+| `parse-document`       | JSON einlesen und Formatfehler mit Pfadangaben melden                                                                                                                      |
 
 ## Speicherformat und Validierung
 

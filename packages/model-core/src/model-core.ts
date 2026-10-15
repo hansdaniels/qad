@@ -3,7 +3,12 @@ import type { BuildabilityOptions } from './buildability.js';
 import type { PartCatalog } from './catalog.js';
 import type { DesignOperation, EditCommand } from './commands.js';
 import type {
-  ConstructionSnapshot, EditPreview, ModelCore, ModelCoreFactory, ModelCoreOptions, VariantChange,
+  ConstructionSnapshot,
+  EditPreview,
+  ModelCore,
+  ModelCoreFactory,
+  ModelCoreOptions,
+  VariantChange,
 } from './core.js';
 import type { ConstructionDesign } from './design.js';
 import type { Diagnostic, DiagnosticCode, Result, SubjectRef } from './diagnostics.js';
@@ -18,7 +23,11 @@ import { solveRealization } from './solver.js';
  */
 export const modelCoreFactory: ModelCoreFactory = { create: createModelCore };
 
-export function createModelCore(design: ConstructionDesign, catalog: PartCatalog, options: ModelCoreOptions): Result<ModelCore> {
+export function createModelCore(
+  design: ConstructionDesign,
+  catalog: PartCatalog,
+  options: ModelCoreOptions,
+): Result<ModelCore> {
   const errors = validateDesign(design, catalog);
   if (errors.length > 0) return { ok: false, diagnostics: errors };
   const result = realize(design, catalog, options, undefined);
@@ -41,8 +50,17 @@ class Core implements ModelCore {
   preview(command: EditCommand): EditPreview {
     const baseRevision = this.current.revision;
     if (command.baseRevision !== baseRevision) {
-      return { status: 'invalid', baseRevision, diagnostics: [error('stale-revision',
-        `Die Bearbeitung bezieht sich auf Stand ${command.baseRevision}, aktuell ist ${baseRevision}.`, [])] };
+      return {
+        status: 'invalid',
+        baseRevision,
+        diagnostics: [
+          error(
+            'stale-revision',
+            `Die Bearbeitung bezieht sich auf Stand ${command.baseRevision}, aktuell ist ${baseRevision}.`,
+            [],
+          ),
+        ],
+      };
     }
     const applied = applyOperations(this.current.design, command.operations);
     if (!applied.ok) return { status: 'invalid', baseRevision, diagnostics: applied.diagnostics };
@@ -50,7 +68,8 @@ class Core implements ModelCore {
     const errors = validateDesign(design, this.catalog);
     if (errors.length > 0) return { status: 'invalid', baseRevision, attemptedDesign: design, diagnostics: errors };
     const result = realize(design, this.catalog, this.options, this.current.realization);
-    if (!result.ok) return { status: 'invalid', baseRevision, attemptedDesign: design, diagnostics: result.diagnostics };
+    if (!result.ok)
+      return { status: 'invalid', baseRevision, attemptedDesign: design, diagnostics: result.diagnostics };
     return {
       status: 'valid',
       baseRevision,
@@ -71,7 +90,12 @@ class Core implements ModelCore {
 // ---------------------------------------------------------------- solving and checking
 
 /** Solves and verifies; only a buildable verdict yields a realization. */
-function realize(design: ConstructionDesign, catalog: PartCatalog, options: ModelCoreOptions, previous?: Realization): Result<Realization> {
+function realize(
+  design: ConstructionDesign,
+  catalog: PartCatalog,
+  options: ModelCoreOptions,
+  previous?: Realization,
+): Result<Realization> {
   const solved = solveRealization(design, catalog, options, previous);
   if (!solved.ok) return solved;
   const checkOptions: BuildabilityOptions = {
@@ -81,12 +105,21 @@ function realize(design: ConstructionDesign, catalog: PartCatalog, options: Mode
     ...(options.connectionEvaluators ? { connectionEvaluators: options.connectionEvaluators } : {}),
   };
   const edit = previous ? editContext(previous, solved.value, options) : undefined;
-  const report = checkBuildability({ revision: 0, design, realization: solved.value }, catalog, options.geometry, checkOptions, edit);
+  const report = checkBuildability(
+    { revision: 0, design, realization: solved.value },
+    catalog,
+    options.geometry,
+    checkOptions,
+    edit,
+  );
   const diagnostics = report.findings.map((f) => f.diagnostic);
   if (report.verdict === 'buildable') return { ok: true, value: solved.value, diagnostics };
   if (report.verdict === 'undetermined') {
-    diagnostics.push(error('missing-catalog-data', 'Für die Prüfung fehlen Katalogdaten.', [],
-      { keys: report.missingCatalogData.map((r) => r.key).join(',') }));
+    diagnostics.push(
+      error('missing-catalog-data', 'Für die Prüfung fehlen Katalogdaten.', [], {
+        keys: report.missingCatalogData.map((r) => r.key).join(','),
+      }),
+    );
   }
   return { ok: false, diagnostics };
 }
@@ -101,8 +134,11 @@ function editContext(previous: Realization, next: Realization, options: ModelCor
     const before = oldParts.get(p.id);
     const was = oldPoses.get(p.id);
     const now = next.poses.find((x) => x.partId === p.id)?.worldPose;
-    const moved = !was || !now || length(sub(was.position, now.position)) > options.tolerance.distanceMm
-      || qangle(qmul(qconj(was.orientation), now.orientation)) > options.tolerance.angleRad;
+    const moved =
+      !was ||
+      !now ||
+      length(sub(was.position, now.position)) > options.tolerance.distanceMm ||
+      qangle(qmul(qconj(was.orientation), now.orientation)) > options.tolerance.angleRad;
     if (!before || before.typeId !== p.typeId || moved) affected.push(p.id);
   }
   return {
@@ -111,20 +147,29 @@ function editContext(previous: Realization, next: Realization, options: ModelCor
   };
 }
 
-function variantChanges(design: ConstructionDesign, previous: Realization, next: Realization, catalog: PartCatalog): VariantChange[] {
+function variantChanges(
+  design: ConstructionDesign,
+  previous: Realization,
+  next: Realization,
+  catalog: PartCatalog,
+): VariantChange[] {
   const types = new Map(catalog.partTypes.map((t) => [t.id, t]));
   const changes: VariantChange[] = [];
   for (const tube of design.tubes) {
-    const part = next.parts.find((p) => p.origin.intent.kind === 'tube' && p.origin.intent.id === tube.id && p.origin.role === 'body');
+    const part = next.parts.find(
+      (p) => p.origin.intent.kind === 'tube' && p.origin.intent.id === tube.id && p.origin.role === 'body',
+    );
     if (!part) continue;
     const before = previous.parts.find((p) => p.id === part.id);
     const type = types.get(part.typeId);
     const nonstandard = type?.kind === 'tube' ? !type.standardVariant : false;
     if (before?.typeId === part.typeId || (!before && !nonstandard)) continue;
     const intent: IntentRef = { kind: 'tube', id: tube.id };
-    changes.push(before
-      ? { intent, partId: part.id, previousTypeId: before.typeId, selectedTypeId: part.typeId, nonstandard }
-      : { intent, partId: part.id, selectedTypeId: part.typeId, nonstandard });
+    changes.push(
+      before
+        ? { intent, partId: part.id, previousTypeId: before.typeId, selectedTypeId: part.typeId, nonstandard }
+        : { intent, partId: part.id, selectedTypeId: part.typeId, nonstandard },
+    );
   }
   return changes;
 }
@@ -138,7 +183,10 @@ class OperationError extends Error {
 }
 
 /** Applies the operations in order to a copy; the input is never modified. */
-export function applyOperations(design: ConstructionDesign, operations: readonly DesignOperation[]): Result<ConstructionDesign> {
+export function applyOperations(
+  design: ConstructionDesign,
+  operations: readonly DesignOperation[],
+): Result<ConstructionDesign> {
   let d = design;
   try {
     for (const op of operations) d = apply(d, op);
@@ -153,30 +201,42 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
   const fail = (code: DiagnosticCode, message: string, subjects: SubjectRef[] = []): never => {
     throw new OperationError(error(code, message, subjects));
   };
-  const has = (ref: IntentRef) => (ref.kind === 'tube' ? d.tubes : ref.kind === 'junction' ? d.junctions : d.plates).some((x) => x.id === ref.id);
+  const has = (ref: IntentRef) =>
+    (ref.kind === 'tube' ? d.tubes : ref.kind === 'junction' ? d.junctions : d.plates).some((x) => x.id === ref.id);
   const subject = (ref: IntentRef): SubjectRef => ({ kind: 'intent', ref });
   switch (op.kind) {
     case 'add-junction':
-      if (has({ kind: 'junction', id: op.junction.id })) fail('duplicate-id', `Verbindungspunkt ${op.junction.id} gibt es schon.`, [subject({ kind: 'junction', id: op.junction.id })]);
+      if (has({ kind: 'junction', id: op.junction.id }))
+        fail('duplicate-id', `Verbindungspunkt ${op.junction.id} gibt es schon.`, [
+          subject({ kind: 'junction', id: op.junction.id }),
+        ]);
       return { ...d, junctions: [...d.junctions, op.junction] };
     case 'add-tube':
-      if (has({ kind: 'tube', id: op.tube.id })) fail('duplicate-id', `Rohr ${op.tube.id} gibt es schon.`, [subject({ kind: 'tube', id: op.tube.id })]);
+      if (has({ kind: 'tube', id: op.tube.id }))
+        fail('duplicate-id', `Rohr ${op.tube.id} gibt es schon.`, [subject({ kind: 'tube', id: op.tube.id })]);
       return { ...d, tubes: [...d.tubes, op.tube] };
     case 'set-tube':
       if (!has({ kind: 'tube', id: op.tube.id })) fail('missing-reference', `Rohr ${op.tube.id} gibt es nicht.`);
       return { ...d, tubes: d.tubes.map((t) => (t.id === op.tube.id ? op.tube : t)) };
     case 'connect-tube-end': {
       if (!has({ kind: 'tube', id: op.end.tubeId })) fail('missing-reference', `Rohr ${op.end.tubeId} gibt es nicht.`);
-      return { ...d, tubes: d.tubes.map((t) => (t.id === op.end.tubeId ? { ...t, [op.end.end]: { ...t[op.end.end], junctionId: op.junctionId } } : t)) };
+      return {
+        ...d,
+        tubes: d.tubes.map((t) =>
+          t.id === op.end.tubeId ? { ...t, [op.end.end]: { ...t[op.end.end], junctionId: op.junctionId } } : t,
+        ),
+      };
     }
     case 'add-plate':
-      if (has({ kind: 'plate', id: op.plate.id })) fail('duplicate-id', `Platte ${op.plate.id} gibt es schon.`, [subject({ kind: 'plate', id: op.plate.id })]);
+      if (has({ kind: 'plate', id: op.plate.id }))
+        fail('duplicate-id', `Platte ${op.plate.id} gibt es schon.`, [subject({ kind: 'plate', id: op.plate.id })]);
       return { ...d, plates: [...d.plates, op.plate] };
     case 'set-plate':
       if (!has({ kind: 'plate', id: op.plate.id })) fail('missing-reference', `Platte ${op.plate.id} gibt es nicht.`);
       return { ...d, plates: d.plates.map((p) => (p.id === op.plate.id ? op.plate : p)) };
     case 'set-variant':
-      if (!has(op.target)) fail('missing-reference', `${op.target.kind === 'tube' ? 'Rohr' : 'Platte'} ${op.target.id} gibt es nicht.`);
+      if (!has(op.target))
+        fail('missing-reference', `${op.target.kind === 'tube' ? 'Rohr' : 'Platte'} ${op.target.id} gibt es nicht.`);
       return op.target.kind === 'tube'
         ? { ...d, tubes: d.tubes.map((t) => (t.id === op.target.id ? { ...t, variant: op.policy } : t)) }
         : { ...d, plates: d.plates.map((p) => (p.id === op.target.id ? { ...p, variant: op.policy } : p)) };
@@ -189,8 +249,10 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
       return { ...d, anchors: d.anchors.filter((a) => a.id !== op.id) };
     case 'remove-intent':
       if (!has(op.target)) fail('missing-reference', `${op.target.id} gibt es nicht.`, [subject(op.target)]);
-      return op.target.kind === 'tube' ? { ...d, tubes: d.tubes.filter((t) => t.id !== op.target.id) }
-        : op.target.kind === 'junction' ? { ...d, junctions: d.junctions.filter((j) => j.id !== op.target.id) }
+      return op.target.kind === 'tube'
+        ? { ...d, tubes: d.tubes.filter((t) => t.id !== op.target.id) }
+        : op.target.kind === 'junction'
+          ? { ...d, junctions: d.junctions.filter((j) => j.id !== op.target.id) }
           : { ...d, plates: d.plates.filter((p) => p.id !== op.target.id) };
   }
 }
@@ -207,41 +269,83 @@ function validateDesign(d: ConstructionDesign, catalog: PartCatalog): Diagnostic
   const duplicates = (kind: IntentRef['kind'], ids: readonly string[]) => {
     const seen = new Set<string>();
     for (const id of ids) {
-      if (seen.has(id)) errors.push(error('duplicate-id', `Doppelte ID ${id}.`, [{ kind: 'intent', ref: { kind, id } }]));
+      if (seen.has(id))
+        errors.push(error('duplicate-id', `Doppelte ID ${id}.`, [{ kind: 'intent', ref: { kind, id } }]));
       seen.add(id);
     }
   };
-  duplicates('junction', d.junctions.map((j) => j.id));
-  duplicates('tube', d.tubes.map((t) => t.id));
-  duplicates('plate', d.plates.map((p) => p.id));
+  duplicates(
+    'junction',
+    d.junctions.map((j) => j.id),
+  );
+  duplicates(
+    'tube',
+    d.tubes.map((t) => t.id),
+  );
+  duplicates(
+    'plate',
+    d.plates.map((p) => p.id),
+  );
   for (const t of d.tubes) {
     for (const end of ['a', 'b'] as const) {
       if (!junctions.has(t[end].junctionId)) {
-        errors.push(error('missing-reference', `Rohr ${t.id} verweist auf fehlenden Verbindungspunkt ${t[end].junctionId}.`,
-          [{ kind: 'intent', ref: { kind: 'tube', id: t.id } }]));
+        errors.push(
+          error('missing-reference', `Rohr ${t.id} verweist auf fehlenden Verbindungspunkt ${t[end].junctionId}.`, [
+            { kind: 'intent', ref: { kind: 'tube', id: t.id } },
+          ]),
+        );
       }
     }
     if (t.a.junctionId === t.b.junctionId) {
-      errors.push(error('invalid-data', `Rohr ${t.id} beginnt und endet am selben Verbindungspunkt.`, [{ kind: 'intent', ref: { kind: 'tube', id: t.id } }]));
+      errors.push(
+        error('invalid-data', `Rohr ${t.id} beginnt und endet am selben Verbindungspunkt.`, [
+          { kind: 'intent', ref: { kind: 'tube', id: t.id } },
+        ]),
+      );
     }
   }
   for (const p of d.plates) {
     if (!junctions.has(p.placement.junctionId)) {
-      errors.push(error('missing-reference', `Platte ${p.id} verweist auf fehlenden Verbindungspunkt.`, [{ kind: 'intent', ref: { kind: 'plate', id: p.id } }]));
+      errors.push(
+        error('missing-reference', `Platte ${p.id} verweist auf fehlenden Verbindungspunkt.`, [
+          { kind: 'intent', ref: { kind: 'plate', id: p.id } },
+        ]),
+      );
     }
     for (const m of p.mounts) {
       if (!tubes.has(m.tubeId)) {
-        errors.push(error('missing-reference', `Platte ${p.id} verweist auf fehlendes Rohr ${m.tubeId}.`, [{ kind: 'intent', ref: { kind: 'plate', id: p.id } }]));
+        errors.push(
+          error('missing-reference', `Platte ${p.id} verweist auf fehlendes Rohr ${m.tubeId}.`, [
+            { kind: 'intent', ref: { kind: 'plate', id: p.id } },
+          ]),
+        );
       }
     }
   }
   for (const a of d.anchors) {
-    const ok = a.target.kind === 'junction' ? junctions.has(a.target.id) : a.target.kind === 'tube' ? tubes.has(a.target.id) : plates.has(a.target.id);
-    if (!ok) errors.push(error('missing-reference', `Anker ${a.id} verweist auf ein fehlendes Objekt.`, [{ kind: 'intent', ref: a.target }]));
+    const ok =
+      a.target.kind === 'junction'
+        ? junctions.has(a.target.id)
+        : a.target.kind === 'tube'
+          ? tubes.has(a.target.id)
+          : plates.has(a.target.id);
+    if (!ok)
+      errors.push(
+        error('missing-reference', `Anker ${a.id} verweist auf ein fehlendes Objekt.`, [
+          { kind: 'intent', ref: a.target },
+        ]),
+      );
   }
   return errors;
 }
 
-function error(code: DiagnosticCode, message: string, subjects: readonly SubjectRef[], details?: Diagnostic['details']): Diagnostic {
-  return details ? { code, severity: 'error', message, subjects, details } : { code, severity: 'error', message, subjects };
+function error(
+  code: DiagnosticCode,
+  message: string,
+  subjects: readonly SubjectRef[],
+  details?: Diagnostic['details'],
+): Diagnostic {
+  return details
+    ? { code, severity: 'error', message, subjects, details }
+    : { code, severity: 'error', message, subjects };
 }

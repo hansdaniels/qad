@@ -77,9 +77,5 @@ export interface ModelCoreOptions extends SolveOptions {
 
 export interface ModelCoreFactory {
   /** Validates the catalog, references and all aggregate invariants. */
-  create(
-    design: ConstructionDesign,
-    catalog: PartCatalog,
-    options: ModelCoreOptions,
-  ): Result<ModelCore>;
+  create(design: ConstructionDesign, catalog: PartCatalog, options: ModelCoreOptions): Result<ModelCore>;
 }

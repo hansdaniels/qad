@@ -1,7 +1,14 @@
 import type { Pose } from './geometry.js';
 import type {
-  AttachmentRef, ConnectionId, ConnectionTypeId, IntentRef,
-  PartId, PartTypeId, PlateId, SiteId, TubeId,
+  AttachmentRef,
+  ConnectionId,
+  ConnectionTypeId,
+  IntentRef,
+  PartId,
+  PartTypeId,
+  PlateId,
+  SiteId,
+  TubeId,
 } from './ids.js';
 
 export interface PartInstance {

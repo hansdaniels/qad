@@ -38,9 +38,10 @@ export function parseConstructionDocument(json: string): Result<ConstructionDocu
         subjects: [],
         details: {
           // JSON Pointer: also unambiguous for parameter keys containing / or ~.
-          path: issue.path.length === 0 ? '' : '/' + issue.path.map((key) =>
-            String(key).replaceAll('~', '~0').replaceAll('/', '~1'),
-          ).join('/'),
+          path:
+            issue.path.length === 0
+              ? ''
+              : '/' + issue.path.map((key) => String(key).replaceAll('~', '~0').replaceAll('/', '~1')).join('/'),
           validationCode: issue.code,
         },
       })),

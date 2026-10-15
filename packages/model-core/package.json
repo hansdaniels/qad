@@ -2,26 +2,26 @@
   "name": "@qad/model-core",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Browser-independent domain contracts for the QUADRO modelling core",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "check": "vp check",
     "build": "vp pack",
     "test": "vp test"
   },
-  "devDependencies": {
-    "typescript": "~5.9.3"
-  },
   "dependencies": {
     "zod": "4.6.4"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
   }
 }

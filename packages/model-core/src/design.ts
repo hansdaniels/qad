@@ -1,8 +1,16 @@
 import type { CatalogRef } from './catalog.js';
 import type { AngularConstraint, Pose, Quaternion } from './geometry.js';
 import type {
-  AnchorId, ColourId, ConstructionId, FamilyId, IntentRef, JunctionId,
-  PartTypeId, PlateId, SiteId, TubeId,
+  AnchorId,
+  ColourId,
+  ConstructionId,
+  FamilyId,
+  IntentRef,
+  JunctionId,
+  PartTypeId,
+  PlateId,
+  SiteId,
+  TubeId,
 } from './ids.js';
 
 export type VariantPolicy =

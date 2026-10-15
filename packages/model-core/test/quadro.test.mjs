@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'vite-plus/test';
 import {
-  DEFAULT_TOLERANCE, checkBuildability, quadroCollisionGeometry, quadroConnectionEvaluators, quadroPartCatalog,
+  DEFAULT_TOLERANCE,
+  checkBuildability,
+  quadroCollisionGeometry,
+  quadroConnectionEvaluators,
+  quadroPartCatalog,
 } from '../src/index.ts';
 import { compose, inverse, qangle, qaxisAngle, qconj, qmul, vec } from '../src/math.ts';
 
 const options = {
-  tolerance: DEFAULT_TOLERANCE, minClearanceMm: 0, maxRemediesPerFinding: 3,
+  tolerance: DEFAULT_TOLERANCE,
+  minClearanceMm: 0,
+  maxRemediesPerFinding: 3,
   connectionEvaluators: quadroConnectionEvaluators,
 };
 const types = new Map(quadroPartCatalog.partTypes.map((t) => [t.id, t]));
@@ -36,10 +42,18 @@ function model({ parts, links, junctions, tubes, anchor }) {
     const sb = compose(parts[b].pose, site(b, bs).frame);
     const actual = compose(inverse(sa), sb);
     const best = ROLLS.map((rollRad) => ({
-      rollRad, angle: qangle(qmul(qconj(quadroConnectionEvaluators['quadro-arm-tube']({ rollRad }).orientation), actual.orientation)),
+      rollRad,
+      angle: qangle(
+        qmul(qconj(quadroConnectionEvaluators['quadro-arm-tube']({ rollRad }).orientation), actual.orientation),
+      ),
     })).sort((x, y) => x.angle - y.angle)[0];
-    return { id: `c${String(i).padStart(2, '0')}`, a: { partId: a, siteId: as }, b: { partId: b, siteId: bs },
-      typeId: 'quadro-arm-tube', parameters: { rollRad: best.rollRad } };
+    return {
+      id: `c${String(i).padStart(2, '0')}`,
+      a: { partId: a, siteId: as },
+      b: { partId: b, siteId: bs },
+      typeId: 'quadro-arm-tube',
+      parameters: { rollRad: best.rollRad },
+    };
   });
   const designTubes = Object.entries(tubes).map(([id, ends]) => {
     const type = types.get(parts[id].type);
@@ -51,51 +65,94 @@ function model({ parts, links, junctions, tubes, anchor }) {
       const direction = vec(frame.position.x - out.x, frame.position.y - out.y, frame.position.z - out.z);
       return { junctionId: ends[end], orientation: zOnto(direction), roll: { mode: 'free' } };
     };
-    return { id, familyId: type.familyId, a: endpoint('a'), b: endpoint('b'), variant: { mode: 'automatic' }, appearance: { colour: 'red' } };
+    return {
+      id,
+      familyId: type.familyId,
+      a: endpoint('a'),
+      b: endpoint('b'),
+      variant: { mode: 'automatic' },
+      appearance: { colour: 'red' },
+    };
   });
   return {
     revision: 0,
     design: {
-      id: 'quadro', catalog: quadroPartCatalog.ref, tubes: designTubes,
-      junctions: Object.keys(junctions).map((id) => ({ id })), plates: [],
+      id: 'quadro',
+      catalog: quadroPartCatalog.ref,
+      tubes: designTubes,
+      junctions: Object.keys(junctions).map((id) => ({ id })),
+      plates: [],
       anchors: [{ id: 'anchor', target: { kind: 'junction', id: anchor }, worldPose: junctions[anchor] }],
     },
     realization: {
-      parts: Object.entries(parts).map(([id, p]) => ({ id, typeId: p.type, origin: { intent: p.intent, role: p.role } })),
-      connections, plateMounts: [],
+      parts: Object.entries(parts).map(([id, p]) => ({
+        id,
+        typeId: p.type,
+        origin: { intent: p.intent, role: p.role },
+      })),
+      connections,
+      plateMounts: [],
       poses: Object.entries(parts).map(([id, p]) => ({ partId: id, worldPose: p.pose })),
-      intentPoses: Object.entries(junctions).map(([id, worldPose]) => ({ intent: { kind: 'junction', id }, worldPose })),
+      intentPoses: Object.entries(junctions).map(([id, worldPose]) => ({
+        intent: { kind: 'junction', id },
+        worldPose,
+      })),
     },
   };
 }
 
-const connector = (type, junction, p) => ({ type, pose: p, intent: { kind: 'junction', id: junction }, role: 'connector' });
+const connector = (type, junction, p) => ({
+  type,
+  pose: p,
+  intent: { kind: 'junction', id: junction },
+  role: 'connector',
+});
 const tube = (type, id, p) => ({ type, pose: p, intent: { kind: 'tube', id }, role: 'body' });
 const check = (snapshot) => checkBuildability(snapshot, quadroPartCatalog, quadroCollisionGeometry, options);
 const codes = (report) => report.findings.map((f) => f.diagnostic.code);
 
 /** Square of 35 cm tubes with elbow connectors; tube t4 may be swapped. */
 function square(lastTube = 'tube-35cm', lastLength = 350) {
-  const corner = (i) => [pose(0, 0, 0), pose(400, 0, 0, turn(90)), pose(400, 400, 0, turn(180)), pose(0, 400, 0, turn(270))][i];
+  const corner = (i) =>
+    [pose(0, 0, 0), pose(400, 0, 0, turn(90)), pose(400, 400, 0, turn(180)), pose(0, 400, 0, turn(270))][i];
   return model({
     anchor: 'j1',
     junctions: { j1: pose(0, 0, 0), j2: pose(400, 0, 0), j3: pose(400, 400, 0), j4: pose(0, 400, 0) },
     parts: {
-      h1: connector('elbow-connector', 'j1', corner(0)), h2: connector('elbow-connector', 'j2', corner(1)),
-      h3: connector('elbow-connector', 'j3', corner(2)), h4: connector('elbow-connector', 'j4', corner(3)),
-      t1: tube('tube-35cm', 't1', pose(25, 0, 0)), t2: tube('tube-35cm', 't2', pose(400, 25, 0, turn(90))),
-      t3: tube('tube-35cm', 't3', pose(375, 400, 0, turn(180))), t4: tube(lastTube, 't4', pose(0, 400 - 25 - (350 - lastLength), 0, turn(270))),
+      h1: connector('elbow-connector', 'j1', corner(0)),
+      h2: connector('elbow-connector', 'j2', corner(1)),
+      h3: connector('elbow-connector', 'j3', corner(2)),
+      h4: connector('elbow-connector', 'j4', corner(3)),
+      t1: tube('tube-35cm', 't1', pose(25, 0, 0)),
+      t2: tube('tube-35cm', 't2', pose(400, 25, 0, turn(90))),
+      t3: tube('tube-35cm', 't3', pose(375, 400, 0, turn(180))),
+      t4: tube(lastTube, 't4', pose(0, 400 - 25 - (350 - lastLength), 0, turn(270))),
     },
     links: [
-      ['h1', '+x', 't1', 'a'], ['h2', '+y', 't1', 'b'], ['h2', '+x', 't2', 'a'], ['h3', '+y', 't2', 'b'],
-      ['h3', '+x', 't3', 'a'], ['h4', '+y', 't3', 'b'], ['h4', '+x', 't4', 'a'], ['h1', '+y', 't4', 'b'],
+      ['h1', '+x', 't1', 'a'],
+      ['h2', '+y', 't1', 'b'],
+      ['h2', '+x', 't2', 'a'],
+      ['h3', '+y', 't2', 'b'],
+      ['h3', '+x', 't3', 'a'],
+      ['h4', '+y', 't3', 'b'],
+      ['h4', '+x', 't4', 'a'],
+      ['h1', '+y', 't4', 'b'],
     ],
     tubes: { t1: { a: 'j1', b: 'j2' }, t2: { a: 'j2', b: 'j3' }, t3: { a: 'j3', b: 'j4' }, t4: { a: 'j4', b: 'j1' } },
   });
 }
 
 test('the provisional catalog covers grid connectors, tubes, the curved tube and the angle connector', () => {
-  for (const id of ['3way-connector', '6way-connector', 'elbow-connector', 'tube-10cm', 'tube-75cm', 'tube-35cm-90deg-4hole', 'curved-tube', 'diagonal-connector']) {
+  for (const id of [
+    '3way-connector',
+    '6way-connector',
+    'elbow-connector',
+    'tube-10cm',
+    'tube-75cm',
+    'tube-35cm-90deg-4hole',
+    'curved-tube',
+    'diagonal-connector',
+  ]) {
     assert.ok(types.has(id), id);
   }
   assert.equal(types.get('6way-connector').sites.length, 6);
@@ -110,8 +167,9 @@ test('a 35 cm square with elbow connectors closes in the 400 mm grid', () => {
 
 test('a 25 cm tube in the 35 cm square leaves a 100 mm gap where the ring is closed', () => {
   // Closing the ring with the last tube's connection to h1 (c07).
-  const report = checkBuildability(square('tube-25cm', 250), quadroPartCatalog, quadroCollisionGeometry, options,
-    { addedConnectionIds: ['c07'] });
+  const report = checkBuildability(square('tube-25cm', 250), quadroPartCatalog, quadroCollisionGeometry, options, {
+    addedConnectionIds: ['c07'],
+  });
   const residual = report.findings.find((f) => f.closure)?.closure;
   assert.equal(residual?.connectionId, 'c07', codes(report).join());
   assert.ok(Math.abs(residual.axialMm - 100) < 1e-6, String(residual.axialMm));
@@ -131,8 +189,12 @@ test('a curved tube closes a ring like a frame corner of two grid steps', () => 
     },
     links: [
       // h4 is turned by -90°: its local +x arm points down (-y), its +y arm along +x.
-      ['h1', '+y', 'up', 'a'], ['h4', '+x', 'up', 'b'], ['h4', '+y', 'across', 'a'], ['h3', '+x', 'across', 'b'],
-      ['h1', '+x', 'bend', 'a'], ['h3', '+y', 'bend', 'b'],
+      ['h1', '+y', 'up', 'a'],
+      ['h4', '+x', 'up', 'b'],
+      ['h4', '+y', 'across', 'a'],
+      ['h3', '+x', 'across', 'b'],
+      ['h1', '+x', 'bend', 'a'],
+      ['h3', '+y', 'bend', 'b'],
     ],
     tubes: { up: { a: 'j1', b: 'j4' }, across: { a: 'j4', b: 'j3' }, bend: { a: 'j1', b: 'j3' } },
   });
@@ -150,10 +212,18 @@ test('an angle connector carries an oblique tube at 45° back over the connector
     junctions: { j1: pose(0, 0, 0), j2: pose(shoulder.x - 375 * s, shoulder.y + 375 * s, 0) },
     parts: {
       h1: connector('cross-connector', 'j1', pose(0, 0, 0)),
-      w1: { type: 'diagonal-connector', pose: pose(25, 0, 0), intent: { kind: 'junction', id: 'j1' }, role: 'angle-adapter-1' },
+      w1: {
+        type: 'diagonal-connector',
+        pose: pose(25, 0, 0),
+        intent: { kind: 'junction', id: 'j1' },
+        role: 'angle-adapter-1',
+      },
       t1: tube('tube-35cm', 't1', pose(shoulder.x, shoulder.y, 0, turn(135))),
     },
-    links: [['h1', '+x', 'w1', 'sleeve'], ['w1', 'spigot', 't1', 'a']],
+    links: [
+      ['h1', '+x', 'w1', 'sleeve'],
+      ['w1', 'spigot', 't1', 'a'],
+    ],
     tubes: { t1: { a: 'j1', b: 'j2' } },
   });
   const report = check(snapshot);
@@ -163,13 +233,24 @@ test('an angle connector carries an oblique tube at 45° back over the connector
 
 test('a tube pushed through a connector collides', () => {
   const base = square();
-  const parts = [...base.realization.parts, { id: 'x', typeId: 'tube-35cm', origin: { intent: { kind: 'tube', id: 'x' }, role: 'body' } }];
+  const parts = [
+    ...base.realization.parts,
+    { id: 'x', typeId: 'tube-35cm', origin: { intent: { kind: 'tube', id: 'x' }, role: 'body' } },
+  ];
   const stray = pose(-175, 0, 0);
   const snapshot = {
     ...base,
     design: {
       ...base.design,
-      tubes: [...base.design.tubes, { ...base.design.tubes[0], id: 'x', a: { ...base.design.tubes[0].a, junctionId: 'xa' }, b: { ...base.design.tubes[0].b, junctionId: 'xb' } }],
+      tubes: [
+        ...base.design.tubes,
+        {
+          ...base.design.tubes[0],
+          id: 'x',
+          a: { ...base.design.tubes[0].a, junctionId: 'xa' },
+          b: { ...base.design.tubes[0].b, junctionId: 'xb' },
+        },
+      ],
       junctions: [...base.design.junctions, { id: 'xa' }, { id: 'xb' }],
       anchors: [...base.design.anchors, { id: 'ax', target: { kind: 'tube', id: 'x' }, worldPose: stray }],
     },

@@ -1,6 +1,4 @@
-import type {
-  JunctionIntent, PlacementAnchor, PlateIntent, TubeIntent, VariantPolicy,
-} from './design.js';
+import type { JunctionIntent, PlacementAnchor, PlateIntent, TubeIntent, VariantPolicy } from './design.js';
 import type { AnchorId, IntentRef, JunctionId, PlateId, TubeEndRef, TubeId } from './ids.js';
 
 /** Operations in a command are applied in order and validated together atomically. */
@@ -23,7 +21,8 @@ export type DesignOperation =
   | { readonly kind: 'set-plate'; readonly plate: PlateIntent }
   | {
       readonly kind: 'set-variant';
-      readonly target: { readonly kind: 'tube'; readonly id: TubeId }
+      readonly target:
+        | { readonly kind: 'tube'; readonly id: TubeId }
         | { readonly kind: 'plate'; readonly id: PlateId };
       readonly policy: VariantPolicy;
     }

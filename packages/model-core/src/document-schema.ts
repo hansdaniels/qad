@@ -7,7 +7,10 @@ import type { ConstructionSnapshot } from './core.js';
 const id = z.string().min(1);
 const vector = z.strictObject({ x: z.number(), y: z.number(), z: z.number() });
 const quaternion = z.strictObject({
-  x: z.number(), y: z.number(), z: z.number(), w: z.number(),
+  x: z.number(),
+  y: z.number(),
+  z: z.number(),
+  w: z.number(),
 });
 const pose = z.strictObject({ position: vector, orientation: quaternion });
 const intentRef = z.discriminatedUnion('kind', [
@@ -67,25 +70,31 @@ const design = z.strictObject({
   anchors: z.array(z.strictObject({ id, target: intentRef, worldPose: pose })),
 });
 const realization = z.strictObject({
-  parts: z.array(z.strictObject({
-    id,
-    typeId: id,
-    origin: z.strictObject({ intent: intentRef, role: id }),
-  })),
-  connections: z.array(z.strictObject({
-    id,
-    a: attachmentRef,
-    b: attachmentRef,
-    typeId: id,
-    parameters: z.record(id, z.number()),
-  })),
-  plateMounts: z.array(z.strictObject({
-    plateId: id,
-    plateSiteId: id,
-    tubeId: id,
-    tubeHole: attachmentRef,
-    connectionId: id,
-  })),
+  parts: z.array(
+    z.strictObject({
+      id,
+      typeId: id,
+      origin: z.strictObject({ intent: intentRef, role: id }),
+    }),
+  ),
+  connections: z.array(
+    z.strictObject({
+      id,
+      a: attachmentRef,
+      b: attachmentRef,
+      typeId: id,
+      parameters: z.record(id, z.number()),
+    }),
+  ),
+  plateMounts: z.array(
+    z.strictObject({
+      plateId: id,
+      plateSiteId: id,
+      tubeId: id,
+      tubeHole: attachmentRef,
+      connectionId: id,
+    }),
+  ),
   poses: z.array(z.strictObject({ partId: id, worldPose: pose })),
   intentPoses: z.array(z.strictObject({ intent: intentRef, worldPose: pose })),
 });
@@ -107,6 +116,4 @@ export const ConstructionDocumentSchema = z.strictObject({
 /** File types come from schemas; domain interfaces remain library-independent. */
 export type ConstructionDocument = DeepReadonly<z.infer<typeof ConstructionDocumentSchema>>;
 
-type DeepReadonly<T> = T extends object
-  ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-  : T;
+type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;

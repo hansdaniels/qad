@@ -16,7 +16,12 @@ export type { OpenEnd } from './open-ends.js';
 export { realizationSolver, solveRealization } from './solver.js';
 export { applyOperations, createModelCore, modelCoreFactory } from './model-core.js';
 export {
-  BODY_ROLE, CONNECTOR_ROLE, DEFAULT_TOLERANCE, PLATE_MOUNTS_PENDING, buildabilityChecker, checkBuildability,
+  BODY_ROLE,
+  CONNECTOR_ROLE,
+  DEFAULT_TOLERANCE,
+  PLATE_MOUNTS_PENDING,
+  buildabilityChecker,
+  checkBuildability,
 } from './buildability-checker.js';
 export { findOpenEnds } from './open-ends.js';
 export { quadroArticleCatalog } from './quadro-articles.js';

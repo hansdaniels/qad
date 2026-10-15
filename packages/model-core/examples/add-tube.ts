@@ -1,6 +1,4 @@
-import type {
-  EditCommand, FamilyId, ModelCore, Pose, Quaternion,
-} from '../src/index.js';
+import type { EditCommand, FamilyId, ModelCore, Pose, Quaternion } from '../src/index.js';
 
 /**
  * First straight tube in its own assembly. IDs are allocated by the caller.
