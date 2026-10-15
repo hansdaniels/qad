@@ -1,7 +1,7 @@
 import type { CatalogRef } from './catalog.js';
 import type { AngularConstraint, Pose, Quaternion } from './geometry.js';
 import type {
-  AnchorId, ConstructionId, FamilyId, IntentRef, JunctionId,
+  AnchorId, ColourId, ConstructionId, FamilyId, IntentRef, JunctionId,
   PartTypeId, PlateId, SiteId, TubeId,
 } from './ids.js';
 
@@ -9,9 +9,13 @@ export type VariantPolicy =
   | { readonly mode: 'automatic'; readonly preferredTypeId?: PartTypeId }
   | { readonly mode: 'fixed'; readonly typeId: PartTypeId };
 
+/**
+ * The editor always sets the colour of tubes and plates, preset to the catalog
+ * default. Without it, e.g. in a hand-written file, the default applies.
+ */
 export interface Appearance {
-  /** Catalog/application colour key, not a renderer material. */
-  readonly colour: string;
+  /** Colour key of the article catalog, not a renderer material. */
+  readonly colour: ColourId;
 }
 
 export interface TubeEndpoint {

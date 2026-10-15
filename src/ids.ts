@@ -8,6 +8,8 @@ export type ConnectionId = string;
 export type AnchorId = string;
 export type PartTypeId = string;
 export type FamilyId = string;
+/** Key of ArticleCatalog.colours, e.g. 'red'. */
+export type ColourId = string;
 export type SiteId = string;
 export type ConnectionTypeId = string;
 

@@ -46,6 +46,8 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](./BAUBARKEIT.md)) |
 | `core` | Solver, Vorschau und geprüfte Übernahme eines Modellstands |
 | `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
+| `article-catalog` | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](./BAUTEILKATALOG.md)) |
+| `quadro-articles` | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`) |
 | `document-schema` | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp |
 | `parse-document` | JSON einlesen und Formatfehler mit Pfadangaben melden |
 
@@ -92,4 +94,5 @@ bevorzugen und bei gleichen Eingaben reproduzierbar bleiben.
 
 Nächster Implementierungsschritt: fachliche Laufzeitvalidierung und Transformationen, danach
 ein kleiner synthetischer Prüfkatalog und der Solver für starre Verbindungen und
-Ringschlüsse. Reale Katalogteile folgen erst mit geprüften Anschlussmaßen.
+Ringschlüsse. Reale Katalogteile folgen erst mit geprüften Anschlussmaßen;
+welche Teile das sind, legt der [Bauteilkatalog](./BAUTEILKATALOG.md) fest.

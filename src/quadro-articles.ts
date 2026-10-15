@@ -1,0 +1,407 @@
+import type { Article, ArticleCatalog, Colour } from './article-catalog.js';
+
+const colours = [
+  { id: 'blue', name: 'Blau', kind: 'solid' },
+  { id: 'green', name: 'Grün', kind: 'solid' },
+  { id: 'yellow', name: 'Gelb', kind: 'solid' },
+  { id: 'red', name: 'Rot', kind: 'solid' },
+  { id: 'pearl-white', name: 'Pearl White', kind: 'solid' },
+  { id: 'dark-grey', name: 'Dark Grey', kind: 'solid' },
+  { id: 'dove-blue', name: 'Dove Blue', kind: 'solid' },
+  { id: 'moody-blue', name: 'Moody Blue', kind: 'solid' },
+  { id: 'may-green', name: 'May Green', kind: 'solid' },
+  { id: 'emerald-green', name: 'Emerald Green', kind: 'solid' },
+  { id: 'bunnys-nose', name: 'Bunny’s Nose', kind: 'solid' },
+  { id: 'tawny-port', name: 'Tawny Port', kind: 'solid' },
+  { id: 'black', name: 'Schwarz', kind: 'solid' },
+  { id: 'white', name: 'Weiß', kind: 'solid' },
+  { id: 'transparent', name: 'Transparent', kind: 'solid' },
+  { id: 'metallic', name: 'Metallic', kind: 'solid' },
+  { id: 'classic', name: 'Classic', kind: 'mix' },
+  { id: 'petrol', name: 'Petrol', kind: 'mix' },
+  { id: 'mint', name: 'Mint', kind: 'mix' },
+  { id: 'berry', name: 'Berry', kind: 'mix' },
+] as const satisfies readonly Colour[];
+
+type QuadroColour = (typeof colours)[number]['id'];
+
+const a = (articleNumber: string, colour: QuadroColour): Article => ({ articleNumber, colour });
+const black = (articleNumber: string): readonly Article[] => [a(articleNumber, 'black')];
+
+/**
+ * Single parts from https://quadroshop.com/pages/parts, retrieved 2026-10-15.
+ * Left out: textiles and nets, pool and Aqua, wheels (deferred), the wooden
+ * profile, the integrated slide, sets and bundles, keys. See BAUTEILKATALOG.md.
+ */
+export const quadroArticleCatalog: ArticleCatalog = {
+  id: 'quadroshop-de',
+  version: '2026-10-15',
+  source: {
+    overviewUrl: 'https://quadroshop.com/pages/parts',
+    productBaseUrl: 'https://quadroshop.com/products/',
+  },
+  colours,
+  defaultColours: { tube: 'red', connector: 'black', plate: 'blue' },
+  entries: [
+    // Kupplungen
+    {
+      id: '3way-connector', familyId: '3way-connector', name: 'Raumkupplung 3-armig',
+      stage: 'initial', category: 'connector', connector: 'spatial', arms: 3,
+      armDirections: ['+x', '+y', '+z'], articles: black('00031'),
+    },
+    {
+      id: '4way-connector', familyId: '4way-connector', name: 'Raumkupplung 4-armig',
+      stage: 'initial', category: 'connector', connector: 'spatial', arms: 4,
+      armDirections: ['+x', '-x', '+y', '+z'], articles: black('00041'),
+    },
+    {
+      id: '5way-connector', familyId: '5way-connector', name: 'Raumkupplung 5-armig',
+      stage: 'initial', category: 'connector', connector: 'spatial', arms: 5,
+      armDirections: ['+x', '-x', '+y', '-y', '+z'], articles: black('00051'),
+    },
+    {
+      id: '6way-connector', familyId: '6way-connector', name: 'Raumkupplung 6-armig',
+      stage: 'initial', category: 'connector', connector: 'spatial', arms: 6,
+      armDirections: ['+x', '-x', '+y', '-y', '+z', '-z'], articles: black('00061'),
+    },
+    {
+      id: 'straight-connector', familyId: 'straight-connector', name: 'Flächenkupplung 2-armig (180°)',
+      stage: 'initial', category: 'connector', connector: 'planar', arms: 2, designationDeg: 180,
+      armDirections: ['+x', '-x'], articles: black('00111'),
+    },
+    {
+      id: 'elbow-connector', familyId: 'elbow-connector', name: 'Flächenkupplung 2-armig (90°)',
+      stage: 'initial', category: 'connector', connector: 'planar', arms: 2, designationDeg: 90,
+      armDirections: ['+x', '+y'], articles: black('00121'),
+    },
+    {
+      id: 't-connector', familyId: 't-connector', name: 'Flächenkupplung 3-armig',
+      stage: 'initial', category: 'connector', connector: 'planar', arms: 3,
+      armDirections: ['+x', '-x', '+y'], articles: black('00131'),
+    },
+    {
+      id: 'cross-connector', familyId: 'cross-connector', name: 'Flächenkupplung 4-armig',
+      stage: 'initial', category: 'connector', connector: 'planar', arms: 4,
+      armDirections: ['+x', '-x', '+y', '-y'], articles: black('00141'),
+    },
+    {
+      id: 'diagonal-connector', familyId: 'diagonal-connector', name: 'Winkelkupplung (45°)',
+      stage: 'initial', category: 'connector', connector: 'angle', designationDeg: 45,
+      articles: black('00911'),
+      note: 'Zwischenstück zwischen Kupplung und schrägem Rohr (SPEC 7.1).',
+    },
+    {
+      id: 'flexi-connector', familyId: 'flexi-connector', name: 'Flexikupplung',
+      stage: 'later', category: 'connector', connector: 'flexi', articles: black('00071'),
+    },
+    {
+      id: 'flexi-connector-hinge', familyId: 'flexi-connector-hinge', name: 'Flexikupplung Scharnier',
+      stage: 'later', category: 'connector', connector: 'flexi-hinge', articles: black('00091'),
+    },
+    {
+      id: 'flexi-connector-bolt', familyId: 'flexi-connector-bolt', name: 'Flexikupplung Bolzen',
+      stage: 'later', category: 'connector', connector: 'flexi-bolt', articles: black('00081'),
+    },
+    {
+      id: 'hole-connector', familyId: 'hole-connector', name: 'Lochzapfenkupplung 1-armig',
+      stage: 'later', category: 'connector', connector: 'hole-peg', arms: 1, articles: black('00841'),
+    },
+    {
+      id: 'hole-t-connector', familyId: 'hole-t-connector', name: 'Lochzapfenkupplung 3-armig',
+      stage: 'later', category: 'connector', connector: 'hole-peg', arms: 3, articles: black('00843'),
+    },
+    {
+      id: 'bearing-connector', familyId: 'bearing-connector', name: 'Lagerkupplung',
+      stage: 'later', category: 'connector', connector: 'bearing', articles: black('00821'),
+    },
+    {
+      id: 'double-tube-connector', familyId: 'double-tube-connector', name: 'Doppelrohrverbinder',
+      stage: 'later', category: 'connector', connector: 'double-tube',
+      articles: [a('00955', 'red'), a('70133', 'dark-grey')],
+    },
+    {
+      id: 'tube-clamp', familyId: 'tube-clamp', name: 'Rohrklammer',
+      stage: 'later', category: 'connector', connector: 'tube-clamp', articles: [a('00945', 'red')],
+    },
+
+    // Rohre
+    {
+      id: 'tube-10cm', familyId: 'tube-10cm', name: 'Rohr 10 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 10, drilling: { kind: 'standard' },
+      articles: [
+        a('00012', 'blue'), a('00013', 'green'), a('00014', 'yellow'), a('00015', 'red'),
+        a('70042', 'pearl-white'), a('70043', 'dark-grey'), a('70044', 'dove-blue'),
+        a('70045', 'moody-blue'), a('70046', 'may-green'), a('70047', 'emerald-green'),
+        a('70048', 'bunnys-nose'), a('70049', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'tube-15cm', familyId: 'tube-15cm', name: 'Rohr 15 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 15, drilling: { kind: 'standard' },
+      articles: [
+        a('00512', 'blue'), a('00513', 'green'), a('00514', 'yellow'), a('00515', 'red'),
+        a('70052', 'pearl-white'), a('70053', 'dark-grey'), a('70054', 'dove-blue'),
+        a('70055', 'moody-blue'), a('70056', 'may-green'), a('70057', 'emerald-green'),
+        a('70058', 'bunnys-nose'), a('70059', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'tube-15cm-90deg-4hole', familyId: 'tube-15cm', name: 'Rohr 15 cm 90° (4 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 15,
+      drilling: { kind: 'special', designationDeg: 90, holes: 4 },
+      articles: [a('41612', 'blue'), a('41613', 'green'), a('41614', 'yellow'), a('41615', 'red')],
+    },
+    {
+      id: 'tube-15cm-135deg-3hole', familyId: 'tube-15cm', name: 'Rohr 15 cm 135° (3 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 15,
+      drilling: { kind: 'special', designationDeg: 135, holes: 3 },
+      articles: [a('40512', 'blue'), a('40513', 'green'), a('40514', 'yellow'), a('40515', 'red')],
+    },
+    {
+      id: 'tube-15cm-180deg-4hole', familyId: 'tube-15cm', name: 'Rohr 15 cm 180° (4 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 15,
+      drilling: { kind: 'special', designationDeg: 180, holes: 4 },
+      articles: [a('41512', 'blue'), a('41513', 'green'), a('41514', 'yellow'), a('41515', 'red')],
+    },
+    {
+      id: 'tube-20cm', familyId: 'tube-20cm', name: 'Rohr 20 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 20, drilling: { kind: 'standard' },
+      articles: [
+        a('00022', 'blue'), a('00023', 'green'), a('00024', 'yellow'), a('00025', 'red'),
+        a('70063', 'dark-grey'),
+      ],
+    },
+    {
+      id: 'tube-25cm', familyId: 'tube-25cm', name: 'Rohr 25 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 25, drilling: { kind: 'standard' },
+      articles: [
+        a('00522', 'blue'), a('00523', 'green'), a('00524', 'yellow'), a('00525', 'red'),
+        a('70072', 'pearl-white'), a('70073', 'dark-grey'), a('70074', 'dove-blue'),
+        a('70075', 'moody-blue'), a('70076', 'may-green'), a('70077', 'emerald-green'),
+        a('70078', 'bunnys-nose'), a('70079', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'tube-35cm', familyId: 'tube-35cm', name: 'Rohr 35 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 35, drilling: { kind: 'standard' },
+      articles: [
+        a('00532', 'blue'), a('00533', 'green'), a('00534', 'yellow'), a('00535', 'red'),
+        a('70082', 'pearl-white'), a('70083', 'dark-grey'), a('70084', 'dove-blue'),
+        a('70085', 'moody-blue'), a('70086', 'may-green'), a('70087', 'emerald-green'),
+        a('70088', 'bunnys-nose'), a('70089', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'tube-35cm-90deg-4hole', familyId: 'tube-35cm', name: 'Rohr 35 cm 90° (4 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 35,
+      drilling: { kind: 'special', designationDeg: 90, holes: 4 },
+      articles: [
+        a('41532', 'blue'), a('41533', 'green'), a('41534', 'yellow'), a('41535', 'red'),
+        a('41536', 'dark-grey'),
+      ],
+    },
+    {
+      id: 'tube-35cm-135deg-3hole', familyId: 'tube-35cm', name: 'Rohr 35 cm 135° (3 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 35,
+      drilling: { kind: 'special', designationDeg: 135, holes: 3 },
+      articles: [
+        a('40532', 'blue'), a('40533', 'green'), a('40534', 'yellow'), a('40535', 'red'),
+        a('70090', 'dark-grey'),
+      ],
+    },
+    {
+      id: 'tube-35cm-180deg-4hole', familyId: 'tube-35cm', name: 'Rohr 35 cm 180° (4 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'straight', nominalLengthCm: 35,
+      drilling: { kind: 'special', designationDeg: 180, holes: 4 },
+      articles: [a('41632', 'blue'), a('41633', 'green'), a('41634', 'yellow'), a('41635', 'red')],
+    },
+    {
+      id: 'tube-52cm', familyId: 'tube-52cm', name: 'Rohr 52 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 52, drilling: { kind: 'standard' },
+      articles: [a('40522', 'blue'), a('40523', 'green'), a('40524', 'yellow'), a('40525', 'red')],
+    },
+    {
+      id: 'tube-75cm', familyId: 'tube-75cm', name: 'Rohr 75 cm', stage: 'initial',
+      category: 'tube', shape: 'straight', nominalLengthCm: 75, drilling: { kind: 'standard' },
+      articles: [
+        a('00572', 'blue'), a('00573', 'green'), a('00574', 'yellow'), a('00575', 'red'),
+        a('70172', 'pearl-white'), a('70173', 'dark-grey'),
+      ],
+    },
+    {
+      id: 'curved-tube', familyId: 'curved-tube', name: 'Bogenrohr', stage: 'initial',
+      category: 'tube', shape: 'bent', drilling: { kind: 'standard' },
+      articles: [
+        a('10052', 'blue'), a('10053', 'green'), a('10054', 'yellow'), a('10055', 'red'),
+        a('70102', 'pearl-white'), a('70103', 'dark-grey'),
+      ],
+    },
+    {
+      id: 'curved-tube-135deg-3hole', familyId: 'curved-tube', name: 'Bogenrohr 135° (3 Löcher)',
+      stage: 'initial', category: 'tube', shape: 'bent',
+      drilling: { kind: 'special', designationDeg: 135, holes: 3 },
+      articles: [a('40052', 'blue'), a('40053', 'green'), a('40054', 'yellow'), a('40055', 'red')],
+    },
+
+    // Platten
+    {
+      id: 'panel-40-40cm', familyId: 'panel-40-40cm', name: 'Platte 40 × 40 cm', stage: 'initial',
+      category: 'plate', plate: 'solid', nominalSizeCm: [40, 40], tubeGridCm: [35, 35],
+      articles: [
+        a('00402', 'blue'), a('00403', 'green'), a('00404', 'yellow'), a('00405', 'red'),
+        a('70022', 'pearl-white'), a('70023', 'dark-grey'), a('70024', 'dove-blue'),
+        a('70025', 'moody-blue'), a('70026', 'may-green'), a('70027', 'emerald-green'),
+        a('70028', 'bunnys-nose'), a('70029', 'tawny-port'),
+      ],
+      note: 'Standardplatte; laut Shop für 99 % der Modelle.',
+    },
+    {
+      id: 'panel-40-20cm', familyId: 'panel-40-20cm', name: 'Platte 40 × 20 cm', stage: 'later',
+      category: 'plate', plate: 'solid', nominalSizeCm: [40, 20], tubeGridCm: [35, 15],
+      articles: [
+        a('00202', 'blue'), a('00203', 'green'), a('00204', 'yellow'), a('00205', 'red'),
+        a('70012', 'pearl-white'), a('70013', 'dark-grey'), a('70014', 'dove-blue'),
+        a('70015', 'moody-blue'), a('70016', 'may-green'), a('70017', 'emerald-green'),
+        a('70018', 'bunnys-nose'), a('70019', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'panel-30-30cm', familyId: 'panel-30-30cm', name: 'Platte 30 × 30 cm', stage: 'later',
+      category: 'plate', plate: 'solid', nominalSizeCm: [30, 30], tubeGridCm: [25, 25],
+      articles: [
+        a('00302', 'blue'), a('00303', 'green'), a('00304', 'yellow'), a('00305', 'red'),
+        a('70002', 'pearl-white'), a('70003', 'dark-grey'), a('70004', 'dove-blue'),
+        a('70005', 'moody-blue'), a('70006', 'may-green'), a('70007', 'emerald-green'),
+        a('70008', 'bunnys-nose'), a('70009', 'tawny-port'),
+      ],
+    },
+    {
+      id: 'hole-panel-40-40cm', familyId: 'hole-panel-40-40cm', name: 'Lochplatte 40 × 40 cm',
+      stage: 'later', category: 'plate', plate: 'perforated', nominalSizeCm: [40, 40], tubeGridCm: [35, 35],
+      articles: [
+        a('00412', 'blue'), a('00413', 'green'), a('00414', 'yellow'), a('00415', 'red'),
+        a('70092', 'pearl-white'), a('70093', 'dark-grey'), a('70094', 'dove-blue'),
+        a('70095', 'moody-blue'), a('70096', 'may-green'), a('70097', 'emerald-green'),
+        a('70098', 'bunnys-nose'), a('70099', 'tawny-port'),
+      ],
+      note: 'Laut Shop nicht zum Betreten geeignet (kein waagerechter Einbau).',
+    },
+    {
+      id: 'acrylic-glass', familyId: 'acrylic-glass', name: 'Acrylglas', stage: 'later',
+      category: 'plate', plate: 'acrylic-glass', articles: [a('00359', 'transparent')],
+      note: 'Montage mit 4 Acrylglasschrauben.',
+    },
+    {
+      id: 'acrylic-glass-modular-curved-slide', familyId: 'acrylic-glass-modular-curved-slide',
+      name: 'Acrylglas (Modular-/Bogenrutsche)', stage: 'later', category: 'plate',
+      plate: 'acrylic-glass', recess: 'modular-curved-slide', articles: [a('00368', 'transparent')],
+      note: 'Montage mit 4 Acrylglasschrauben.',
+    },
+    {
+      id: 'acrylic-glass-panel-one-sided', familyId: 'acrylic-glass-panel-one-sided',
+      name: 'Platte für Acrylglas (einseitig)', stage: 'later', category: 'plate',
+      plate: 'acrylic-glass-holder', recess: 'one-sided',
+      articles: [a('00342', 'blue'), a('00343', 'green'), a('00344', 'yellow'), a('00345', 'red')],
+    },
+    {
+      id: 'acrylic-glass-panel-two-sided', familyId: 'acrylic-glass-panel-two-sided',
+      name: 'Platte für Acrylglas (zweiseitig)', stage: 'later', category: 'plate',
+      plate: 'acrylic-glass-holder', recess: 'two-sided',
+      articles: [a('00392', 'blue'), a('00393', 'green'), a('00394', 'yellow'), a('00395', 'red')],
+    },
+    {
+      id: 'wood-grate', familyId: 'wood-grate', name: 'Holzgitter', stage: 'later',
+      category: 'plate', plate: 'wood-grate', articles: [a('01555', 'red')],
+      note: 'Befestigungsschrauben liegen bei.',
+    },
+    {
+      id: 'wood-grate-panel-left-sided-recess', familyId: 'wood-grate-panel-left-sided-recess',
+      name: 'Holzgitter-Platte (linksseitige Aussparung)', stage: 'later', category: 'plate',
+      plate: 'wood-grate-holder', recess: 'left',
+      articles: [a('00322', 'blue'), a('00323', 'green'), a('00324', 'yellow'), a('00325', 'red')],
+    },
+    {
+      id: 'wood-grate-panel-right-sided-recess', familyId: 'wood-grate-panel-right-sided-recess',
+      name: 'Holzgitter-Platte (rechtsseitige Aussparung)', stage: 'later', category: 'plate',
+      plate: 'wood-grate-holder', recess: 'right',
+      articles: [a('00312', 'blue'), a('00313', 'green'), a('00314', 'yellow'), a('00315', 'red')],
+    },
+    {
+      id: 'wood-grate-panel-two-sided-recess', familyId: 'wood-grate-panel-two-sided-recess',
+      name: 'Holzgitter-Platte (zweiseitige Aussparung)', stage: 'later', category: 'plate',
+      plate: 'wood-grate-holder', recess: 'two-sided',
+      articles: [a('00332', 'blue'), a('00333', 'green'), a('00334', 'yellow'), a('00335', 'red')],
+    },
+
+    // Rutschen
+    {
+      id: 'modular-slide-body', familyId: 'modular-slide-body', name: 'Modularrutschen-Körper',
+      stage: 'later', category: 'slide', slide: 'modular-body',
+      articles: [a('10018', 'red'), a('74015', 'dove-blue'), a('73015', 'may-green'), a('75015', 'bunnys-nose')],
+      note: 'Benötigt einen Rahmen aus Standardrohren und -kupplungen und den Rutschenauslauf.',
+    },
+    {
+      id: 'curved-slide-body', familyId: 'curved-slide-body', name: 'Bogenrutschen-Körper',
+      stage: 'later', category: 'slide', slide: 'curved-body',
+      articles: [a('10027', 'green'), a('72023', 'dove-blue')],
+      note: 'Benötigt einen Rahmen aus Standardrohren und -kupplungen und den Rutschenauslauf.',
+    },
+    {
+      id: 'slide-runout', familyId: 'slide-runout', name: 'Rutschenauslauf', stage: 'later',
+      category: 'slide', slide: 'runout', articles: [a('10034', 'yellow'), a('71034', 'dark-grey')],
+    },
+
+    // Zubehör
+    {
+      id: 'tube-cap', familyId: 'tube-cap', name: 'Rohrkappe', stage: 'later',
+      category: 'accessory', accessory: 'tube-cap', articles: black('00935'),
+    },
+    {
+      id: 'safety-clamp', familyId: 'safety-clamp', name: 'Sicherungsklammer (Bodenverankerung)',
+      stage: 'later', category: 'accessory', accessory: 'ground-anchor', articles: [a('10340', 'metallic')],
+      note: 'Befestigung am Boden oder an der Wand.',
+    },
+
+    // Schrauben
+    {
+      id: 'tube-screws-20pcs', familyId: 'tube-screws-20pcs', name: 'Rohrschrauben (20 Stk.)',
+      stage: 'later', category: 'fastener', fastener: 'tube-screw', packSize: 20,
+      articles: [
+        a('00610', 'classic'), a('71141', 'petrol'), a('71142', 'mint'), a('71143', 'berry'),
+        a('00692', 'blue'), a('00693', 'green'), a('00694', 'yellow'), a('00695', 'red'),
+        a('71132', 'pearl-white'), a('71133', 'dark-grey'), a('71134', 'dove-blue'),
+        a('71135', 'moody-blue'), a('71136', 'may-green'), a('71137', 'emerald-green'),
+        a('71138', 'bunnys-nose'), a('71139', 'tawny-port'),
+      ],
+      note: 'Classic, Petrol, Mint und Berry sind Farbmischungen.',
+    },
+    {
+      id: 'panel-screw', familyId: 'panel-screw', name: 'Plattenschrauben (8 Stk.)', stage: 'later',
+      category: 'fastener', fastener: 'plate-screw', packSize: 8, articles: black('00621'),
+    },
+    {
+      id: 'slide-screw', familyId: 'slide-screw', name: 'Rutschenschrauben (2 Stk.)', stage: 'later',
+      category: 'fastener', fastener: 'slide-screw', packSize: 2, articles: [a('00643', 'blue')],
+      note: 'Verbindet Modular- oder Bogenrutsche mit dem Rahmen.',
+    },
+    {
+      id: 'conical-slide-screw', familyId: 'conical-slide-screw', name: 'Konische Rutschenschrauben (4 Stk.)',
+      stage: 'later', category: 'fastener', fastener: 'conical-slide-screw', packSize: 4,
+      articles: [a('00633', 'blue')],
+    },
+    {
+      id: 'conical-slide-screw-counterpiece', familyId: 'conical-slide-screw-counterpiece',
+      name: 'Rutschenschraube Gegenstück (2 Stk.)', stage: 'later', category: 'fastener',
+      fastener: 'conical-slide-screw-counterpart', packSize: 2, articles: [a('00624', 'yellow')],
+    },
+    {
+      id: 'acrylic-glass-screw', familyId: 'acrylic-glass-screw', name: 'Acrylglasschrauben (8 Stk.)',
+      stage: 'later', category: 'fastener', fastener: 'acrylic-glass-screw', packSize: 8,
+      articles: [a('40641', 'white')],
+    },
+    {
+      id: 'screw-lock', familyId: 'screw-lock', name: 'Sicherungsclips (100 Stk.)', stage: 'later',
+      category: 'fastener', fastener: 'screw-lock', packSize: 100, articles: [a('00035', 'white')],
+    },
+  ],
+};

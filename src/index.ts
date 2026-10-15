@@ -8,5 +8,8 @@ export type * from './commands.js';
 export type * from './core.js';
 export type * from './buildability.js';
 export type * from './persistence.js';
+export type * from './article-catalog.js';
 export { ConstructionDocumentSchema } from './document-schema.js';
 export { parseConstructionDocument } from './parse-document.js';
+export { resolveArticle } from './article-catalog.js';
+export { quadroArticleCatalog } from './quadro-articles.js';

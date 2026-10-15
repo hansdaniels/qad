@@ -145,6 +145,8 @@ Die Realisierung ermittelt gemeinsam:
 
 Lokale Entscheidungen müssen gegen den betroffenen Gesamtaufbau geprüft werden. Eine passende Kupplung an einem Punkt garantiert noch keinen geschlossenen Rahmen; eine passende Bohrung für eine Platte garantiert noch nicht die Befestigung aller weiteren Platten am selben Rohr.
 
+Nicht jede Bohrungsvariante ist in jeder Farbe erhältlich. Die gewünschte Farbe ist deshalb nur eine Präferenz und schließt keine Variante aus: Ist die gewählte Variante in dieser Farbe nicht erhältlich, wird sie in der Standardfarbe realisiert: Rohre Rot, Platten Blau, Kupplungen Schwarz (siehe [Bauteilkatalog](./BAUTEILKATALOG.md), Abschnitt 5).
+
 Unter mehreren gültigen Lösungen werden bestehende Teile und Varianten möglichst beibehalten. Erst danach greifen dokumentierte Standardpräferenzen. Die Auswahl soll reproduzierbar sein.
 
 Der Benutzer kann eine Variante fixieren. Dann ist sie eine Bedingung der Lösungsfindung. Kann der Aufbau damit nicht realisiert werden, wird ein Konflikt gemeldet; die Fixierung wird nicht stillschweigend aufgehoben.
@@ -197,7 +199,7 @@ Zu den Regeln gehören:
 - Sämtliche Plattenbefestigungen und fixierten Varianten bleiben erfüllbar.
 - Keine unzulässigen Kollisionen. Vorgesehene Stecküberlappungen werden durch Anschlussregeln berücksichtigt.
 
-Der Editor zeigt automatisch gewählte besondere Rohrvarianten dauerhaft erkennbar an und hebt einen Wechsel kurz hervor. Die konkrete Variante erscheint auch in der Stückliste. Konflikte markieren die beteiligten Teile und nennen die verletzte Bedingung.
+Der Editor zeigt automatisch gewählte besondere Rohrvarianten dauerhaft erkennbar an und hebt einen Wechsel kurz hervor. Dasselbe gilt für ein Teil, das nicht in der gewünschten Farbe erhältlich ist und deshalb in der Standardfarbe erscheint. Die konkrete Variante erscheint auch in der Stückliste. Konflikte markieren die beteiligten Teile und nennen die verletzte Bedingung.
 
 Im Sinne von DDD bildet die Konstruktion die Konsistenzgrenze für Änderungen. Ein Domain Service ermittelt Realisierungen und prüft Geometrie. Der Editor formuliert Absichten und stellt Ergebnisse dar; er umgeht die fachlichen Invarianten nicht.
 
@@ -240,11 +242,13 @@ Für flexible Elemente werden zunächst Befestigungen und benötigte Rahmenforme
 - Zulässige Stecküberlappungen und geeignete Kollisionsgeometrien.
 - Zentrale Längen- und Winkeltoleranzen.
 
-Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen.
+Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen. Kandidatenwerte aus dem QUADRO-Designprogramm des Herstellers stehen in [GEOMETRIE.md](./GEOMETRIE.md).
 
 ## 12. Quellen zur Teileübersicht
 
 Die Shopseiten dienen zur Identifikation der Teilefamilien. Sie ersetzen keine vollständigen technischen Anschlussdaten. Winkelangaben im Produktnamen können Bohrungsvarianten bezeichnen und dürfen nicht automatisch als Biegewinkel interpretiert werden.
+
+Die daraus abgeleiteten Teilefamilien und Artikel stehen im [Bauteilkatalog](./BAUTEILKATALOG.md).
 
 - [QUADRO-Teileübersicht](https://quadroshop.com/pages/parts)
 - [Kupplungen](https://quadroshop.com/collections/connectors)
@@ -291,6 +295,8 @@ Three.js-Szenenobjekte bilden nicht das persistierte Fachmodell. Kamerabewegunge
 - Kameranavigation und Bearbeitungswerkzeuge erhalten getrennte Eingabegesten, damit das Setzen eines Rohrs nicht gleichzeitig die Ansicht dreht.
 
 ### 13.4 Platzieren und Vorschau
+
+Jedes neue Rohr und jede neue Platte erhält eine Farbe; der Editor belegt sie mit der Standardfarbe des Katalogs vor (Rohre Rot, Platten Blau) und gibt sie immer mit.
 
 Beim Anbauen werden gültige Anschlussrichtungen und Platzierungskandidaten sichtbar angeboten. Eine Vorschau zeigt das entstehende Rohr und die betroffene Realisierung. Die Domänenlogik bestimmt zulässige Positionen und Einrastmöglichkeiten.
 
