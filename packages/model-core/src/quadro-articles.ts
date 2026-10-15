@@ -711,6 +711,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'tube-screw',
       packSize: 20,
+      pieceName: 'Rohrschraube',
       articles: [
         a('00610', 'classic'),
         a('71141', 'petrol'),
@@ -739,6 +740,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'plate-screw',
       packSize: 8,
+      pieceName: 'Plattenschraube',
       articles: black('00621'),
     },
     {
@@ -749,6 +751,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'slide-screw',
       packSize: 2,
+      pieceName: 'Rutschenschraube',
       articles: [a('00643', 'blue')],
       note: 'Verbindet Modular- oder Bogenrutsche mit dem Rahmen.',
     },
@@ -760,6 +763,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'conical-slide-screw',
       packSize: 4,
+      pieceName: 'Konische Rutschenschraube',
       articles: [a('00633', 'blue')],
     },
     {
@@ -770,6 +774,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'conical-slide-screw-counterpart',
       packSize: 2,
+      pieceName: 'Rutschenschraube Gegenstück',
       articles: [a('00624', 'yellow')],
     },
     {
@@ -780,6 +785,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'acrylic-glass-screw',
       packSize: 8,
+      pieceName: 'Acrylglasschraube',
       articles: [a('40641', 'white')],
     },
     {
@@ -790,6 +796,7 @@ export const quadroArticleCatalog: ArticleCatalog = {
       category: 'fastener',
       fastener: 'screw-lock',
       packSize: 100,
+      pieceName: 'Sicherungsclip',
       articles: [a('00035', 'white')],
     },
   ],

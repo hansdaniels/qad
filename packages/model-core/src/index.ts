@@ -13,6 +13,8 @@ export { ConstructionDocumentSchema } from './document-schema.js';
 export { parseConstructionDocument } from './parse-document.js';
 export { constructionCodec, encodeConstruction, openConstruction } from './codec.js';
 export { resolveArticle } from './article-catalog.js';
+export type { BillLine } from './bill-of-materials.js';
+export { billOfMaterials, requestedColour } from './bill-of-materials.js';
 export type { OpenEnd } from './open-ends.js';
 export type { AttachPoint } from './attach.js';
 export { attachPoints, attachTube, nextId, towardDirection } from './attach.js';

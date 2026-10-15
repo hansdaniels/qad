@@ -28,14 +28,14 @@ Einträge einer Familie sind Varianten, die der Solver gegeneinander tauschen da
 
 ## 2. Umfang
 
-| Kategorie  | Einträge | Stufe `initial` (SPEC 2)                                                                              | Stufe `later` (SPEC 9)                                                        |
-| ---------- | -------: | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Kupplungen |       17 | Raumkupplungen 3–6-armig, Flächenkupplungen 2-armig (90°, 180°), 3- und 4-armig, Winkelkupplung 45°   | Flexikupplungen, Lochzapfen-, Lagerkupplung, Doppelrohrverbinder, Rohrklammer |
-| Rohre      |       15 | gerade Rohre 10, 15, 20, 25, 35, 52, 75 cm; Bohrungsvarianten zu 15 und 35 cm; Bogenrohr mit Variante | –                                                                             |
-| Platten    |       12 | Platte 40 × 40 cm                                                                                     | weitere Größen, Lochplatte, Acrylglas, Holzgitter und deren Halteplatten      |
-| Rutschen   |        3 | –                                                                                                     | Modular- und Bogenrutschen-Körper, Auslauf                                    |
-| Zubehör    |        2 | –                                                                                                     | Rohrkappe, Bodenverankerung                                                   |
-| Schrauben  |        7 | –                                                                                                     | alle; Stückzahl je Packung in `packSize` für die spätere Stückliste           |
+| Kategorie  | Einträge | Stufe `initial` (SPEC 2)                                                                              | Stufe `later` (SPEC 9)                                                                        |
+| ---------- | -------: | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Kupplungen |       17 | Raumkupplungen 3–6-armig, Flächenkupplungen 2-armig (90°, 180°), 3- und 4-armig, Winkelkupplung 45°   | Flexikupplungen, Lochzapfen-, Lagerkupplung, Doppelrohrverbinder, Rohrklammer                 |
+| Rohre      |       15 | gerade Rohre 10, 15, 20, 25, 35, 52, 75 cm; Bohrungsvarianten zu 15 und 35 cm; Bogenrohr mit Variante | –                                                                                             |
+| Platten    |       12 | Platte 40 × 40 cm                                                                                     | weitere Größen, Lochplatte, Acrylglas, Holzgitter und deren Halteplatten                      |
+| Rutschen   |        3 | –                                                                                                     | Modular- und Bogenrutschen-Körper, Auslauf                                                    |
+| Zubehör    |        2 | –                                                                                                     | Rohrkappe, Bodenverankerung                                                                   |
+| Schrauben  |        7 | –                                                                                                     | alle; Stückzahl je Packung in `packSize`, Einzelstück in `pieceName` (Stückliste zählt Stück) |
 
 Rohrfamilien haben genau eine Standardvariante (`drilling.kind === 'standard'`):
 

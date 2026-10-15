@@ -136,6 +136,8 @@ export interface FastenerArticle extends ArticleEntryBase {
   readonly category: 'fastener';
   readonly fastener: FastenerKind;
   readonly packSize: number;
+  /** Name of a single piece, as the bill of materials lists it. */
+  readonly pieceName: string;
 }
 
 export type ArticleEntry =
