@@ -1,7 +1,7 @@
 # Baubarkeitsprüfung
 
 Status: Entwurf, 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitte 5 bis 8.
-Die Typen stehen in [`src/buildability.ts`](./src/buildability.ts).
+Die Typen stehen in [`packages/model-core/src/buildability.ts`](./packages/model-core/src/buildability.ts).
 
 ## 1. Zweck und Abgrenzung
 
@@ -316,7 +316,7 @@ Mit einem kleinen synthetischen Prüfkatalog:
 
 ## 8. Umsetzung
 
-`checkBuildability` in [`src/buildability-checker.ts`](./src/buildability-checker.ts)
+`checkBuildability` in [`packages/model-core/src/buildability-checker.ts`](./packages/model-core/src/buildability-checker.ts)
 setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausgehen:
 
 | Thema | Festlegung |
@@ -334,9 +334,9 @@ setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausg
 | Hinweise | `remedies` bleiben vorerst leer. |
 | QUADRO-Katalog | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme. |
 
-Die Abnahmetests aus Abschnitt 7 stehen in `test/buildability.test.mjs` mit einem
-synthetischen Katalog (`test/fixtures.mjs`); offen sind 6 bis 8 (Platten).
-`test/quadro.test.mjs` prüft den vorläufigen QUADRO-Katalog: 35er-Rahmen, falsches
+Die Abnahmetests aus Abschnitt 7 stehen in `packages/model-core/test/buildability.test.mjs` mit einem
+synthetischen Katalog (`packages/model-core/test/fixtures.mjs`); offen sind 6 bis 8 (Platten).
+`packages/model-core/test/quadro.test.mjs` prüft den vorläufigen QUADRO-Katalog: 35er-Rahmen, falsches
 Rohr im Ring, Bogenrohr als Rahmeneck und Winkelkupplung mit schrägem Rohr.
 
 ## 9. Später: Hinweis auf zusätzliche Bohrungen

@@ -189,7 +189,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  packages/model-core:
     dependencies:
       zod:
         specifier: 4.6.4

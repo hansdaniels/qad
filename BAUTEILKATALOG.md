@@ -1,14 +1,14 @@
 # Bauteilkatalog
 
 Status: Stand des Shops vom 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitte 4.1 und 12.
-Die Typen stehen in [`src/article-catalog.ts`](./src/article-catalog.ts), die Daten in
-[`src/quadro-articles.ts`](./src/quadro-articles.ts) (`quadroArticleCatalog`).
+Die Typen stehen in [`packages/model-core/src/article-catalog.ts`](./packages/model-core/src/article-catalog.ts), die Daten in
+[`packages/model-core/src/quadro-articles.ts`](./packages/model-core/src/quadro-articles.ts) (`quadroArticleCatalog`).
 
 ## 1. Zweck und Abgrenzung
 
 Der Bauteilkatalog legt fest, **welche** QUADRO-Teile das Programm kennt: Familien,
 Varianten, Artikelnummern und Farben. Er ist die Artikelebene, kein geometrischer
-Katalog. `PartCatalog` (`src/catalog.ts`) braucht Anschlusslagen, Bohrungsmuster und
+Katalog. `PartCatalog` (`packages/model-core/src/catalog.ts`) braucht Anschlusslagen, Bohrungsmuster und
 Kollisionsgeometrie. Diese Daten liefert der Shop nicht (SPEC 11), deshalb enthält
 dieser Katalog keine Maße.
 
@@ -58,7 +58,7 @@ Rohrfamilien haben genau eine Standardvariante (`drilling.kind === 'standard'`):
 | Schlüssel (Kunststoff, Edelstahl) | Werkzeug, kein Bauteil |
 | [QUADRO Pro](https://quadroshop.com/collections/quadro-pro), QUADROmini | Komplettmodelle bzw. eigenes System |
 
-Ein Test (`test/article-catalog.test.mjs`) stellt sicher, dass diese Produkte nicht
+Ein Test (`packages/model-core/test/article-catalog.test.mjs`) stellt sicher, dass diese Produkte nicht
 versehentlich wieder aufgenommen werden.
 
 ## 4. Kupplungsformen
@@ -157,6 +157,6 @@ und Holzgitter), werden sie nicht übernommen, bis sie geprüft sind.
 
 - Geometrie aller `initial`-Einträge: Anschlusslagen, Einstecktiefen, Bohrungsmuster
   (SPEC 11). Vorläufige `PartType`s mit den Werten aus [GEOMETRIE.md](./GEOMETRIE.md)
-  stehen in `quadroPartCatalog` (`src/quadro-geometry.ts`), ohne Bohrungen.
+  stehen in `quadroPartCatalog` (`packages/model-core/src/quadro-geometry.ts`), ohne Bohrungen.
 - Die Zod-Prüfung des Dateiformats kennt den Katalog nicht; ob ein Farbschlüssel
   existiert, gehört zur fachlichen Prüfung beim Laden.

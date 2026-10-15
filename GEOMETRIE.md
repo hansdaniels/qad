@@ -2,7 +2,7 @@
 
 Status: Kandidatenwerte, 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitt 11.
 Noch nicht am Teil nachgemessen. Als vorläufiger Geometriekatalog umgesetzt in
-`src/quadro-geometry.ts` (`quadroPartCatalog`).
+`packages/model-core/src/quadro-geometry.ts` (`quadroPartCatalog`).
 
 ## 1. Quelle und Methode
 

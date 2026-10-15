@@ -149,7 +149,7 @@ Nicht jede Bohrungsvariante ist in jeder Farbe erhältlich. Die gewünschte Farb
 
 Unter mehreren gültigen Lösungen werden bestehende Teile und Varianten möglichst beibehalten. Erst danach greifen dokumentierte Standardpräferenzen. Die Auswahl soll reproduzierbar sein.
 
-Die erste Umsetzung (`src/solver.ts`) arbeitet so:
+Die erste Umsetzung (`packages/model-core/src/solver.ts`) arbeitet so:
 
 - Alle Verbindungspunkte einer Baugruppe übernehmen die Orientierung ihres Ankers; die Rohrrichtungen sind darin achsparallel.
 - Je Verbindungspunkt mit mindestens zwei Rohren wird die Kupplung mit genau passender Armzahl und eine der 24 achsparallelen Drehungen gewählt; die bisherige Wahl bleibt, solange sie passt.
