@@ -314,7 +314,29 @@ Mit einem kleinen synthetischen Prüfkatalog:
     Kante als schließend hervorgehoben. Mehrere neue Kanten, darunter Brücken,
     werden deterministisch behandelt.
 
-## 8. Später: Hinweis auf zusätzliche Bohrungen
+## 8. Umsetzung
+
+`checkBuildability` in [`src/buildability-checker.ts`](./src/buildability-checker.ts)
+setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausgehen:
+
+| Thema | Festlegung |
+| --- | --- |
+| Toleranzen | Standard 1 mm und 1° (`DEFAULT_TOLERANCE`); der Aufrufer übergibt sie. |
+| Anker | Er legt die Lage des primären Teils seines Ziels fest: Rolle `body` bei Rohr und Platte, Rolle `connector` beim Verbindungspunkt. Von dort wird alles neu berechnet. |
+| Verbindungspunkt-Rahmen | Steht in `intentPoses` und gehört zur gewählten Realisierung. Die Kupplung muss im Punkt sitzen und darin achsparallel gedreht sein (eine der 24 Drehungen). |
+| Rohrrichtung | Das Rohrende im Entwurf zeigt mit +Z ins Rohr, die Anschlussstelle mit +Z hinaus. Bei freier Drehstellung wird nur die Richtung verglichen, bei fester die volle Orientierung. |
+| Parametrische Verbindungen | Ihr Auswerter kommt über `connectionEvaluators`; fehlt er, ist das fehlendes Katalogdatum (`undetermined`). |
+| Gesperrte Baugruppen | Struktur- oder Ankerfehler sperren die Baugruppe für Stufe 2, ein Befund in Stufe 2 sperrt sie für Stufe 4. |
+| Stufe 3 | Prüft Verbindungspunkte mit mindestens zwei Rohren gegen alle Kupplungstypen des Katalogs; Verbindungspunkte mit Winkeladapter noch nicht. |
+| Stufe 4 | GJK-Abstand zwischen Kapseln, Quadern und konvexen Hüllen; Eindringtiefe als kleinste Überlappung über 262 Richtungen mit Verfeinerung. Berührung innerhalb der Toleranz ist keine Kollision. `allowedOverlap` wird über Stichprobenpunkte im Überlappungsbereich geprüft. Warnungen `clearance` nur zwischen nicht verbundenen Teilen. |
+| Kreuzung | Zwei gerade Rohre, deren Achsen sich innerhalb der Toleranz schneiden, ohne direkte Verbindung; Stationen ab Ende a. |
+| Stufe 5 | Noch nicht umgesetzt (Bohrungsmaße fehlen). Ein Entwurf mit Platten ist deshalb `undetermined` (`stage:plate-mounts`), nie `buildable`. |
+| Hinweise | `remedies` bleiben vorerst leer. |
+
+Die Abnahmetests aus Abschnitt 7 stehen in `test/buildability.test.mjs` mit einem
+synthetischen Katalog (`test/fixtures.mjs`); offen sind 6 bis 8 (Platten).
+
+## 9. Später: Hinweis auf zusätzliche Bohrungen
 
 Passt für eine Platte keine Katalogvariante, könnte der Editor zusätzliche
 Schraublöcher vorschlagen. Das ist bewusst nicht Teil dieses Schritts und lässt
@@ -328,7 +350,7 @@ sich ohne Umbau nachrüsten:
   `TubeIntent`, ein neues Urteil „baubar mit Nacharbeit“, eine neue
   Schemaversion und Bohrregeln im Katalog (Abstand zu Enden und Bohrungen).
 
-## 9. Offene Punkte
+## 10. Offene Punkte
 
 - Zahlenwerte für Toleranzen und Mindestabstände (SPEC 11).
 - Kopffallen gehören nicht zur Baubarkeit; sie bekommen später eine eigene

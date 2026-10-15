@@ -44,6 +44,9 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `commands` | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte |
 | `diagnostics` | Strukturierte Konflikte mit Referenzen für Markierungen im Editor |
 | `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](./BAUBARKEIT.md)) |
+| `buildability-checker` | Umsetzung der Prüfung, Stufen 1–4 (`checkBuildability`, `DEFAULT_TOLERANCE`) |
+| `collision` | Konvexe Kollisionsformen: GJK-Abstand, Eindringtiefe, Achsenkreuzung |
+| `math` | Posen, Quaternionen, die 24 Achsdrehungen |
 | `core` | Solver, Vorschau und geprüfte Übernahme eines Modellstands |
 | `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
 | `article-catalog` | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](./BAUTEILKATALOG.md)) |
@@ -95,7 +98,8 @@ enthält eine konkrete Realisierung: Freie Vorgaben bleiben im Entwurf frei, die
 gewählte Stellung steht in der Realisierung. Auswahl soll gültige bisherige Teile
 bevorzugen und bei gleichen Eingaben reproduzierbar bleiben.
 
-Nächster Implementierungsschritt: fachliche Laufzeitvalidierung und Transformationen, danach
-ein kleiner synthetischer Prüfkatalog und der Solver für starre Verbindungen und
-Ringschlüsse. Reale Katalogteile folgen erst mit geprüften Anschlussmaßen;
-welche Teile das sind, legt der [Bauteilkatalog](./BAUTEILKATALOG.md) fest.
+Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4 um und ist mit
+einem synthetischen Prüfkatalog getestet. Nächste Schritte: Stufe 5 (Platten) nach
+Klärung der Bohrungsmaße, danach der Solver für starre Verbindungen und Ringschlüsse.
+Reale Katalogteile folgen mit geprüften Anschlussmaßen; welche Teile das sind, legt der
+[Bauteilkatalog](./BAUTEILKATALOG.md) fest.
