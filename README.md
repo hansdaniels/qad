@@ -43,6 +43,7 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `realization` | Konkrete Teile, Verbindungen, Plattenbefestigungen und berechnete Lagen |
 | `commands` | Atomare Bearbeitungen einschließlich mehrerer zusammengehöriger Schritte |
 | `diagnostics` | Strukturierte Konflikte mit Referenzen für Markierungen im Editor |
+| `buildability` | Baubarkeitsbericht für schrittweisen Einbau, Ringschlussfehler und Hinweise ([Entwurf](./BAUBARKEIT.md)) |
 | `core` | Solver, Vorschau und geprüfte Übernahme eines Modellstands |
 | `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
 | `document-schema` | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp |

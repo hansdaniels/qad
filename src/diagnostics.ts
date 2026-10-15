@@ -18,7 +18,12 @@ export type DiagnosticCode =
   | 'fixed-variant-conflict'
   | 'plate-mount-conflict'
   | 'loop-closure-conflict'
+  | 'connection-misfit'
+  | 'junction-angle-unsupported'
   | 'collision'
+  | 'crossing'
+  | 'clearance'
+  | 'missing-catalog-data'
   | 'unresolved-placement'
   | 'stale-revision'
   | 'unsupported-schema';
