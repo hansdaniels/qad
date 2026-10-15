@@ -26,3 +26,5 @@ export {
 export { findOpenEnds } from './open-ends.js';
 export { quadroArticleCatalog } from './quadro-articles.js';
 export { quadroCollisionGeometry, quadroConnectionEvaluators, quadroPartCatalog } from './quadro-geometry.js';
+/** Pose and quaternion helpers, also for renderers and editors. */
+export * as math from './math.js';

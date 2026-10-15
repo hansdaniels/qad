@@ -5,7 +5,7 @@ Browseranwendung zum Entwerfen von QUADRO-Konstruktionen ([SPEC.md](./SPEC.md)).
 | Verzeichnis                                    | Inhalt                                                                                       |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | [`packages/model-core`](./packages/model-core) | Modellkern: Verträge, Solver, Baubarkeitsprüfung, `ModelCore`, Bauteil- und Geometriekatalog |
-| `apps/editor`                                  | Editor (React, react-three-fiber), im Aufbau                                                 |
+| [`apps/editor`](./apps/editor)                 | Editor (React, react-three-fiber, drei), im Aufbau: zeigt ein Demo-Modell aus `ModelCore`    |
 
 Fachliche Dokumente:
 
@@ -27,4 +27,5 @@ vp install
 vp run -r check
 vp run -r test
 vp run -r build
+vp -C apps/editor dev   # Editor im Browser
 ```
