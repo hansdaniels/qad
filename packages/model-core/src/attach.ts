@@ -34,7 +34,7 @@ export function towardDirection(direction: GridDirection): Quaternion {
 const opposite = (d: GridDirection): GridDirection => ((d[0] === '+' ? '-' : '+') + d[1]) as GridDirection;
 
 /**
- * Free directions at every junction that carries tubes. Occupied are the axes of
+ * Free directions at every placed junction, also a lone anchored one. Occupied are the axes of
  * tube ends and the arms that carry angle adapters. The auto connector adds the
  * arm when a tube is attached, so a virtual arm is not a physical one.
  */
@@ -53,7 +53,7 @@ export function attachPoints(snapshot: ConstructionSnapshot, catalog: PartCatalo
     const ends = design.tubes.flatMap((t) =>
       (['a', 'b'] as const).filter((e) => t[e].junctionId === junction.id).map((e) => t[e]),
     );
-    if (!frame || ends.length === 0) continue;
+    if (!frame) continue;
     const occupied = ends.map((e) => rotate(e.orientation, Z));
     // Arms carrying an angle adapter, expressed in the junction frame.
     const connector = realization.parts.find(

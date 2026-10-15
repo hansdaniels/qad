@@ -36,6 +36,22 @@ export function createModelCore(
   return { ok: true, value: core, diagnostics: result.diagnostics };
 }
 
+/**
+ * Opens a stored state as it is, without solving again, so the chosen realization
+ * stays. The state is verified in full like every commit.
+ */
+export function openModelCore(
+  snapshot: ConstructionSnapshot,
+  catalog: PartCatalog,
+  options: ModelCoreOptions,
+): Result<ModelCore> {
+  const errors = validateDesign(snapshot.design, catalog);
+  if (errors.length > 0) return { ok: false, diagnostics: errors };
+  const verified = verify(snapshot, catalog, options);
+  if (!verified.ok) return verified;
+  return { ok: true, value: new Core(snapshot, catalog, options), diagnostics: verified.diagnostics };
+}
+
 class Core implements ModelCore {
   constructor(
     private current: ConstructionSnapshot,

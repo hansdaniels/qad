@@ -54,9 +54,9 @@ const free = (snapshot, junctionId) =>
     .filter((p) => p.junctionId === junctionId)
     .map((p) => p.direction);
 
-test('a lone anchored junction offers no arms; a tube end offers all directions but its own', () => {
+test('a lone anchored junction offers all directions; a tube end all but its own', () => {
   const core = start();
-  assert.deepEqual(attachPoints(core.snapshot, quadroPartCatalog), []);
+  assert.deepEqual(free(core.snapshot, 'j1'), ['+x', '-x', '+y', '-y', '+z', '-z']);
   const s = attach(core, 'j1', '+x');
   assert.deepEqual(free(s, 'j1'), ['-x', '+y', '-y', '+z', '-z']);
   assert.deepEqual(free(s, 'j2'), ['+x', '+y', '-y', '+z', '-z']);
