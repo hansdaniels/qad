@@ -198,7 +198,7 @@ class Solver {
       const axis = axial[i];
       if (axis) return axis;
       const d = rotate(e.tube[e.end].orientation, Z);
-      const adapter = this.adapterFor(d, used);
+      const adapter = this.adapterFor(d, used, this.previousAdapterArm(junctionId, e));
       if (!adapter) {
         const nearest = nearestAxis(d);
         conflict(
@@ -259,7 +259,11 @@ class Solver {
    * axis-aligned and adapter parameters step in quarter turns, so a canonical
    * arm frame per axis decides feasibility for every connector.
    */
-  private adapterFor(d: Vector3, used: readonly Vector3[]): { arm: Vector3; choice: AdapterChoice } | undefined {
+  private adapterFor(
+    d: Vector3,
+    used: readonly Vector3[],
+    preferred: Vector3 | undefined,
+  ): { arm: Vector3; choice: AdapterChoice } | undefined {
     const tol = this.options.tolerance.angleRad;
     const socket = this.catalog.partTypes
       .flatMap((t) => (t.kind === 'connector' ? t.sites : []))
@@ -270,7 +274,8 @@ class Solver {
       const sleeve = type.sites.find((s) => s.role === 'tube-end');
       const spigot = type.sites.find((s) => s.role === 'socket');
       if (!sleeve || !spigot) continue;
-      for (const arm of AXES) {
+      const arms = preferred ? [preferred, ...AXES.filter((a) => dot(a, preferred) < 1 - 1e-9)] : AXES;
+      for (const arm of arms) {
         if (used.some((u) => dot(u, arm) > 1 - 1e-9)) continue;
         const canonicalArm: AttachmentSite = {
           ...socket,
@@ -615,6 +620,28 @@ class Solver {
     if (!frame || !pose) return undefined;
     const relative = qmul(qconj(frame.orientation), pose.orientation);
     return AXIS_ROTATIONS.find((r) => qangle(qmul(qconj(r), relative)) < 1e-6);
+  }
+
+  /** Arm that carried the angle adapter of this tube end before, in the junction frame. */
+  private previousAdapterArm(junctionId: JunctionId, e: EndRef): Vector3 | undefined {
+    const adapter = this.previousPart({ kind: 'junction', id: junctionId }, `angle-adapter:${e.tube.id}:${e.end}`);
+    const connector = this.previousPart({ kind: 'junction', id: junctionId }, 'connector');
+    const frame = this.previous?.intentPoses.find(
+      (p) => p.intent.kind === 'junction' && p.intent.id === junctionId,
+    )?.worldPose;
+    const pose = connector && this.previous?.poses.find((p) => p.partId === connector.id)?.worldPose;
+    const type = connector && this.types.get(connector.typeId);
+    if (!adapter || !frame || !pose || !type) return undefined;
+    const link = this.previous?.connections.find(
+      (c) =>
+        (c.a.partId === connector.id && c.b.partId === adapter.id) ||
+        (c.b.partId === connector.id && c.a.partId === adapter.id),
+    );
+    const siteId = link && (link.a.partId === connector.id ? link.a.siteId : link.b.siteId);
+    const site = type.sites.find((s) => s.id === siteId);
+    if (!site) return undefined;
+    const world = rotate(compose(pose, site.frame).orientation, Z);
+    return nearestAxis(rotate(qconj(frame.orientation), world));
   }
 
   private previousLinkParameters(e: EndRef, connectorTypeId: string): Params | undefined {

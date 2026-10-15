@@ -15,6 +15,7 @@ export { resolveArticle } from './article-catalog.js';
 export type { OpenEnd } from './open-ends.js';
 export type { AttachPoint } from './attach.js';
 export { attachPoints, attachTube, nextId, towardDirection } from './attach.js';
+export { recolourTube, removeTube, tubeOfPart } from './edits.js';
 export { realizationSolver, solveRealization } from './solver.js';
 export { applyOperations, createModelCore, modelCoreFactory } from './model-core.js';
 export {
