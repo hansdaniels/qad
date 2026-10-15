@@ -15,7 +15,8 @@ Teilkoordinaten ausgewertet. Die Konstanten wurden zusätzlich im Maschinencode
 nachgelesen; Zeichnung, Anschlussberechnung und Anbaulogik ergeben dieselben
 Werte. Einheit im Programm ist mm.
 
-Laut Hersteller sind die Teile seitdem kompatibel geblieben. Das Programm ist ein
+Laut Hersteller sind die Teile seitdem kompatibel geblieben; die Sicherheitsanweisung
+von 2025 verweist noch auf das Programm. Das Programm ist ein
 Darstellungsmodell: Werte, die es nicht zeichnet (Bohrungen, Wandstärken, Toleranzen),
 fehlen, und gezeichnete Werte können vereinfacht sein.
 
@@ -142,7 +143,8 @@ liegen, ist noch auszuwerten.
 
 ## 8. Nicht im Programm
 
-- Bohrungsmuster der Rohre und Bohrungsvarianten (90°, 135°, 180°).
+- Bohrungsmuster der Rohre und Bohrungsvarianten (90°, 135°, 180°); eine Hypothese
+  aus den Abbildungen der Anleitung steht in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 4.
 - Schrauben, Lage der Schraubbohrungen.
 - Bodenverankerung, Acrylglas, Holzgitter und ihre Halteplatten, Lochplatte,
   Modularrutsche.

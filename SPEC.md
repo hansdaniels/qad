@@ -242,7 +242,7 @@ Für flexible Elemente werden zunächst Befestigungen und benötigte Rahmenforme
 - Zulässige Stecküberlappungen und geeignete Kollisionsgeometrien.
 - Zentrale Längen- und Winkeltoleranzen.
 
-Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen. Kandidatenwerte aus dem QUADRO-Designprogramm des Herstellers stehen in [GEOMETRIE.md](./GEOMETRIE.md).
+Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen. Kandidatenwerte aus dem QUADRO-Designprogramm des Herstellers stehen in [GEOMETRIE.md](./GEOMETRIE.md), Konstruktions- und Sicherheitsregeln des Herstellers in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md).
 
 ## 12. Quellen zur Teileübersicht
 

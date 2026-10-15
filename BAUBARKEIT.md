@@ -331,6 +331,8 @@ sich ohne Umbau nachrüsten:
 ## 9. Offene Punkte
 
 - Zahlenwerte für Toleranzen und Mindestabstände (SPEC 11).
+- Fertigprüfung (keine offenen Rohrenden und Kupplungsarme) sowie Sicherheitsprüfungen
+  wie Kopffallen, siehe [HERSTELLERREGELN.md](./HERSTELLERREGELN.md).
 - Ob die Verschraubung die Rohrdrehung auf diskrete Werte festlegt.
 - Montierbarkeit starrer geschlossener Ringe (Einfädeln ohne Verformung) bleibt
   außerhalb; der Prüfer garantiert nur die geometrische Konsistenz des Endzustands.
