@@ -199,7 +199,7 @@ Zu den Regeln gehören:
 - Sämtliche Plattenbefestigungen und fixierten Varianten bleiben erfüllbar.
 - Keine unzulässigen Kollisionen. Vorgesehene Stecküberlappungen werden durch Anschlussregeln berücksichtigt.
 
-Der Editor zeigt automatisch gewählte besondere Rohrvarianten dauerhaft erkennbar an und hebt einen Wechsel kurz hervor. Dasselbe gilt für ein Teil, das nicht in der gewünschten Farbe erhältlich ist und deshalb in der Standardfarbe erscheint. Die konkrete Variante erscheint auch in der Stückliste. Konflikte markieren die beteiligten Teile und nennen die verletzte Bedingung.
+Offene Rohrenden, also Enden ohne weiteres Rohr am selben Verbindungspunkt, hebt der Editor hervor; sie sind kein Fehler. Der Editor zeigt automatisch gewählte besondere Rohrvarianten dauerhaft erkennbar an und hebt einen Wechsel kurz hervor. Dasselbe gilt für ein Teil, das nicht in der gewünschten Farbe erhältlich ist und deshalb in der Standardfarbe erscheint. Die konkrete Variante erscheint auch in der Stückliste. Konflikte markieren die beteiligten Teile und nennen die verletzte Bedingung.
 
 Im Sinne von DDD bildet die Konstruktion die Konsistenzgrenze für Änderungen. Ein Domain Service ermittelt Realisierungen und prüft Geometrie. Der Editor formuliert Absichten und stellt Ergebnisse dar; er umgeht die fachlichen Invarianten nicht.
 

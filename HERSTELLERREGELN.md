@@ -18,7 +18,7 @@ Quellen:
 
 | Regel | Quelle | Bedeutung für das Modell |
 | --- | --- | --- |
-| Auf jedes Rohr gehören immer zwei Kupplungszapfen; unverbundene oder unverschraubte Rohre und Kupplungszapfen sind nicht erlaubt. | Anleitung 1.1 | Ein fertiges Modell hat keine offenen Rohrenden und keine freien Kupplungsarme. Zwischenstände dürfen offen sein (BAUBARKEIT 2); eine Fertigprüfung meldet sie. Abhilfe: passende Kupplung, Rohrkappe. |
+| Auf jedes Rohr gehören immer zwei Kupplungszapfen; unverbundene oder unverschraubte Rohre und Kupplungszapfen sind nicht erlaubt. | Anleitung 1.1 | Ein fertiges Modell hat keine offenen Rohrenden und keine freien Kupplungsarme. Wird nicht geprüft; `findOpenEnds` ermittelt offene Rohrenden, damit der Editor sie hervorhebt. Freie Kupplungsarme entstehen nicht: Die Kupplung ermittelt ihre Arme automatisch aus den angeschlossenen Rohren (Auto-Kupplung), und zu jeder Anordnung gibt es eine exakt passende. |
 | Rohrschrauben werden durch eine 90°-Drehung fixiert. | Anleitung 1.1 | Verschraubung je Rohrende durch Rohrbohrung und Kupplungsarm. |
 | Platten nur belasten, wenn sie an allen vier Seiten mit Rohren verschraubt sind. | Anleitung 1.3 | Jede Platte braucht vier erfüllte Befestigungen (SPEC 7.3). |
 | Platten immer um 90° versetzt zueinander einsetzen, damit alle vier Plattenschrauben greifen. An Plattenstellen hält allein die Plattenschraube das Rohr. | Anleitung 1.3 | Die Plattenschraube sitzt in der Bohrung am Rohrende anstelle der Rohrschraube. Zwei Platten am selben Rohrende brauchen zwei Bohrungen; daher die Bohrungsvarianten (Abschnitt 4). |

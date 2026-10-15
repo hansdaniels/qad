@@ -47,6 +47,7 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `core` | Solver, Vorschau und geprüfte Übernahme eines Modellstands |
 | `persistence` | Versioniertes Dokument und Vertrag für geprüftes Laden |
 | `article-catalog` | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](./BAUTEILKATALOG.md)) |
+| `open-ends` | Offene Rohrenden für die Hervorhebung im Editor (`findOpenEnds`) |
 | `quadro-articles` | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`) |
 | `document-schema` | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp |
 | `parse-document` | JSON einlesen und Formatfehler mit Pfadangaben melden |
