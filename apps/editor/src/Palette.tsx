@@ -64,11 +64,11 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
   return (
     <section>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Rohre</h3>
-      <div style={{ display: 'grid', gap: 4 }}>
+      <div className="choices">
         {TUBES.filter((t) => inAssortment(t.familyId, assortment)).map((t) => entry('tube', t.familyId, t.name))}
       </div>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Platten</h3>
-      <div style={{ display: 'grid', gap: 4 }}>
+      <div className="choices">
         {PLATES.filter((p) => inAssortment(p.familyId, assortment)).map((p) => entry('plate', p.familyId, p.name))}
       </div>
       {choice ? (

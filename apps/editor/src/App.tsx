@@ -327,9 +327,10 @@ export function App() {
   const shown = active?.preview.status === 'invalid' ? unbuildable(active.preview.diagnostics) : notice;
   const special = active?.preview.status === 'valid' ? active.preview.variantChanges.filter((c) => c.nonstandard) : [];
 
+  // Side by side in landscape, sidebar below in portrait; see index.html.
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
-      <div style={{ flex: 1, position: 'relative', background: '#eef1f4' }}>
+    <div className="layout">
+      <div className="stage">
         <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 20, display: 'flex', gap: 4 }}>
           {VIEWS.map((v) => (
             <button
@@ -446,36 +447,36 @@ export function App() {
           <CameraRig view={camera} fit={fit} />
         </Canvas>
       </div>
-      <aside
-        style={{ width: 300, padding: 16, borderLeft: '1px solid #d0d5db', background: '#fff', overflowY: 'auto' }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>QUADRO-Editor</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={newModel}>
-            Neu
-          </button>
-          <button type="button" onClick={openFile} title="Strg+O">
-            Öffnen …
-          </button>
-          <button type="button" onClick={saveFile} title="Strg+S">
-            Speichern
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) void readFile(file);
-            }}
-          />
-        </div>
-        <p style={{ fontSize: 14, margin: '8px 0 0', overflowWrap: 'anywhere' }}>
-          {fileName}
-          {unsaved ? <span style={{ color: '#8a5a00' }}> · nicht gespeichert</span> : null}
-        </p>
+      <aside className="sidebar">
+        <header className="masthead">
+          <h2 style={{ fontSize: 18 }}>QUADRO-Editor</h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={newModel}>
+              Neu
+            </button>
+            <button type="button" onClick={openFile} title="Strg+O">
+              Öffnen …
+            </button>
+            <button type="button" onClick={saveFile} title="Strg+S">
+              Speichern
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) void readFile(file);
+              }}
+            />
+          </div>
+          <p style={{ fontSize: 14, overflowWrap: 'anywhere' }}>
+            {fileName}
+            {unsaved ? <span style={{ color: '#8a5a00' }}> · nicht gespeichert</span> : null}
+          </p>
+        </header>
         <div role="tablist" style={{ display: 'flex', gap: 4, margin: '12px 0 0', borderBottom: '1px solid #d0d5db' }}>
           {(
             [
@@ -506,10 +507,12 @@ export function App() {
           <BillOfMaterials lines={bill} onHighlight={(ids) => setHighlighted(new Set(ids))} onExport={exportBill} />
         ) : (
           <>
-            <p style={{ color: '#555', fontSize: 14 }}>
-              Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene Enden
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
+            {/* Rows wrap only where the sidebar is too narrow for them. */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: '14px 0 0' }}>
+              <span style={{ color: '#555', fontSize: 14, marginRight: 'auto' }}>
+                Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene
+                Enden
+              </span>
               <button type="button" disabled={!canUndo} onClick={() => run(undo)} title="Strg+Z">
                 Zurück
               </button>
@@ -517,26 +520,28 @@ export function App() {
                 Wiederholen
               </button>
             </div>
-            <label style={{ display: 'block', marginTop: 12, fontSize: 14 }}>
-              Farben{' '}
-              <select value={range} onChange={(e) => chooseRange(e.target.value as ColourRange)}>
-                {COLOUR_RANGES.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
-              Teile{' '}
-              <select value={assortment} onChange={(e) => chooseAssortment(e.target.value as Assortment)}>
-                {ASSORTMENTS.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginTop: 12, fontSize: 14 }}>
+              <label>
+                Farben{' '}
+                <select value={range} onChange={(e) => chooseRange(e.target.value as ColourRange)}>
+                  {COLOUR_RANGES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Teile{' '}
+                <select value={assortment} onChange={(e) => chooseAssortment(e.target.value as Assortment)}>
+                  {ASSORTMENTS.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <Palette
               choice={choice}
               range={range}

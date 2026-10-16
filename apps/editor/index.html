@@ -12,6 +12,60 @@
         height: 100%;
         font-family: system-ui, sans-serif;
       }
+      .layout {
+        display: flex;
+        height: 100%;
+      }
+      .stage {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        position: relative;
+        background: #eef1f4;
+      }
+      .sidebar {
+        box-sizing: border-box;
+        width: 300px;
+        padding: 16px;
+        border-left: 1px solid #d0d5db;
+        background: #fff;
+        overflow-y: auto;
+      }
+      .masthead h2 {
+        margin: 0 0 15px;
+      }
+      .masthead p {
+        margin: 8px 0 0;
+      }
+      .choices {
+        display: grid;
+        gap: 4px;
+      }
+      @media (orientation: portrait) {
+        .layout {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: auto;
+          flex: 0 0 28%;
+          border-left: none;
+          border-top: 1px solid #d0d5db;
+        }
+        .masthead {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px 16px;
+        }
+        .masthead h2,
+        .masthead p {
+          margin: 0;
+        }
+        /* The full width holds several parts side by side. */
+        .choices {
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+      }
     </style>
   </head>
   <body>
