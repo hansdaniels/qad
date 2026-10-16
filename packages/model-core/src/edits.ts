@@ -1,7 +1,7 @@
 import { nextId } from './attach.js';
 import type { EditCommand, DesignOperation } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
-import type { ColourId, JunctionId, PartId, TubeId } from './ids.js';
+import type { ColourId, JunctionId, PartId, PlateId, TubeId } from './ids.js';
 
 /**
  * The tube a part stands for: a tube's own body, or the oblique tube an angle
@@ -15,6 +15,30 @@ export function tubeOfPart(snapshot: ConstructionSnapshot, partId: PartId): Tube
   return adapter?.[1];
 }
 
+/** The plate a part realises. */
+export function plateOfPart(snapshot: ConstructionSnapshot, partId: PartId): PlateId | undefined {
+  const part = snapshot.realization.parts.find((p) => p.id === partId);
+  return part?.origin.intent.kind === 'plate' ? part.origin.intent.id : undefined;
+}
+
+/** Command that gives a plate another colour. */
+export function recolourPlate(snapshot: ConstructionSnapshot, plateId: PlateId, colour: ColourId): EditCommand {
+  const plate = snapshot.design.plates.find((p) => p.id === plateId);
+  return {
+    baseRevision: snapshot.revision,
+    operations: plate ? [{ kind: 'set-plate', plate: { ...plate, appearance: { colour } } }] : [],
+  };
+}
+
+/** Command that removes a plate; the tubes keep their drilling variant. */
+export function removePlate(snapshot: ConstructionSnapshot, plateId: PlateId): EditCommand {
+  const exists = snapshot.design.plates.some((p) => p.id === plateId);
+  return {
+    baseRevision: snapshot.revision,
+    operations: exists ? [{ kind: 'remove-intent', target: { kind: 'plate', id: plateId } }] : [],
+  };
+}
+
 /** Command that gives a tube another colour. */
 export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, colour: ColourId): EditCommand {
   const tube = snapshot.design.tubes.find((t) => t.id === tubeId);
@@ -25,9 +49,9 @@ export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, col
 }
 
 /**
- * Command that removes a tube. Junctions left without tubes go as well, except
- * anchored ones. If the model falls apart, every assembly without an anchor gets
- * one at its current place, so nothing moves.
+ * Command that removes a tube. Plates screwed to it and junctions left without
+ * tubes go as well, except anchored junctions. If the model falls apart, every
+ * assembly without an anchor gets one at its current place, so nothing moves.
  */
 export function removeTube(snapshot: ConstructionSnapshot, tubeId: TubeId): EditCommand {
   const { design, realization } = snapshot;
@@ -36,7 +60,12 @@ export function removeTube(snapshot: ConstructionSnapshot, tubeId: TubeId): Edit
   const remaining = design.tubes.filter((t) => t.id !== tubeId);
   const used = new Set(remaining.flatMap((t) => [t.a.junctionId, t.b.junctionId]));
   const anchored = new Set(design.anchors.flatMap((a) => (a.target.kind === 'junction' ? [a.target.id] : [])));
-  const operations: DesignOperation[] = [{ kind: 'remove-intent', target: { kind: 'tube', id: tubeId } }];
+  const operations: DesignOperation[] = [
+    ...design.plates
+      .filter((p) => p.mounts.some((m) => m.tubeId === tubeId))
+      .map((p): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'plate', id: p.id } })),
+    { kind: 'remove-intent', target: { kind: 'tube', id: tubeId } },
+  ];
   for (const anchor of design.anchors) {
     if (anchor.target.kind === 'tube' && anchor.target.id === tubeId)
       operations.push({ kind: 'remove-anchor', id: anchor.id });

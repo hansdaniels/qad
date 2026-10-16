@@ -100,15 +100,29 @@ Biegeebene enthält beide Rohrenden; eine Drehung um ein Ende dreht die Ebene mi
 Rahmen: Ursprung in der Mitte zwischen den vier Kupplungen, z = 0 in der Ebene der
 Rohrachsen, Platte oberhalb.
 
-| Element   | Wert                                                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Außenmaß  | Rastermaß, also Nennlänge + 50 je Seite: 400 × 400, 200 × 400, 300 × 300                                                 |
-| Ecken     | gerundet, Radius ≈ 25                                                                                                    |
-| Oberseite | z = 25,12, liegt auf den Rohren auf                                                                                      |
-| Flansche  | an den beiden Kanten entlang der ersten Plattenabmessung, innen an den Rohren (Abstand zur Rohrachse 25,12), bis z = −22 |
+| Element      | Wert                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Außenmaß     | Rastermaß, also Nennlänge + 50 je Seite: 400 × 400, 200 × 400, 300 × 300                                                                               |
+| Ecken        | gerundet, Radius ≈ 25; ausgespart um den Kupplungsmittelpunkt, sodass senkrechte Rohre Platz haben (Auskunft); im Modell ein Quadrat von 25,12 je Ecke |
+| Oberseite    | z = 25,12, liegt auf den Rohren auf                                                                                                                    |
+| Flansche     | an den beiden Kanten entlang der ersten Plattenabmessung, innen an den Rohren (Abstand zur Rohrachse 25,12), bis z = −22                               |
+| Bohrungen    | je zwei in jedem Flansch, auf Höhe der Rohrachse (z = 0), 50 vom Kupplungsmittelpunkt, also 25 vom Rohrende; Ø 20                                      |
+| Flanschlänge | endet eine Plattendicke vor den querliegenden Rohren (Annahme, damit Wand außen und Boden innen zusammenpassen)                                        |
+| Dicke        | vorläufig 3 für Platte und Flansche, nicht gemessen                                                                                                    |
 
 Damit entsprechen die Shopnamen (40 × 40, 40 × 20, 30 × 30 cm) dem Außenmaß.
-Bohrungen und Plattenschrauben stellt das Programm nicht dar.
+Bohrungen und Plattenschrauben stellt das Programm nicht dar. Die Bohrungen sind
+Auskunft des Auftraggebers: Seit 1979 sind die Teile funktional gleich, jede Platte
+hat zwei Flansche mit je zwei Schrauben. Die Plattenschrauben sitzen an denselben
+Stellen wie die Rohrschrauben zwischen Rohr und Kupplungsarm; statt bündig mit der
+Rohraußenfläche abzuschließen, halten sie den Flansch der Platte. Die Bohrung im
+Flansch liegt deshalb genau über der Rohrbohrung am Rohrende.
+
+Ein Rohr trägt an jedem Ende eine Bohrung (Ø 20, Mitte 25 vom Rohrende, Auskunft);
+die Lage der Bohrungen der Sonderrohre ist die Hypothese aus
+[HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 4. Im Modell sitzt die
+Rohrbohrung als Anschlussstelle auf der Rohrachse, +Z zeigt radial durch die Bohrung
+nach außen; die Plattenstelle sitzt am selben Punkt mit +Z zum Rohr hin.
 
 ## 6. Weitere Kupplungen und Zubehör
 
@@ -146,7 +160,8 @@ liegen, ist noch auszuwerten.
 
 - Bohrungsmuster der Rohre und Bohrungsvarianten (90°, 135°, 180°); eine Hypothese
   aus den Abbildungen der Anleitung steht in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 4.
-- Schrauben, Lage der Schraubbohrungen.
+  Abstand und Durchmesser der Rohrbohrung sind Auskunft (Abschnitt 5).
+- Schrauben.
 - Bodenverankerung, Acrylglas, Holzgitter und ihre Halteplatten, Lochplatte,
   Modularrutsche.
 

@@ -511,8 +511,8 @@ test('missing collision geometry leaves the verdict undetermined', async () => {
   assert.equal(broken.verdict, 'not-buildable');
 });
 
-test('a design with plates stays undetermined until plate mounts are checked', async () => {
-  const { checkBuildability: exported, PLATE_MOUNTS_PENDING } = await import('../src/index.ts');
+test('a plate the realization does not contain is not buildable', async () => {
+  const { checkBuildability: exported } = await import('../src/index.ts');
   const snapshot = square();
   const plate = {
     id: 'p1',
@@ -531,6 +531,9 @@ test('a design with plates stays undetermined until plate mounts are checked', a
     geometry,
     options,
   );
-  assert.equal(report.verdict, 'undetermined');
-  assert.deepEqual(report.missingCatalogData, [PLATE_MOUNTS_PENDING]);
+  assert.equal(report.verdict, 'not-buildable');
+  assert.deepEqual(
+    report.findings.map((f) => [f.stage, f.diagnostic.code]),
+    [['plate-mounts', 'no-realization']],
+  );
 });

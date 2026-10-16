@@ -18,14 +18,15 @@ export { billOfMaterials, requestedColour } from './bill-of-materials.js';
 export type { OpenEnd } from './open-ends.js';
 export type { AttachPoint } from './attach.js';
 export { attachPoints, attachTube, nextId, towardDirection } from './attach.js';
-export { recolourTube, removeTube, tubeOfPart } from './edits.js';
+export { plateOfPart, recolourPlate, recolourTube, removePlate, removeTube, tubeOfPart } from './edits.js';
+export type { PlateSpot } from './plates.js';
+export { insertPlate, plateSpots } from './plates.js';
 export { realizationSolver, solveRealization } from './solver.js';
 export { applyOperations, createModelCore, modelCoreFactory, openModelCore } from './model-core.js';
 export {
   BODY_ROLE,
   CONNECTOR_ROLE,
   DEFAULT_TOLERANCE,
-  PLATE_MOUNTS_PENDING,
   buildabilityChecker,
   checkBuildability,
 } from './buildability-checker.js';

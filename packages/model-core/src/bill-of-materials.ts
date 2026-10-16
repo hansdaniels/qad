@@ -1,4 +1,5 @@
 import { resolveArticle, type ArticleCatalog, type ArticleCategory, type FastenerArticle } from './article-catalog.js';
+import type { PartCatalog } from './catalog.js';
 import type { ConstructionSnapshot } from './core.js';
 import type { ColourId, PartId } from './ids.js';
 import type { PartInstance } from './realization.js';
@@ -34,10 +35,14 @@ export function requestedColour(snapshot: ConstructionSnapshot, part: PartInstan
 /**
  * Parts of the realization grouped by article, plus derived screws (HERSTELLERREGELN.md):
  * a tube screw in the tube's colour per tube end on a connector arm or angle adapter,
- * and a black plate screw per angle adapter sleeve on a connector arm. Plate screws
- * of plates follow with plate mounts.
+ * a black plate screw per plate mount instead of the tube screw at that end, and a
+ * black plate screw per angle adapter sleeve on a connector arm.
  */
-export function billOfMaterials(snapshot: ConstructionSnapshot, catalog: ArticleCatalog): BillLine[] {
+export function billOfMaterials(
+  snapshot: ConstructionSnapshot,
+  catalog: ArticleCatalog,
+  partCatalog: PartCatalog,
+): BillLine[] {
   const lines = new Map<string, Omit<BillLine, 'partIds'> & { partIds: PartId[] }>();
   const add = (line: Omit<BillLine, 'quantity' | 'substituted' | 'partIds'>, substituted: boolean, partId?: PartId) => {
     const existing = lines.get(line.key) ?? { ...line, quantity: 0, substituted: 0, partIds: [] };
@@ -85,12 +90,27 @@ export function billOfMaterials(snapshot: ConstructionSnapshot, catalog: Article
   };
   const [tubeScrews, plateScrews] = [fastener('tube-screw'), fastener('plate-screw')];
   const parts = new Map(snapshot.realization.parts.map((p) => [p.id, p]));
+  // Tube ends whose hole holds a plate screw, as part ID and end site.
+  const types = new Map(partCatalog.partTypes.map((t) => [t.id, t]));
+  const plated = new Set<string>();
+  for (const mount of snapshot.realization.plateMounts) {
+    addScrew(plateScrews, 'black');
+    const tube = parts.get(mount.tubeHole.partId);
+    const type = tube && types.get(tube.typeId);
+    const hole = type?.kind === 'tube' ? type.holes.find((h) => h.siteId === mount.tubeHole.siteId) : undefined;
+    if (type?.kind !== 'tube' || !hole) continue;
+    const end = hole.stationMm <= type.centerlineLengthMm / 2 ? type.ends.a : type.ends.b;
+    plated.add(`${mount.tubeHole.partId}#${end}`);
+  }
   const isAdapter = (p: PartInstance | undefined) => p?.origin.role.startsWith(ANGLE_ADAPTER) ?? false;
   for (const connection of snapshot.realization.connections) {
     const [a, b] = [parts.get(connection.a.partId), parts.get(connection.b.partId)];
     const tube = a?.origin.intent.kind === 'tube' ? a : b?.origin.intent.kind === 'tube' ? b : undefined;
     const other = tube === a ? b : a;
-    if (tube && other?.origin.intent.kind === 'junction') addScrew(tubeScrews, requestedColour(snapshot, tube));
+    const tubeSite = tube && (tube === a ? connection.a : connection.b).siteId;
+    if (tube && other?.origin.intent.kind === 'junction') {
+      if (!plated.has(`${tube.id}#${tubeSite}`)) addScrew(tubeScrews, requestedColour(snapshot, tube));
+    }
     // Sleeve of an angle adapter on a connector arm.
     else if (isAdapter(a) !== isAdapter(b) && !tube) addScrew(plateScrews, 'black');
   }

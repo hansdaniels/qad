@@ -57,7 +57,7 @@ test('a closed frame needs four tubes, four elbows and a screw per tube end', ()
     ['j3', '-x', 'green'],
     ['j4', '-y', 'green'],
   ]);
-  assert.deepEqual(summary(billOfMaterials(s, quadroArticleCatalog)), [
+  assert.deepEqual(summary(billOfMaterials(s, quadroArticleCatalog, quadroPartCatalog)), [
     ['Rohr 35 cm', 'green', 4],
     ['Flächenkupplung 2-armig (90°)', 'black', 4],
     ['Rohrschraube', 'green', 8],
@@ -69,7 +69,7 @@ test('open tube ends need no screw; screws take the colour of their tube', () =>
     ['j1', '+x', 'red'],
     ['j2', '+y', 'blue'],
   ]);
-  const lines = billOfMaterials(s, quadroArticleCatalog);
+  const lines = billOfMaterials(s, quadroArticleCatalog, quadroPartCatalog);
   const screws = lines.filter((l) => l.category === 'fastener').map((l) => [l.colour, l.quantity]);
   assert.deepEqual(screws, [
     ['blue', 1],
@@ -116,7 +116,7 @@ test('an angle adapter is fixed with one black plate screw at its sleeve', () =>
     ],
   });
   assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
-  const fasteners = billOfMaterials(result.value, quadroArticleCatalog)
+  const fasteners = billOfMaterials(result.value, quadroArticleCatalog, quadroPartCatalog)
     .filter((l) => l.category === 'fastener')
     .map((l) => [l.name, l.colour, l.quantity]);
   assert.deepEqual(fasteners, [

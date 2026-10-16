@@ -52,6 +52,8 @@ export interface TubeHole {
 
 export interface PlateType extends PartTypeBase {
   readonly kind: 'plate';
+  /** Distances between the junction centres of its grid cell along plate x and y. */
+  readonly cellMm: readonly [number, number];
   /** Every required mounting site must be realised. */
   readonly requiredMounts: readonly SiteId[];
 }

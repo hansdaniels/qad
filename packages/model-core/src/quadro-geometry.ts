@@ -1,14 +1,24 @@
 import type { CollisionGeometryProvider, CollisionShape } from './buildability.js';
 import type { ConnectionEvaluator } from './core.js';
-import type { AccessoryType, AttachmentSite, ConnectionType, PartCatalog, PartType, TubeType } from './catalog.js';
+import type {
+  AccessoryType,
+  AttachmentSite,
+  ConnectionType,
+  PartCatalog,
+  PartType,
+  PlateType,
+  TubeHole,
+  TubeType,
+} from './catalog.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import type { ConnectorArticle, GridDirection, TubeArticle } from './article-catalog.js';
+import type { ConnectorArticle, GridDirection, PlateArticle, TubeArticle, TubeDrilling } from './article-catalog.js';
 import { add, qaxisAngle, qmul, scale, vec } from './math.js';
 import { quadroArticleCatalog } from './quadro-articles.js';
 
 /**
  * Provisional QUADRO geometry from the 2006 design program (GEOMETRIE.md).
- * Not measured on parts; drilling patterns are unknown, so tubes have no holes.
+ * Not measured on parts. Tube holes and plate flanges follow the information in
+ * GEOMETRIE.md, section 5; the drilling of special tubes is a hypothesis.
  * Part type IDs equal the article catalog IDs.
  */
 
@@ -18,6 +28,13 @@ const ROLL_STEPS = [0, 0.5, 1, 1.5].map((f) => f * Math.PI);
 
 const ARM = 'quadro-arm';
 const TUBE_END = 'quadro-tube-end';
+const TUBE_HOLE = 'quadro-tube-hole';
+const PLATE_MOUNT = 'quadro-plate-mount';
+
+/** Hole centre from the tube end face (GEOMETRIE.md, section 5). */
+const HOLE_FROM_END = 25;
+/** Plate: underside and flange faces 25.12 from the tube axes, flanges down to z = -22, 3 thick. */
+const PLATE = { lift: 25.12, flangeDepth: 22, thickness: 3 };
 
 const X = vec(1, 0, 0);
 const Y = vec(0, 1, 0);
@@ -68,6 +85,7 @@ function connectorType(article: ConnectorArticle): AccessoryType {
 /** Straight tube: origin at the end a face, +x along the tube. */
 function straightTube(article: TubeArticle): TubeType {
   const length = (article.nominalLengthCm ?? 0) * 10;
+  const drilled = drilledHoles(article.drilling, length);
   return {
     kind: 'tube',
     id: article.id,
@@ -77,13 +95,73 @@ function straightTube(article: TubeArticle): TubeType {
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(length, 0, 0), orientation: Z_TO['+x'] }, TUBE_END),
+      ...drilled.sites,
     ],
     shape: 'straight',
     nominalLengthMm: length,
     centerlineLengthMm: length,
     ends: { a: 'a', b: 'b' },
-    holes: [],
+    holes: drilled.holes,
     standardVariant: article.drilling.kind === 'standard',
+  };
+}
+
+/**
+ * Holes per end as angles about the tube axis, measured from local +z (HERSTELLERREGELN.md,
+ * section 4, hypothesis): standard one per end on the same side; 180° a through hole;
+ * 90° two at right angles; 135° two at end a, one at end b.
+ */
+function holeAngles(drilling: TubeDrilling): { a: number[]; b: number[] } {
+  if (drilling.kind === 'standard') return { a: [0], b: [0] };
+  const second = (drilling.designationDeg * Math.PI) / 180;
+  return drilling.holes === 3 ? { a: [0, second], b: [0] } : { a: [0, second], b: [0, second] };
+}
+
+/** Hole sites on the axis at the hole's station; +Z points radially out through the hole. */
+function drilledHoles(drilling: TubeDrilling, length: number): { sites: AttachmentSite[]; holes: TubeHole[] } {
+  const sites: AttachmentSite[] = [];
+  const holes: TubeHole[] = [];
+  const angles = holeAngles(drilling);
+  for (const [end, station] of [
+    ['a', HOLE_FROM_END],
+    ['b', length - HOLE_FROM_END],
+  ] as const) {
+    for (const angle of angles[end]) {
+      const id = `hole-${end}-${Math.round((angle * 180) / Math.PI)}`;
+      sites.push(site(id, 'hole', { position: vec(station, 0, 0), orientation: qaxisAngle(X, angle) }, TUBE_HOLE));
+      holes.push({ siteId: id, stationMm: station });
+    }
+  }
+  return { sites, holes };
+}
+
+/**
+ * Plate in its grid cell: origin between the four junctions, z = 0 in the plane of
+ * the tube axes, the plate above. Flanges run along x on the tubes at y = ±y/2 and
+ * hold two screws each, 50 from the junction centres (GEOMETRIE.md, section 5).
+ * Mount sites sit on those tube axes, +Z towards the tube.
+ */
+function plateType(article: PlateArticle): PlateType | undefined {
+  if (!article.tubeGridCm) return undefined;
+  const [x, y] = article.tubeGridCm.map((cm) => cm * 10 + 2 * ARM_SHOULDER) as [number, number];
+  const reach = x / 2 - ARM_SHOULDER - HOLE_FROM_END;
+  const sites: AttachmentSite[] = [];
+  for (const sy of [1, -1]) {
+    for (const sx of [1, -1]) {
+      const id = `mount${sx > 0 ? '+' : '-'}x${sy > 0 ? '+' : '-'}y`;
+      const toward = qaxisAngle(X, sy > 0 ? -Math.PI / 2 : Math.PI / 2);
+      sites.push(site(id, 'mount', { position: vec(sx * reach, (sy * y) / 2, 0), orientation: toward }, PLATE_MOUNT));
+    }
+  }
+  return {
+    kind: 'plate',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
+    geometry: { display: { key: article.id }, collision: { key: `quadro-plate-${x}x${y}` } },
+    sites,
+    cellMm: [x, y],
+    requiredMounts: sites.map((s) => s.id),
   };
 }
 
@@ -144,6 +222,10 @@ function partTypes(): PartType[] {
     else if (entry.category === 'connector' && entry.connector === 'angle') types.push(angleConnector(entry));
     else if (entry.category === 'tube' && entry.shape === 'straight') types.push(straightTube(entry));
     else if (entry.category === 'tube' && entry.shape === 'bent') types.push(curvedTube(entry));
+    else if (entry.category === 'plate' && (entry.plate === 'solid' || entry.plate === 'perforated')) {
+      const plate = plateType(entry);
+      if (plate) types.push(plate);
+    }
   }
   return types;
 }
@@ -160,10 +242,25 @@ const ARM_TUBE: ConnectionType = {
   },
 };
 
+/**
+ * Plate screw through a flange into a tube hole: the mount faces the hole and lies
+ * along the tube one way or the other.
+ */
+const TUBE_PLATE: ConnectionType = {
+  id: 'quadro-tube-plate',
+  aInterfaceId: TUBE_HOLE,
+  bInterfaceId: PLATE_MOUNT,
+  kinematics: {
+    kind: 'parametric',
+    evaluatorKey: 'quadro-tube-plate',
+    parameters: [{ name: 'turnRad', unit: 'radian', domain: { kind: 'discrete', values: [0, Math.PI] } }],
+  },
+};
+
 export const quadroPartCatalog: PartCatalog = {
   ref: { id: 'quadro-provisional', version: '2006-1' },
   partTypes: partTypes(),
-  connectionTypes: [ARM_TUBE],
+  connectionTypes: [ARM_TUBE, TUBE_PLATE],
 };
 
 /** Site b faces site a (half turn about x), then turns by rollRad about its axis. */
@@ -171,6 +268,10 @@ export const quadroConnectionEvaluators: Readonly<Record<string, ConnectionEvalu
   'quadro-arm-tube': (parameters) => ({
     position: vec(0, 0, 0),
     orientation: qmul(qaxisAngle(X, Math.PI), qaxisAngle(vec(0, 0, 1), parameters.rollRad ?? 0)),
+  }),
+  'quadro-tube-plate': (parameters) => ({
+    position: vec(0, 0, 0),
+    orientation: qmul(qaxisAngle(X, Math.PI), qaxisAngle(vec(0, 0, 1), parameters.turnRad ?? 0)),
   }),
 };
 
@@ -234,6 +335,27 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
       return [
         { kind: 'capsule', a: vec(TUBE_RADIUS, 0, 0), b: vec(ANGLE.sleeve - TUBE_RADIUS, 0, 0), radiusMm: TUBE_RADIUS },
         { kind: 'convex', points: cylinderPoints(from, SPIGOT_SHOULDER, TUBE_RADIUS) },
+      ];
+    }
+    const plate = /^quadro-plate-(\d+)x(\d+)$/.exec(ref.key);
+    if (plate) {
+      const [x, y] = [Number(plate[1]), Number(plate[2])];
+      const { lift, flangeDepth, thickness } = PLATE;
+      // Flanges end a plate thickness short of the crossing tubes, so an outward wall
+      // plate clears a floor plate lying inside on the same tube (platform).
+      const flange = (side: number): CollisionShape => ({
+        kind: 'box',
+        center: vec(0, side * (y / 2 - lift - thickness / 2), (lift - flangeDepth) / 2),
+        halfExtents: vec(x / 2 - lift - thickness, thickness / 2, (lift + flangeDepth) / 2),
+      });
+      // Corners are cut out around the junctions, so upright tubes fit (GEOMETRIE.md,
+      // section 5); two crossing boxes cover the rest.
+      const z = lift + thickness / 2;
+      return [
+        { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2 - lift, y / 2, thickness / 2) },
+        { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2, y / 2 - lift, thickness / 2) },
+        flange(1),
+        flange(-1),
       ];
     }
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);

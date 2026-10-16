@@ -1,9 +1,9 @@
-import type { AttachmentSite, ConnectionType, PartCatalog, PartType, TubeType } from './catalog.js';
+import type { AttachmentSite, ConnectionType, PartCatalog, PartType, PlateType, TubeType } from './catalog.js';
 import type { RealizationSolver, SolveOptions } from './core.js';
-import type { ConstructionDesign, TubeEndpoint, TubeIntent } from './design.js';
+import type { ConstructionDesign, PlateIntent, PlateMountIntent, TubeEndpoint, TubeIntent } from './design.js';
 import type { Diagnostic, DiagnosticCode, Result, SubjectRef } from './diagnostics.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import type { IntentRef, JunctionId, PartId, TubeEnd, TubeId } from './ids.js';
+import type { IntentRef, JunctionId, PartId, PlateId, SiteId, TubeEnd, TubeId } from './ids.js';
 import {
   AXIS_ROTATIONS,
   compose,
@@ -20,16 +20,17 @@ import {
   vec,
   add,
 } from './math.js';
-import type { Connection, PartInstance, Realization } from './realization.js';
+import type { Connection, PartInstance, PlateMountResolution, Realization } from './realization.js';
 
 /**
  * First solver stage (SPEC 6): straight and bent tubes on grid junctions with
- * automatically chosen connectors, closed rings and open tube ends. Angle
- * adapters and plates are not realised yet and lead to a conflict.
+ * automatically chosen connectors, angle adapters, closed rings, open tube ends
+ * and plates screwed into the holes of straight tubes.
  */
 export const realizationSolver: RealizationSolver = { solve: solveRealization };
 
 const FLIP_Z = qaxisAngle(vec(1, 0, 0), Math.PI);
+const X = vec(1, 0, 0);
 const Z = vec(0, 0, 1);
 
 type Params = Readonly<Record<string, number>>;
@@ -51,6 +52,14 @@ interface AdapterChoice {
   readonly type: PartType;
   readonly sleeve: AttachmentSite;
   readonly spigot: AttachmentSite;
+}
+
+/** A plate mount realised in a tube hole. */
+interface MountFit {
+  readonly plate: PlateIntent;
+  readonly mount: PlateMountIntent;
+  readonly hole: AttachmentSite;
+  readonly turnRad: number;
 }
 
 /** Tube frame relative to the connector frame, with the parameters of each link. */
@@ -80,6 +89,7 @@ function conflict(
 
 const tubeRef = (id: TubeId): SubjectRef => ({ kind: 'intent', ref: { kind: 'tube', id } });
 const junctionRef = (id: JunctionId): SubjectRef => ({ kind: 'intent', ref: { kind: 'junction', id } });
+const plateRef = (id: PlateId): SubjectRef => ({ kind: 'intent', ref: { kind: 'plate', id } });
 const endKey = (e: EndRef) => `${e.tube.id}\u0000${e.end}`;
 
 export function solveRealization(
@@ -107,6 +117,9 @@ class Solver {
   private readonly adapters = new Map<string, AdapterChoice>();
   /** Chosen chain per tube end on a connector: one link, or two via an adapter. */
   private readonly links = new Map<string, Chain>();
+  private readonly plateTypes = new Map<PlateId, PlateType>();
+  private readonly platePoses = new Map<PlateId, Pose>();
+  private readonly mountFits: MountFit[] = [];
   private readonly armOffset: number;
 
   constructor(
@@ -136,18 +149,12 @@ class Solver {
   }
 
   run(): Realization {
-    if (this.design.plates.length > 0) {
-      conflict(
-        'no-realization',
-        'Platten werden noch nicht realisiert.',
-        this.design.plates.map((p) => ({ kind: 'intent', ref: { kind: 'plate', id: p.id } }) as SubjectRef),
-      );
-    }
     for (const tube of [...this.design.tubes].sort((a, b) => compare(a.id, b.id)))
       this.tubeTypes.set(tube.id, this.chooseTubeType(tube));
     for (const junction of [...this.design.junctions].sort((a, b) => compare(a.id, b.id)))
       this.chooseConnector(junction.id);
     for (const component of this.components()) this.place(component);
+    this.placePlates();
     return this.realization();
   }
 
@@ -531,6 +538,196 @@ class Solver {
     );
   }
 
+  // ------------------------------------------------------------ plates
+
+  /**
+   * Plates sit at their logical place relative to a junction. Each tube carrying
+   * plates then gets the variant and quarter-turn roll whose holes meet all its
+   * mounts; straight tubes keep their axis, so nothing else moves (BAUBARKEIT 5).
+   */
+  private placePlates(): void {
+    const byTube = new Map<TubeId, { plate: PlateIntent; mount: PlateMountIntent; frame: Pose }[]>();
+    for (const plate of [...this.design.plates].sort((a, b) => compare(a.id, b.id))) {
+      const type = this.choosePlateType(plate);
+      const junction = this.junctionPoses.get(plate.placement.junctionId);
+      if (!junction) {
+        conflict(
+          'unresolved-placement',
+          `Platte ${plate.id} hängt an Verbindungspunkt ${plate.placement.junctionId}, der keine Lage hat.`,
+          [plateRef(plate.id), junctionRef(plate.placement.junctionId)],
+        );
+      }
+      const pose = compose(junction, plate.placement.pose);
+      this.plateTypes.set(plate.id, type);
+      this.platePoses.set(plate.id, pose);
+      for (const siteId of type.requiredMounts) {
+        const count = plate.mounts.filter((m) => m.plateSiteId === siteId).length;
+        if (count !== 1) {
+          conflict(
+            'plate-mount-conflict',
+            count === 0
+              ? `Platte ${plate.id}: Befestigung ${siteId} fehlt.`
+              : `Platte ${plate.id}: Befestigung ${siteId} ist mehrfach angegeben.`,
+            [plateRef(plate.id)],
+          );
+        }
+      }
+      for (const mount of plate.mounts) {
+        const site = type.sites.find((s) => s.id === mount.plateSiteId && s.role === 'mount');
+        const tube = this.design.tubes.find((t) => t.id === mount.tubeId);
+        if (!site || !tube || !this.tubePoses.has(tube.id)) {
+          conflict(
+            'missing-reference',
+            `Platte ${plate.id}: Befestigung ${mount.plateSiteId} an Rohr ${mount.tubeId} gibt es nicht.`,
+            [plateRef(plate.id), tubeRef(mount.tubeId)],
+          );
+        }
+        byTube.set(tube.id, [...(byTube.get(tube.id) ?? []), { plate, mount, frame: compose(pose, site.frame) }]);
+      }
+    }
+    for (const [tubeId, mounts] of [...byTube].sort(([a], [b]) => compare(a, b))) this.fitHoles(tubeId, mounts);
+  }
+
+  private choosePlateType(plate: PlateIntent): PlateType {
+    const family = this.catalog.partTypes.filter(
+      (t): t is PlateType => t.kind === 'plate' && t.familyId === plate.familyId,
+    );
+    const variant = plate.variant;
+    const previousType = this.previousPart({ kind: 'plate', id: plate.id }, 'body')?.typeId;
+    const preferred = variant.mode === 'fixed' ? variant.typeId : (variant.preferredTypeId ?? previousType);
+    const chosen =
+      variant.mode === 'fixed'
+        ? family.find((t) => t.id === variant.typeId)
+        : ([...family].sort(
+            (a, b) => Number(b.id === preferred) - Number(a.id === preferred) || compare(a.id, b.id),
+          )[0] as PlateType | undefined);
+    if (!chosen) {
+      conflict(
+        variant.mode === 'fixed' ? 'fixed-variant-conflict' : 'no-realization',
+        `Keine Platte der Familie ${plate.familyId} im Katalog.`,
+        [plateRef(plate.id)],
+      );
+    }
+    return chosen;
+  }
+
+  private fitHoles(tubeId: TubeId, mounts: readonly { plate: PlateIntent; mount: PlateMountIntent; frame: Pose }[]) {
+    const tube = this.design.tubes.find((t) => t.id === tubeId)!;
+    const current = this.tubeTypes.get(tubeId)!;
+    const pose = this.tubePoses.get(tubeId)!;
+    const tol = this.options.tolerance;
+    const subjects = [tubeRef(tubeId), ...[...new Set(mounts.map((m) => m.plate.id))].map(plateRef)];
+    if (current.shape !== 'straight') {
+      conflict('plate-mount-conflict', `Platten an Bogenrohr ${tubeId} werden noch nicht unterstützt.`, subjects);
+    }
+    // The mount must lie on the tube axis at the station the design names.
+    const start = compose(pose, endSiteOf(current, 'a').frame).position;
+    const axis = rotate(pose.orientation, X);
+    for (const { plate, mount, frame } of mounts) {
+      const offset = sub(frame.position, start);
+      const station = dot(offset, axis);
+      const lateral = length(sub(offset, scale(axis, station)));
+      if (lateral > tol.distanceMm || Math.abs(station - mount.stationMm) > tol.distanceMm) {
+        conflict(
+          'plate-mount-conflict',
+          `Platte ${plate.id} liegt an Befestigung ${mount.plateSiteId} nicht auf Rohr ${tubeId}.`,
+          [plateRef(plate.id), tubeRef(tubeId)],
+          { lateralMm: round(lateral), stationMm: round(station) },
+        );
+      }
+    }
+    const family = this.catalog.partTypes.filter(
+      (t): t is TubeType => t.kind === 'tube' && t.familyId === tube.familyId,
+    );
+    const variant = tube.variant;
+    const types =
+      variant.mode === 'fixed'
+        ? [current]
+        : [
+            current,
+            ...family
+              .filter((t) => t.id !== current.id)
+              .sort((a, b) => Number(b.standardVariant) - Number(a.standardVariant) || compare(a.id, b.id)),
+          ];
+    for (const type of types) {
+      for (const quarter of [0, 1, 2, 3]) {
+        const candidate = compose(pose, {
+          position: vec(0, 0, 0),
+          orientation: qaxisAngle(X, (quarter * Math.PI) / 2),
+        });
+        const fits = this.assignHoles(type, candidate, mounts);
+        if (!fits) continue;
+        this.tubeTypes.set(tubeId, type);
+        this.tubePoses.set(tubeId, candidate);
+        for (const end of ['a', 'b'] as const) this.relink({ tube, end }, type, candidate);
+        this.mountFits.push(...fits);
+        return;
+      }
+    }
+    conflict(
+      'plate-mount-conflict',
+      variant.mode === 'fixed'
+        ? `Rohr ${tubeId} (${current.id}) hat keine Bohrungen an den Befestigungen der Platten.`
+        : `Keine Variante von Rohr ${tubeId} hat Bohrungen an allen Befestigungen der Platten.`,
+      subjects,
+      { mounts: mounts.length },
+    );
+  }
+
+  /** Each mount in its own hole facing it, or undefined. */
+  private assignHoles(
+    type: TubeType,
+    pose: Pose,
+    mounts: readonly { plate: PlateIntent; mount: PlateMountIntent; frame: Pose }[],
+  ): MountFit[] | undefined {
+    const tol = this.options.tolerance;
+    const used = new Set<SiteId>();
+    const fits: MountFit[] = [];
+    for (const { plate, mount, frame } of mounts) {
+      const fixed = mount.hole.mode === 'fixed' ? mount.hole : undefined;
+      if (fixed && fixed.tubeTypeId !== type.id) return undefined;
+      const hole = type.sites.find((s) => {
+        if (s.role !== 'hole' || used.has(s.id) || (fixed && fixed.siteId !== s.id)) return false;
+        const world = compose(pose, s.frame);
+        const facing = angleBetween(rotate(world.orientation, Z), scale(rotate(frame.orientation, Z), -1));
+        return length(sub(world.position, frame.position)) <= tol.distanceMm && facing <= tol.angleRad;
+      });
+      if (!hole) return undefined;
+      used.add(hole.id);
+      const along = dot(rotate(compose(pose, hole.frame).orientation, X), rotate(frame.orientation, X));
+      fits.push({ plate, mount, hole, turnRad: along > 0 ? 0 : Math.PI });
+    }
+    return fits;
+  }
+
+  /** Chain to the connector for a tube end after the tube turned about its axis. */
+  private relink(e: EndRef, type: TubeType, pose: Pose): void {
+    const before = this.links.get(endKey(e));
+    const junctionId = e.tube[e.end].junctionId;
+    const choice = this.connectors.get(junctionId);
+    const connectorPose = this.connectorPoses.get(junctionId);
+    if (!before || !choice || !connectorPose) return;
+    const tol = this.options.tolerance;
+    const matching = this.chains(e, choice, endSiteOf(type, e.end)).filter((chain) => {
+      const at = compose(connectorPose, chain.tubeInConnector);
+      return (
+        length(sub(at.position, pose.position)) <= tol.distanceMm &&
+        qangle(qmul(qconj(at.orientation), pose.orientation)) <= tol.angleRad
+      );
+    });
+    const same = (chain: Chain) =>
+      Object.entries(chain.params[0] ?? {}).every(([k, v]) => Math.abs((before.params[0]?.[k] ?? NaN) - v) < 1e-9);
+    const chosen = matching.find(same) ?? matching[0];
+    if (!chosen) {
+      conflict(
+        'connection-misfit',
+        `Rohr ${e.tube.id} lässt sich für die Platten nicht auf Verbindungspunkt ${junctionId} drehen.`,
+        [tubeRef(e.tube.id), junctionRef(junctionId)],
+      );
+    }
+    this.links.set(endKey(e), chosen);
+  }
+
   // ------------------------------------------------------------ helpers
 
   private expectedEndFrame(junction: Quaternion, endpoint: TubeEndpoint): Quaternion {
@@ -749,10 +946,43 @@ class Solver {
         );
       }
     }
+    const plateMounts: PlateMountResolution[] = [];
+    for (const [plateId, type] of this.plateTypes) {
+      const origin = { intent: { kind: 'plate', id: plateId } as IntentRef, role: 'body' };
+      const id = this.partId(origin.intent, origin.role);
+      parts.push({ id, typeId: type.id, origin });
+      poses.push({ partId: id, worldPose: this.platePoses.get(plateId)! });
+    }
+    for (const fit of this.mountFits) {
+      const tube = this.design.tubes.find((t) => t.id === fit.mount.tubeId)!;
+      const tubeId = this.partId({ kind: 'tube', id: tube.id }, 'body');
+      const plateId = this.partId({ kind: 'plate', id: fit.plate.id }, 'body');
+      const site = this.plateTypes.get(fit.plate.id)!.sites.find((s) => s.id === fit.mount.plateSiteId)!;
+      const tubeHole = { partId: tubeId, siteId: fit.hole.id };
+      const c = this.connection(
+        tubeHole,
+        fit.hole,
+        { partId: plateId, siteId: site.id },
+        site,
+        { turnRad: fit.turnRad },
+        {
+          tube,
+          end: 'a',
+        },
+      );
+      connections.push(c);
+      plateMounts.push({
+        plateId: fit.plate.id,
+        plateSiteId: site.id,
+        tubeId: tube.id,
+        tubeHole,
+        connectionId: c.id,
+      });
+    }
     return {
       parts: parts.sort((x, y) => compare(x.id, y.id)),
       connections: connections.sort((x, y) => compare(x.id, y.id)),
-      plateMounts: [],
+      plateMounts: plateMounts.sort((x, y) => compare(x.plateId, y.plateId) || compare(x.plateSiteId, y.plateSiteId)),
       poses: poses.sort((x, y) => compare(x.partId, y.partId)),
       intentPoses: [...this.junctionPoses]
         .sort(([x], [y]) => compare(x, y))

@@ -41,9 +41,6 @@ const NORM_TOLERANCE = 1e-6;
 /** Agreed default tolerances: 1 mm and 1°. */
 export const DEFAULT_TOLERANCE: GeometryTolerance = { distanceMm: 1, angleRad: Math.PI / 180 };
 
-/** Reported as missing data while plate mounts (stage 5) are not checked. */
-export const PLATE_MOUNTS_PENDING: GeometryRef = { key: 'stage:plate-mounts' };
-
 /** Role of the part that realises a junction at its logical point (SPEC 3.2). */
 export const CONNECTOR_ROLE = 'connector';
 /** Role of the part that realises a tube or plate intent as a whole. */
@@ -71,9 +68,10 @@ interface Context {
 export const buildabilityChecker: BuildabilityChecker = { check: checkBuildability };
 
 /**
- * Read-only verification of a snapshot (BAUBARKEIT.md). Stages 1 to 4 are
- * implemented. Plate mounts (stage 5) follow once the drilling data is known;
- * until then a design with plates is undetermined, never buildable.
+ * Read-only verification of a snapshot (BAUBARKEIT.md), stages 1 to 5. The fit
+ * of plate screws in their holes is part of the ring closure in stage 2; stage 5
+ * checks that every plate is realised where the design puts it, with each
+ * required mount in a hole of the named tube.
  */
 export function checkBuildability(
   snapshot: ConstructionSnapshot,
@@ -103,8 +101,7 @@ export function checkBuildability(
   checkDesignAgreement(ctx);
   checkJunctionAngles(ctx);
   const collisionPairsTested = checkCollisions(ctx, geometry, edit);
-  // Stage 5 needs the tube drilling patterns; until then plates cannot be confirmed.
-  if (snapshot.design.plates.length > 0) ctx.missing.set(PLATE_MOUNTS_PENDING.key, PLATE_MOUNTS_PENDING);
+  checkPlateMounts(ctx);
 
   const findings = sortFindings(ctx.findings);
   const hasError = findings.some((f) => f.diagnostic.severity === 'error');
@@ -1235,6 +1232,89 @@ function overlapAllowed(
     }
   }
   return true;
+}
+
+// ---------------------------------------------------------------- stage 5
+
+function checkPlateMounts(ctx: Context): void {
+  const stage = 'plate-mounts';
+  const { design, realization } = ctx.snapshot;
+  const tol = ctx.options.tolerance;
+  const plateIds = new Set(design.plates.map((p) => p.id));
+  for (const m of realization.plateMounts) {
+    if (!plateIds.has(m.plateId)) {
+      report(ctx, stage, 'invalid-data', `Befestigung für unbekannte Platte ${m.plateId}.`, [
+        intent({ kind: 'plate', id: m.plateId }),
+      ]);
+    }
+  }
+  for (const plate of design.plates) {
+    const subject = intent({ kind: 'plate', id: plate.id });
+    const body = realization.parts.find(
+      (p) => p.origin.intent.kind === 'plate' && p.origin.intent.id === plate.id && p.origin.role === BODY_ROLE,
+    );
+    const type = body && ctx.types.get(body.typeId);
+    if (!body || type?.kind !== 'plate') {
+      report(ctx, stage, 'no-realization', `Platte ${plate.id} ist nicht realisiert.`, [subject]);
+      continue;
+    }
+    if (type.familyId !== plate.familyId || (plate.variant.mode === 'fixed' && plate.variant.typeId !== type.id)) {
+      report(
+        ctx,
+        stage,
+        plate.variant.mode === 'fixed' ? 'fixed-variant-conflict' : 'invalid-data',
+        `Platte ${plate.id} ist mit einem anderen Teil realisiert, als der Entwurf verlangt.`,
+        [subject, part(body.id)],
+        { actual: type.id },
+      );
+    }
+    const pose = ctx.poses.get(body.id);
+    const junction = realization.intentPoses.find(
+      (p) => p.intent.kind === 'junction' && p.intent.id === plate.placement.junctionId,
+    )?.worldPose;
+    if (pose && junction && !sameFrame(pose, compose(junction, plate.placement.pose), tol)) {
+      report(
+        ctx,
+        stage,
+        'plate-mount-conflict',
+        `Platte ${plate.id} liegt nicht an der Stelle, die der Entwurf angibt.`,
+        [subject, part(body.id)],
+        { offsetMm: round(length(sub(pose.position, compose(junction, plate.placement.pose).position))) },
+      );
+    }
+    for (const siteId of type.requiredMounts) {
+      const mount = plate.mounts.find((m) => m.plateSiteId === siteId);
+      const resolved = realization.plateMounts.find((m) => m.plateId === plate.id && m.plateSiteId === siteId);
+      const c = resolved && realization.connections.find((x) => x.id === resolved.connectionId);
+      const tubeBody = mount && primaryPart(ctx, { kind: 'tube', id: mount.tubeId });
+      const tubeType = tubeBody && ctx.types.get(tubeBody.typeId);
+      const hole =
+        tubeType?.kind === 'tube' && resolved
+          ? tubeType.holes.find((h) => h.siteId === resolved.tubeHole.siteId)
+          : undefined;
+      const links = (x: Connection, a: { partId: PartId; siteId: string }, b: { partId: PartId; siteId: string }) =>
+        [x.a, x.b].some((r) => r.partId === a.partId && r.siteId === a.siteId) &&
+        [x.a, x.b].some((r) => r.partId === b.partId && r.siteId === b.siteId);
+      const fixed = mount?.hole.mode === 'fixed' ? mount.hole : undefined;
+      const problem = !mount
+        ? 'fehlt im Entwurf'
+        : !resolved || !c || !tubeBody || resolved.tubeId !== mount.tubeId || resolved.tubeHole.partId !== tubeBody.id
+          ? `sitzt nicht an Rohr ${mount.tubeId}`
+          : !links(c, resolved.tubeHole, { partId: body.id, siteId }) || !hole
+            ? 'ist nicht verschraubt'
+            : Math.abs(hole.stationMm - mount.stationMm) > tol.distanceMm
+              ? `sitzt an Rohr ${mount.tubeId} nicht an der angegebenen Stelle`
+              : fixed && (fixed.tubeTypeId !== tubeBody.typeId || fixed.siteId !== hole.siteId)
+                ? 'sitzt nicht in der fixierten Bohrung'
+                : undefined;
+      if (problem) {
+        report(ctx, stage, 'plate-mount-conflict', `Platte ${plate.id}: Befestigung ${siteId} ${problem}.`, [
+          subject,
+          ...(mount ? [intent({ kind: 'tube', id: mount.tubeId })] : []),
+        ]);
+      }
+    }
+  }
 }
 
 function sameFrame(a: Pose, b: Pose, tol: { distanceMm: number; angleRad: number }): boolean {
