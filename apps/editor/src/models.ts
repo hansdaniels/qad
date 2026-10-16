@@ -24,6 +24,7 @@ export function emptyModel(id = 'modell'): ModelCore {
       tubes: [],
       junctions: [{ id: 'j1' }],
       plates: [],
+      slides: [],
       anchors: [
         {
           id: 'anchor',

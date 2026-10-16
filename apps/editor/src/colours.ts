@@ -44,15 +44,16 @@ const NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
 
 export const colourName = (colour: ColourId | undefined): string => (colour && NAMES.get(colour)) ?? colour ?? '–';
 
-/** Article entry standing for a tube or plate family: a tube's standard variant, or the plate. */
+/** Article entry standing for a family: a tube's standard variant, the plate or the slide. */
 function familyEntry(familyId: FamilyId) {
   return quadroArticleCatalog.entries.find(
     (e) =>
-      e.familyId === familyId && ((e.category === 'tube' && e.drilling.kind === 'standard') || e.category === 'plate'),
+      e.familyId === familyId &&
+      ((e.category === 'tube' && e.drilling.kind === 'standard') || e.category === 'plate' || e.category === 'slide'),
   );
 }
 
-/** Colours a tube or plate family comes in, within the range. */
+/** Colours a tube, plate or slide family comes in, within the range. */
 export function familyColours(familyId: FamilyId, range: ColourRange): ColourOption[] {
   return (familyEntry(familyId)?.articles ?? [])
     .filter((a) => inRange(a.colour, range))

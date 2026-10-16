@@ -3,7 +3,7 @@ import { inAssortment, type Assortment } from './assortment';
 import { fitColour, familyColours, type ColourRange } from './colours';
 
 export interface PaletteChoice {
-  readonly kind: 'tube' | 'plate';
+  readonly kind: 'tube' | 'plate' | 'slide';
   readonly familyId: FamilyId;
   readonly colour: ColourId;
 }
@@ -20,6 +20,10 @@ const TUBES = quadroArticleCatalog.entries
 const PLATES = quadroArticleCatalog.entries.filter(
   (e) => e.category === 'plate' && quadroPartCatalog.partTypes.some((t) => t.kind === 'plate' && t.id === e.id),
 );
+/** Slides the geometry catalog can hang. */
+const SLIDES = quadroArticleCatalog.entries.filter(
+  (e) => e.category === 'slide' && quadroPartCatalog.partTypes.some((t) => t.kind === 'slide' && t.id === e.id),
+);
 
 interface PaletteProps {
   readonly choice: PaletteChoice | undefined;
@@ -33,6 +37,8 @@ const HINTS = {
   tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, Esc legt es ab.',
   curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
   plate: 'Fläche zwischen vier Rohren anklicken; R dreht die Flansche, Esc legt die Platte ab.',
+  slide:
+    'Feld vor einem 35-cm-Querrohr anklicken. Ein Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr; der Auslauf kommt an dessen untere Kante. Esc legt das Teil ab.',
 };
 
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */
@@ -71,6 +77,10 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
       <div className="choices">
         {PLATES.filter((p) => inAssortment(p.familyId, assortment)).map((p) => entry('plate', p.familyId, p.name))}
       </div>
+      <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Rutschen</h3>
+      <div className="choices">
+        {SLIDES.filter((s) => inAssortment(s.familyId, assortment)).map((s) => entry('slide', s.familyId, s.name))}
+      </div>
       {choice ? (
         <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
           Farbe{' '}
@@ -86,7 +96,7 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
       <p style={{ fontSize: 13, color: '#555' }}>
         {choice
           ? HINTS[choice.kind === 'tube' && CURVED.has(choice.familyId) ? 'curved' : choice.kind]
-          : 'Rohr oder Platte wählen, dann im Modell anbauen.'}
+          : 'Rohr, Platte oder Rutsche wählen, dann im Modell anbauen.'}
       </p>
     </section>
   );

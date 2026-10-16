@@ -125,7 +125,7 @@ export function builtBox(scene: Object3D): Box3 {
   if (!model) return box;
   model.updateWorldMatrix(true, true);
   for (const child of model.children) {
-    if (child.name && !/^(ghost:|virtual-arms$|plate-spots$)/.test(child.name)) box.expandByObject(child);
+    if (child.name && !/^(ghost:|virtual-arms$|plate-spots$|slide-spots$)/.test(child.name)) box.expandByObject(child);
   }
   return box;
 }

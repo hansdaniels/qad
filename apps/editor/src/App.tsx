@@ -9,14 +9,20 @@ import {
   billOfMaterials,
   findHeadTraps,
   insertPlate,
+  insertSlide,
+  isPlan,
   math,
   plateOfPart,
   plateSpots,
+  slideOfPart,
+  slideSpots,
   quadroArticleCatalog,
   quadroPartCatalog,
   recolourPlate,
+  recolourSlide,
   recolourTube,
   removePlate,
+  removeSlide,
   removeTube,
   tubeOfPart,
   turnPlate,
@@ -30,6 +36,7 @@ import {
   type ModelCore,
   type PartId,
   type PlateSpot,
+  type SlideSpot,
   type Pose,
 } from '@qad/model-core';
 import { ASSORTMENTS, inAssortment, type Assortment } from './assortment';
@@ -42,8 +49,9 @@ import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
 import { PlateSpots } from './PlateSpots';
 import { SelectionTools } from './SelectionTools';
+import { SlideSpots } from './SlideSpots';
 import { emptyModel } from './models';
-import { DEFAULT_FILE_NAME, download, downloadModel, openModel, restoreModel, storeModel } from './storage';
+import { DEFAULT_FILE_NAME, download, downloadModel, openModel, openPlan, restoreModel, storeModel } from './storage';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 import { Warnings } from './Warnings';
@@ -56,6 +64,8 @@ const CURVED = new Set(
 interface Notice {
   readonly title: string;
   readonly diagnostics: readonly Diagnostic[];
+  /** Information rather than a problem. */
+  readonly info?: boolean;
 }
 const unbuildable = (diagnostics: readonly Diagnostic[]): Notice | undefined =>
   diagnostics.length > 0 ? { title: 'Nicht baubar:', diagnostics } : undefined;
@@ -85,6 +95,7 @@ export function App() {
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
   const [plateHover, setPlateHover] = useState<PlateSpot | undefined>();
+  const [slideHover, setSlideHover] = useState<SlideSpot | undefined>();
   // Steps through the alternatives at the place under the pointer: flange or bend direction.
   const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
@@ -114,6 +125,13 @@ export function App() {
     [choice, snapshot],
   );
   const cells = useMemo(() => [...new Map(spots.map((s) => [s.cellKey, s])).values()], [spots]);
+  const slideTargets = useMemo(
+    () =>
+      choice?.kind === 'slide'
+        ? slideSpots(snapshot, quadroPartCatalog).filter((s) => s.familyId === choice.familyId)
+        : [],
+    [choice, snapshot],
+  );
   const current = parts.find((p) => p.part.id === selected);
   const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
   const traps = useMemo(() => findHeadTraps(snapshot, quadroPartCatalog), [snapshot]);
@@ -160,7 +178,13 @@ export function App() {
     const anyValid = options[0]?.preview.status === 'valid';
     return chosen && { ...chosen, alternatives: anyValid ? options.length : 1 };
   }, [choice, plateHover, turn, spots, snapshot, core]);
-  const active = plan ?? platePlan;
+  // Preview of the chosen slide at the spot under the pointer; it has no other positions.
+  const slidePlan = useMemo(() => {
+    if (choice?.kind !== 'slide' || !slideHover) return undefined;
+    const command = insertSlide(snapshot, slideHover, choice.colour);
+    return { spot: slideHover, command, preview: core.preview(command), alternatives: 1 };
+  }, [choice, slideHover, snapshot, core]);
+  const active = plan ?? platePlan ?? slidePlan;
 
   const apply = (command: EditCommand): boolean => {
     const result = core.execute(command);
@@ -182,6 +206,7 @@ export function App() {
     release.current = setTimeout(() => {
       setHover(undefined);
       setPlateHover(undefined);
+      setSlideHover(undefined);
     }, 1000);
   };
   const previewHover = (inside: boolean) => (inside ? holdPreview() : releasePreview());
@@ -190,6 +215,7 @@ export function App() {
     if (!apply(command)) return;
     setHover(undefined);
     setPlateHover(undefined);
+    setSlideHover(undefined);
     const added = command.operations.find((op) => op.kind === 'add-plate' || op.kind === 'add-tube');
     const intent =
       added?.kind === 'add-plate'
@@ -207,14 +233,21 @@ export function App() {
     if (choice?.kind !== 'plate') return;
     insert(platePlan?.spot.cellKey === spot.cellKey ? platePlan.command : insertPlate(snapshot, spot, choice.colour));
   };
-  // The tube or plate a selected part stands for; connectors stand for none.
+  const placeSlide = (spot: SlideSpot) => {
+    if (choice?.kind !== 'slide') return;
+    insert(slidePlan?.spot.key === spot.key ? slidePlan.command : insertSlide(snapshot, spot, choice.colour));
+  };
+  // The tube, plate or slide a selected part stands for; connectors stand for none.
   const selectedTube = selected ? tubeOfPart(snapshot, selected) : undefined;
   const selectedPlate = selected ? plateOfPart(snapshot, selected) : undefined;
+  const selectedSlide = selected ? slideOfPart(snapshot, selected) : undefined;
   const selection = selectedTube
     ? { kind: 'tube' as const, intent: snapshot.design.tubes.find((t) => t.id === selectedTube) }
     : selectedPlate
       ? { kind: 'plate' as const, intent: snapshot.design.plates.find((p) => p.id === selectedPlate) }
-      : undefined;
+      : selectedSlide
+        ? { kind: 'slide' as const, intent: snapshot.design.slides.find((s) => s.id === selectedSlide) }
+        : undefined;
   // Colours the selected part may take, its own one included even outside the range.
   const selectionColours = (() => {
     if (!selection?.intent) return [];
@@ -227,7 +260,9 @@ export function App() {
       apply(
         selection.kind === 'tube'
           ? recolourTube(snapshot, selection.intent.id, colour)
-          : recolourPlate(snapshot, selection.intent.id, colour),
+          : selection.kind === 'plate'
+            ? recolourPlate(snapshot, selection.intent.id, colour)
+            : recolourSlide(snapshot, selection.intent.id, colour),
       );
   };
   // Other positions of the selected part: bends of a curved tube, axial or oblique
@@ -236,7 +271,9 @@ export function App() {
     ? []
     : selection.kind === 'plate'
       ? turnPlate(snapshot, selection.intent.id, quadroPartCatalog)
-      : turnTube(snapshot, selection.intent.id, quadroPartCatalog);
+      : selection.kind === 'tube'
+        ? turnTube(snapshot, selection.intent.id, quadroPartCatalog)
+        : [];
   const turnSelected = () => {
     const previews = turns.map((command) => ({ command, preview: core.preview(command) }));
     const next = previews.find((p) => p.preview.status === 'valid');
@@ -249,7 +286,9 @@ export function App() {
     const command =
       selection.kind === 'tube'
         ? removeTube(snapshot, selection.intent.id)
-        : removePlate(snapshot, selection.intent.id);
+        : selection.kind === 'plate'
+          ? removePlate(snapshot, selection.intent.id)
+          : removeSlide(snapshot, selection.intent.id);
     if (apply(command)) setSelected(undefined);
   };
   const chooseRange = (next: ColourRange) => {
@@ -262,11 +301,13 @@ export function App() {
       setChoice(undefined);
       setHover(undefined);
       setPlateHover(undefined);
+      setSlideHover(undefined);
     }
   };
   const run = (step: () => readonly Diagnostic[]) => {
     setHover(undefined);
     setPlateHover(undefined);
+    setSlideHover(undefined);
     setNotice(unbuildable(step()));
   };
 
@@ -274,14 +315,16 @@ export function App() {
 
   const discardOk = () =>
     !unsaved || window.confirm('Die Änderungen am Modell sind in keiner Datei gespeichert. Trotzdem verwerfen?');
-  const switchTo = (next: ModelCore, name: string) => {
+  // A model built from a building plan counts as unsaved; it has not been saved as a model yet.
+  const switchTo = (next: ModelCore, name: string, saved = true) => {
     setCore(next);
     setFileName(name);
-    setSavedDesign(next.snapshot.design);
+    setSavedDesign(saved ? next.snapshot.design : undefined);
     setSelected(undefined);
     setChoice(undefined);
     setHover(undefined);
     setPlateHover(undefined);
+    setSlideHover(undefined);
     setNotice(undefined);
   };
   const newModel = () => {
@@ -291,8 +334,15 @@ export function App() {
     if (discardOk()) fileInput.current?.click();
   };
   const readFile = async (file: File) => {
-    const opened = openModel(await file.text());
-    if (opened.ok) switchTo(opened.value, file.name);
+    const json = await file.text();
+    const plan = isPlan(json);
+    const opened = plan ? openPlan(json) : openModel(json);
+    // Saving a plan's model under the plan's name would replace the plan.
+    if (opened.ok && plan) {
+      switchTo(opened.value, file.name.replace(/(\.json)?$/i, '-modell.json'), false);
+      if (opened.diagnostics.length > 0)
+        setNotice({ title: 'Hinweise aus dem Bauplan:', diagnostics: opened.diagnostics, info: true });
+    } else if (opened.ok) switchTo(opened.value, file.name);
     else setNotice({ title: `${file.name} ließ sich nicht öffnen:`, diagnostics: opened.diagnostics });
   };
   const exportBill = () => download(billCsv(bill), 'text/csv', `${fileName.replace(/\.json$/i, '')}-stueckliste.csv`);
@@ -329,6 +379,7 @@ export function App() {
         setChoice(undefined);
         setHover(undefined);
         setPlateHover(undefined);
+        setSlideHover(undefined);
         setSelected(undefined);
       }
     };
@@ -397,6 +448,7 @@ export function App() {
             setSelected(undefined);
             setHover(undefined);
             setPlateHover(undefined);
+            setSlideHover(undefined);
           }}
         >
           <ambientLight intensity={0.7} />
@@ -448,6 +500,20 @@ export function App() {
                   setPlateHover(spot);
                 }}
                 onPick={placePlate}
+              />
+            ) : null}
+            {choice?.kind === 'slide' ? (
+              <SlideSpots
+                spots={slideTargets}
+                hovered={
+                  slidePlan ? { key: slidePlan.spot.key, valid: slidePlan.preview.status === 'valid' } : undefined
+                }
+                onHover={(spot) => {
+                  if (!spot) return releasePreview();
+                  holdPreview();
+                  setSlideHover(spot);
+                }}
+                onPick={placeSlide}
               />
             ) : null}
             {active && active.alternatives > 1 ? (
@@ -580,6 +646,7 @@ export function App() {
                 if (next?.familyId !== choice?.familyId) {
                   setHover(undefined);
                   setPlateHover(undefined);
+                  setSlideHover(undefined);
                   setTurn(0);
                 }
                 setChoice(next);
@@ -601,7 +668,16 @@ export function App() {
               </section>
             ) : null}
             {shown ? (
-              <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
+              <section
+                style={{
+                  fontSize: 14,
+                  padding: 8,
+                  borderRadius: 4,
+                  ...(shown.info
+                    ? { background: '#fff6e0', color: '#6b4a00' }
+                    : { background: '#fdecea', color: '#8a1c1c' }),
+                }}
+              >
                 <p style={{ margin: '0 0 4px' }}>{shown.title}</p>
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {shown.diagnostics.map((d, i) => (
@@ -617,9 +693,11 @@ export function App() {
                 <button type="button" onClick={remove} title="Entf">
                   {selection.kind === 'plate'
                     ? 'Platte löschen'
-                    : current.part.origin.intent.kind === 'tube'
-                      ? 'Rohr löschen'
-                      : 'Schräges Rohr löschen'}
+                    : selection.kind === 'slide'
+                      ? 'Rutsche löschen'
+                      : current.part.origin.intent.kind === 'tube'
+                        ? 'Rohr löschen'
+                        : 'Schräges Rohr löschen'}
                 </button>
               ) : null}
             </div>

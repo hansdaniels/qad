@@ -1,6 +1,8 @@
 import {
   encodeConstruction,
+  importPlan,
   openConstruction,
+  quadroArticleCatalog,
   quadroPartCatalog,
   type ConstructionSnapshot,
   type Diagnostic,
@@ -69,6 +71,11 @@ export function storeModel(snapshot: ConstructionSnapshot, info: StoredInfo): vo
 
 export function openModel(json: string): Result<ModelCore> {
   return openConstruction(json, quadroPartCatalog, modelOptions);
+}
+
+/** Builds a model from a building plan (BAUPLAN.md). */
+export function openPlan(json: string): Result<ModelCore> {
+  return importPlan(json, quadroPartCatalog, quadroArticleCatalog, modelOptions);
 }
 
 /** Offers the model as a JSON file to download. */
