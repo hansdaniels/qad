@@ -17,7 +17,16 @@ export type { BillLine } from './bill-of-materials.js';
 export { billOfMaterials, requestedColour } from './bill-of-materials.js';
 export type { OpenEnd } from './open-ends.js';
 export type { AttachPoint } from './attach.js';
-export { attachPoints, attachTube, bendDirections, nextId, rebendTube, towardDirection } from './attach.js';
+export type { AttachOptions } from './attach.js';
+export {
+  attachPoints,
+  attachTube,
+  bendDirections,
+  nextId,
+  obliqueDirections,
+  towardDirection,
+  turnTube,
+} from './attach.js';
 export { plateOfPart, recolourPlate, recolourTube, removePlate, removeTube, tubeOfPart } from './edits.js';
 export type { PlateSpot } from './plates.js';
 export { insertPlate, plateSpots, turnPlate } from './plates.js';

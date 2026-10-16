@@ -35,6 +35,7 @@ const endpoint = z.strictObject({
   junctionId: id,
   orientation: quaternion,
   roll: angularConstraint,
+  adapterArm: z.enum(['+x', '-x', '+y', '-y', '+z', '-z']).exactOptional(),
 });
 const tube = z.strictObject({
   id,

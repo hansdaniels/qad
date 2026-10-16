@@ -205,7 +205,17 @@ class Solver {
       const axis = axial[i];
       if (axis) return axis;
       const d = rotate(e.tube[e.end].orientation, Z);
-      const adapter = this.adapterFor(d, used, this.previousAdapterArm(junctionId, e));
+      const named = e.tube[e.end].adapterArm;
+      const explicit = named && AXES[['+x', '-x', '+y', '-y', '+z', '-z'].indexOf(named)];
+      const adapter = this.adapterFor(d, used, explicit ?? this.previousAdapterArm(junctionId, e));
+      if (adapter && explicit && dot(adapter.arm, explicit) < 1 - 1e-9) {
+        conflict(
+          'junction-angle-unsupported',
+          `Die Winkelkupplung für Rohr ${e.tube.id} passt an Verbindungspunkt ${junctionId} nicht auf den Arm ${named}.`,
+          [junctionRef(junctionId), tubeRef(e.tube.id)],
+          { arm: named! },
+        );
+      }
       if (!adapter) {
         const nearest = nearestAxis(d);
         conflict(

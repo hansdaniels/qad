@@ -8,7 +8,7 @@ import {
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
   quadroPartCatalog,
-  rebendTube,
+  turnTube,
 } from '../src/index.ts';
 import { vec } from '../src/math.ts';
 
@@ -40,14 +40,9 @@ function start() {
   return created.value;
 }
 const attach = (core, junctionId, direction, familyId = 'tube-35cm', bend) => {
-  const command = attachTube(
-    core.snapshot,
-    { junctionId, direction },
-    { familyId, colour: 'red' },
-    quadroPartCatalog,
-    1,
+  const command = attachTube(core.snapshot, { junctionId, direction }, { familyId, colour: 'red' }, quadroPartCatalog, {
     bend,
-  );
+  });
   const result = core.execute(command);
   assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
   return result.value;
@@ -81,7 +76,7 @@ test('a curved tube on a connector arm bends the chosen way and closes a frame c
 test('a curved tube turns through the other bend directions and drops its old far junction', () => {
   const core = start();
   attach(core, 'j1', '+x', 'curved-tube', '+z');
-  const commands = rebendTube(core.snapshot, 't1', quadroPartCatalog);
+  const commands = turnTube(core.snapshot, 't1', quadroPartCatalog);
   assert.equal(commands.length, 3);
   const s = core.execute(commands[0]);
   assert.equal(s.ok, true, JSON.stringify(s.diagnostics));
@@ -94,7 +89,6 @@ test('a curved tube turns through the other bend directions and drops its old fa
   const far = s.value.design.tubes[0].b.junctionId;
   assert.deepEqual(at(s.value, far), [400, 400, 0]);
   // Turning on comes back round to the start.
-  for (let i = 0; i < 3; i++)
-    assert.equal(core.execute(rebendTube(core.snapshot, 't1', quadroPartCatalog)[0]).ok, true);
+  for (let i = 0; i < 3; i++) assert.equal(core.execute(turnTube(core.snapshot, 't1', quadroPartCatalog)[0]).ok, true);
   assert.deepEqual(at(core.snapshot, core.snapshot.design.tubes[0].b.junctionId), [400, 0, 400]);
 });

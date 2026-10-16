@@ -1,3 +1,4 @@
+import type { GridDirection } from './article-catalog.js';
 import type { CatalogRef } from './catalog.js';
 import type { AngularConstraint, Pose, Quaternion } from './geometry.js';
 import type {
@@ -36,6 +37,11 @@ export interface TubeEndpoint {
   readonly orientation: Quaternion;
   /** Additional rotation around the reference frame's local +Z axis. */
   readonly roll: AngularConstraint;
+  /**
+   * For an oblique end: the connector arm, in junction coordinates, that carries
+   * the angle adapter. Without it the solver picks one of the two possible arms.
+   */
+  readonly adapterArm?: GridDirection;
 }
 
 export interface TubeIntent {
