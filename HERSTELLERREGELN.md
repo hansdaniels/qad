@@ -2,8 +2,8 @@
 
 Status: Auswertung vom 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md) und
 [BAUBARKEIT.md](./BAUBARKEIT.md). Die Regeln dienen als Hintergrund für Katalog und
-Geometrie. Geprüft werden soll davon nur die Kopffalle (Abschnitt 3), und zwar
-später als eigene Funktion neben der Baubarkeitsprüfung. Die übrigen Konstruktions-
+Geometrie. Geprüft wird davon nur die Kopffalle (Abschnitt 3), als eigene Funktion neben
+der Baubarkeitsprüfung (SPEC 7.4). Die übrigen Konstruktions-
 und Sicherheitsregeln, auch offene Rohrenden, werden nicht geprüft.
 
 Quellen:
@@ -48,7 +48,7 @@ Quellen:
 
 ### Kopffalle
 
-Vorlage für die spätere eigene Prüffunktion (SPEC 9). Das Programm meldet eine mögliche Kopffalle für zwei gerade Rohre, wenn
+Umgesetzt als `findHeadTraps` (SPEC 7.4). Das Programm meldet eine mögliche Kopffalle für zwei gerade Rohre, wenn
 
 1. sie parallel sind (|cos| > 0,99),
 2. ihre Achsen 151 bis 299 mm auseinanderliegen (lichte Weite 101 bis 249 mm),

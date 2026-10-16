@@ -26,7 +26,7 @@ Enthalten sind:
 
 Die konkrete Teileauswahl und deren Geometrie werden im Katalog festgelegt. Ein kleiner, geometrisch geprüfter Katalog genügt für den Anfang.
 
-Die Prüfung betrifft geometrische Montierbarkeit im Rahmen der hinterlegten Regeln. Tragfähigkeit, Materialverformung, Montageschritte und Erreichbarkeit von Schrauben sind zunächst nicht abgedeckt. Sicherheitsregeln des Herstellers (Verankerung, Etagenabstand, Fallhöhe) und eine Prüfung auf offene Rohrenden sind nicht vorgesehen; eine Kopffallenprüfung folgt später als eigene Funktion (Abschnitt 9). Ein geometrisch gültiges Modell ist damit noch keine statisch oder hinsichtlich aller Herstellervorgaben geprüfte Konstruktion.
+Die Prüfung betrifft geometrische Montierbarkeit im Rahmen der hinterlegten Regeln. Tragfähigkeit, Materialverformung, Montageschritte und Erreichbarkeit von Schrauben sind zunächst nicht abgedeckt. Sicherheitsregeln des Herstellers (Verankerung, Etagenabstand, Fallhöhe) und eine Prüfung auf offene Rohrenden sind nicht vorgesehen; mögliche Kopffallen meldet eine eigene Funktion neben der Baubarkeitsprüfung (Abschnitt 7.4). Ein geometrisch gültiges Modell ist damit noch keine statisch oder hinsichtlich aller Herstellervorgaben geprüfte Konstruktion.
 
 ## 3. Zwei fachliche Ebenen
 
@@ -185,6 +185,12 @@ Ohne entsprechende Befestigungsanforderung ist die Bohrungsausrichtung fachlich 
 
 Die vom Benutzer gewünschte Plattenbefestigung wird getrennt von der aktuell gewählten konkreten Bohrung gespeichert. Beim automatischen Variantenwechsel wird die Zuordnung neu berechnet. Eine ausdrücklich fixierte Befestigung bleibt eine Bedingung.
 
+### 7.4 Kopffallen
+
+`findHeadTraps` meldet mögliche Kopffallen nach der Regel des Designprogramms des Herstellers ([HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 3): zwei gerade, parallele Rohre mit 151 bis 299 mm Achsabstand, die sich um mehr als 149 mm überlappen, mit einer Ecke der Öffnung ab 599 mm Höhe. Ecken sind die Enden der Überlappung auf beiden Rohrachsen. Als Boden gilt der tiefste Punkt des Modells, also die Unterseite der tiefsten Kupplung oder Rohroberfläche; wo das Programm den Boden ansetzt, ist nicht belegt. Eine Platte, die an beiden Rohren verschraubt ist, schließt die Öffnung. Bogenrohre bilden keine Seite einer Kopffalle.
+
+Die Meldung ist ein Hinweis, kein Befund der Baubarkeit: Das Modell bleibt baubar und speicherbar. Der Editor zeigt neben dem Revisionszähler ein Warnzeichen mit der Anzahl; ein Klick öffnet die Liste über der Seitenleiste, und beim Überfahren eines Eintrags werden die beiden Rohre hervorgehoben.
+
 ## 8. Änderungen, Invarianten und Editorverhalten
 
 Änderungen erfolgen über fachliche Operationen wie `RohrAnbauen`, `RohrendenVerbinden`, `PlatteEinsetzen`, `VarianteFixieren` und `BauteilEntfernen`.
@@ -215,17 +221,16 @@ Im Sinne von DDD bildet die Konstruktion die Konsistenzgrenze für Änderungen. 
 
 ## 9. Erweiterbarkeit und Reihenfolge
 
-| Spätere Erweiterung                                                    | Bereits vorzusehende Grundlage                                       | Später nötige Arbeit                                                                                             |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Weitere Längen, Bohrungsvarianten und Plattenformen                    | Katalog, Befestigungsstellen und Variantenwahl                       | Geometrien, Daten und Auswahlregeln                                                                              |
-| Kappen und Bodenverankerungen                                          | Allgemeine Bauteile und Anschlusstypen                               | Teiledefinitionen und Montagebedingungen                                                                         |
-| Klammern und Doppelrohrverbinder                                       | Befestigungen auch außerhalb der Rohrenden                           | Konkrete seitliche Befestigungsregeln                                                                            |
-| Rutschen und weiteres starres Zubehör                                  | Teile mit mehreren Befestigungsstellen                               | Geometrien, Montagebedingungen und Baugruppenkomfort                                                             |
-| Räder, Lager und Flexikupplungen                                       | Typisierte Verbindungen mit Parametern                               | Gelenkverhalten und gegebenenfalls zusätzliche Solverlogik                                                       |
-| Textilien, Netze und Poolfolien                                        | Referenzen auf mehrere Befestigungen                                 | Rahmenbedingungen und vereinfachte Darstellung                                                                   |
-| Schrauben und andere Befestigungsmittel                                | Auswertbare montierte Verbindungen                                   | Automatische Stücklistenableitung                                                                                |
-| Fest gewählte Kupplung, z. B. 6-armig als Vorbereitung für einen Anbau | Auto-Kupplung als Standard, Verbindungspunkte mit stabiler Identität | Fixierung am `JunctionIntent` analog zur Rohrvariante; freie Arme in `findOpenEnds` melden                       |
-| Kopffallenprüfung                                                      | Rohrlagen und Plattenbefestigungen der Realisierung                  | Eigene Prüffunktion neben der Baubarkeitsprüfung, nach der Regel in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md) |
+| Spätere Erweiterung                                                    | Bereits vorzusehende Grundlage                                       | Später nötige Arbeit                                                                       |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Weitere Längen, Bohrungsvarianten und Plattenformen                    | Katalog, Befestigungsstellen und Variantenwahl                       | Geometrien, Daten und Auswahlregeln                                                        |
+| Kappen und Bodenverankerungen                                          | Allgemeine Bauteile und Anschlusstypen                               | Teiledefinitionen und Montagebedingungen                                                   |
+| Klammern und Doppelrohrverbinder                                       | Befestigungen auch außerhalb der Rohrenden                           | Konkrete seitliche Befestigungsregeln                                                      |
+| Rutschen und weiteres starres Zubehör                                  | Teile mit mehreren Befestigungsstellen                               | Geometrien, Montagebedingungen und Baugruppenkomfort                                       |
+| Räder, Lager und Flexikupplungen                                       | Typisierte Verbindungen mit Parametern                               | Gelenkverhalten und gegebenenfalls zusätzliche Solverlogik                                 |
+| Textilien, Netze und Poolfolien                                        | Referenzen auf mehrere Befestigungen                                 | Rahmenbedingungen und vereinfachte Darstellung                                             |
+| Schrauben und andere Befestigungsmittel                                | Auswertbare montierte Verbindungen                                   | Automatische Stücklistenableitung                                                          |
+| Fest gewählte Kupplung, z. B. 6-armig als Vorbereitung für einen Anbau | Auto-Kupplung als Standard, Verbindungspunkte mit stabiler Identität | Fixierung am `JunctionIntent` analog zur Rohrvariante; freie Arme in `findOpenEnds` melden |
 
 Gelenke werden im Modellkonzept berücksichtigt. Die erste Umsetzung benötigt keine Bewegungssimulation und unterstützt nur festgelegte Stellungen. Bewegliche geschlossene Mechanismen erfordern später zusätzliche Berechnungslogik.
 

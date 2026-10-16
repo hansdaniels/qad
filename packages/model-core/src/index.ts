@@ -39,6 +39,8 @@ export {
   buildabilityChecker,
   checkBuildability,
 } from './buildability-checker.js';
+export type { HeadTrap } from './head-traps.js';
+export { findHeadTraps } from './head-traps.js';
 export { findOpenEnds } from './open-ends.js';
 export { quadroArticleCatalog } from './quadro-articles.js';
 export {
