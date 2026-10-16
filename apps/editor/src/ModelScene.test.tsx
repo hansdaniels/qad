@@ -78,3 +78,32 @@ test('a valid preview shows the new tube as a ghost', async () => {
   expect(ghosts.map((g) => g.props.name)).toContain('ghost:tube:t7/body');
   expect(core.snapshot.revision).toBe(6);
 });
+
+test('clicking the ghost carries out the previewed edit', async () => {
+  const { attachTube, quadroPartCatalog } = await import('@qad/model-core');
+  const core = demoModel();
+  const preview = core.preview(
+    attachTube(
+      core.snapshot,
+      { junctionId: 'j1', direction: '+z' },
+      { familyId: 'curved-tube', colour: 'green' },
+      quadroPartCatalog,
+      1,
+      '+x',
+    ),
+  );
+  expect(preview.status).toBe('valid');
+  if (preview.status !== 'valid') return;
+  let clicks = 0;
+  const renderer = await ReactThreeTestRenderer.create(
+    <ModelScene
+      snapshot={core.snapshot}
+      selected={undefined}
+      onSelect={() => {}}
+      candidate={preview.candidate}
+      onGhostClick={() => clicks++}
+    />,
+  );
+  await renderer.fireEvent(renderer.scene.findByProps({ name: 'ghost:tube:t7/body' }), 'click');
+  expect(clicks).toBe(1);
+});

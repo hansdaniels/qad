@@ -4,17 +4,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   attachPoints,
   attachTube,
+  bendDirections,
   billOfMaterials,
   insertPlate,
+  math,
   plateOfPart,
   plateSpots,
   quadroArticleCatalog,
   quadroPartCatalog,
+  rebendTube,
   recolourPlate,
   recolourTube,
   removePlate,
   removeTube,
   tubeOfPart,
+  turnPlate,
   type AttachPoint,
   type ColourId,
   type Diagnostic,
@@ -23,8 +27,10 @@ import {
   type ModelCore,
   type PartId,
   type PlateSpot,
+  type Pose,
 } from '@qad/model-core';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
+import { GhostTurn } from './GhostTurn';
 import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
@@ -36,6 +42,9 @@ import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 
 const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
+const CURVED = new Set(
+  quadroPartCatalog.partTypes.flatMap((t) => (t.kind === 'tube' && t.shape === 'bent' ? [t.familyId] : [])),
+);
 
 interface Notice {
   readonly title: string;
@@ -46,6 +55,15 @@ const unbuildable = (diagnostics: readonly Diagnostic[]): Notice | undefined =>
 
 /** Valid before invalid, then the fewest tubes that change to another drilling. */
 const rank = (p: EditPreview) => (p.status === 'valid' ? p.variantChanges.filter((c) => c.nonstandard).length : 1e6);
+
+/** A point at distance along a frame's +Z, e.g. beyond an arm or above a plate. */
+function ahead(pose: Pose, distance: number): [number, number, number] {
+  const p = math.compose(pose, {
+    position: math.vec(0, 0, distance),
+    orientation: { x: 0, y: 0, z: 0, w: 1 },
+  }).position;
+  return [p.x, p.y, p.z];
+}
 
 export function App() {
   const [restored] = useState(restoreModel);
@@ -60,8 +78,8 @@ export function App() {
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
   const [plateHover, setPlateHover] = useState<PlateSpot | undefined>();
-  // The other flange direction than the preferred one, for the cell under the pointer.
-  const [flipped, setFlipped] = useState(false);
+  // Steps through the alternatives at the place under the pointer: flange or bend direction.
+  const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
   const [view, setView] = useState<'build' | 'bill'>('build');
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
@@ -89,11 +107,18 @@ export function App() {
   const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
 
   // Preview of attaching the chosen tube at the arm under the pointer.
+  // A curved tube offers its four bend directions, buildable ones first.
   const plan = useMemo(() => {
     if (choice?.kind !== 'tube' || !hover) return undefined;
-    const command = attachTube(snapshot, hover, choice, quadroPartCatalog);
-    return { key: armKey(hover), command, preview: core.preview(command) };
-  }, [choice, hover, snapshot, core]);
+    const bends = CURVED.has(choice.familyId) ? bendDirections(hover.direction) : [undefined];
+    const options = bends
+      .map((bend) => {
+        const command = attachTube(snapshot, hover, choice, quadroPartCatalog, 1, bend);
+        return { key: armKey(hover), command, preview: core.preview(command) };
+      })
+      .sort((a, b) => Number(a.preview.status !== 'valid') - Number(b.preview.status !== 'valid'));
+    return { ...options[turn % options.length]!, alternatives: options.length };
+  }, [choice, hover, turn, snapshot, core]);
 
   // Preview of the chosen plate at the cell side under the pointer, best flange direction first.
   const platePlan = useMemo(() => {
@@ -105,9 +130,9 @@ export function App() {
         return { spot, command, preview: core.preview(command) };
       })
       .sort((a, b) => rank(a.preview) - rank(b.preview));
-    const chosen = (flipped && options[1]) || options[0];
+    const chosen = options[turn % Math.max(1, options.length)];
     return chosen && { ...chosen, alternatives: options.length };
-  }, [choice, plateHover, flipped, spots, snapshot, core]);
+  }, [choice, plateHover, turn, spots, snapshot, core]);
   const active = plan ?? platePlan;
 
   const apply = (command: EditCommand): boolean => {
@@ -120,13 +145,27 @@ export function App() {
     }
     return result.ok;
   };
+  /** Applies an insertion; a new part with other positions is selected, so it can be turned. */
+  const insert = (command: EditCommand) => {
+    if (!apply(command)) return;
+    setHover(undefined);
+    setPlateHover(undefined);
+    const added = command.operations.find((op) => op.kind === 'add-plate' || op.kind === 'add-tube');
+    const intent =
+      added?.kind === 'add-plate'
+        ? { kind: 'plate', id: added.plate.id }
+        : added?.kind === 'add-tube' && CURVED.has(added.tube.familyId)
+          ? { kind: 'tube', id: added.tube.id }
+          : undefined;
+    if (intent) setSelected(`${intent.kind}:${intent.id}/body`);
+  };
   const pick = (point: AttachPoint) => {
     if (!choice) return;
-    apply(plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog));
+    insert(plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog));
   };
   const placePlate = (spot: PlateSpot) => {
     if (choice?.kind !== 'plate') return;
-    apply(platePlan?.spot.cellKey === spot.cellKey ? platePlan.command : insertPlate(snapshot, spot, choice.colour));
+    insert(platePlan?.spot.cellKey === spot.cellKey ? platePlan.command : insertPlate(snapshot, spot, choice.colour));
   };
   // The tube or plate a selected part stands for; connectors stand for none.
   const selectedTube = selected ? tubeOfPart(snapshot, selected) : undefined;
@@ -143,6 +182,21 @@ export function App() {
           ? recolourTube(snapshot, selection.intent.id, colour)
           : recolourPlate(snapshot, selection.intent.id, colour),
       );
+  };
+  // Other positions of the selected part: bends of a curved tube, flange directions of a plate.
+  const turns = !selection?.intent
+    ? []
+    : selection.kind === 'plate'
+      ? turnPlate(snapshot, selection.intent.id, quadroPartCatalog)
+      : CURVED.has(selection.intent.familyId)
+        ? rebendTube(snapshot, selection.intent.id, quadroPartCatalog)
+        : [];
+  const turnSelected = () => {
+    const previews = turns.map((command) => ({ command, preview: core.preview(command) }));
+    const next = previews.find((p) => p.preview.status === 'valid');
+    if (next) apply(next.command);
+    else if (previews[0])
+      setNotice({ title: 'Keine andere Lage ist baubar:', diagnostics: previews[0].preview.diagnostics });
   };
   const remove = () => {
     if (!selection?.intent) return;
@@ -210,8 +264,10 @@ export function App() {
       } else if (mod && event.key.toLowerCase() === 'y') {
         event.preventDefault();
         run(redo);
-      } else if (!mod && event.key.toLowerCase() === 'r' && platePlan && platePlan.alternatives > 1) {
-        setFlipped(!flipped);
+      } else if (!mod && event.key.toLowerCase() === 'r' && active && active.alternatives > 1) {
+        setTurn(turn + 1);
+      } else if (!mod && event.key.toLowerCase() === 'r' && !active && turns.length > 0) {
+        turnSelected();
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();
@@ -234,7 +290,11 @@ export function App() {
       <div style={{ flex: 1, background: '#eef1f4' }}>
         <Canvas
           camera={{ position: [1300, 900, 900], fov: 40, near: 10, far: 50000 }}
-          onPointerMissed={() => setSelected(undefined)}
+          onPointerMissed={() => {
+            setSelected(undefined);
+            setHover(undefined);
+            setPlateHover(undefined);
+          }}
         >
           <ambientLight intensity={0.7} />
           <directionalLight position={[2000, 3000, 1500]} intensity={1.6} />
@@ -253,12 +313,18 @@ export function App() {
             highlighted={view === 'bill' ? highlighted : undefined}
             onSelect={setSelected}
             candidate={active?.preview.status === 'valid' ? active.preview.candidate : undefined}
+            onGhostClick={() => active && insert(active.command)}
           >
             {choice?.kind === 'tube' ? (
               <VirtualArms
                 points={points}
                 hovered={plan ? { key: plan.key, valid: plan.preview.status === 'valid' } : undefined}
-                onHover={setHover}
+                onHover={(point) => {
+                  // The preview stays when the pointer leaves, so its turn button can be reached.
+                  if (!point) return;
+                  if (!hover || armKey(point) !== armKey(hover)) setTurn(0);
+                  setHover(point);
+                }}
                 onPick={pick}
               />
             ) : null}
@@ -271,10 +337,17 @@ export function App() {
                     : undefined
                 }
                 onHover={(spot) => {
-                  if (spot?.cellKey !== plateHover?.cellKey) setFlipped(false);
+                  if (!spot) return;
+                  if (spot.cellKey !== plateHover?.cellKey) setTurn(0);
                   setPlateHover(spot);
                 }}
                 onPick={placePlate}
+              />
+            ) : null}
+            {active && active.alternatives > 1 ? (
+              <GhostTurn
+                position={platePlan ? ahead(platePlan.spot.worldPose, 90) : ahead(hover!.worldPose, 120)}
+                onTurn={() => setTurn(turn + 1)}
               />
             ) : null}
           </ModelScene>
@@ -287,6 +360,7 @@ export function App() {
               colour={selection.intent.appearance.colour}
               onRecolour={recolour}
               onDelete={remove}
+              onTurn={turns.length > 0 ? turnSelected : undefined}
             />
           ) : null}
           <OrbitControls makeDefault target={[200, 100, -200]} />
@@ -373,7 +447,18 @@ export function App() {
                 ))}
               </select>
             </label>
-            <Palette choice={choice} range={range} onChoose={setChoice} />
+            <Palette
+              choice={choice}
+              range={range}
+              onChoose={(next) => {
+                if (next?.familyId !== choice?.familyId) {
+                  setHover(undefined);
+                  setPlateHover(undefined);
+                  setTurn(0);
+                }
+                setChoice(next);
+              }}
+            />
             {special.length > 0 ? (
               <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fff6e0', color: '#6b4a00' }}>
                 <p style={{ margin: '0 0 4px' }}>Braucht Sonderrohre:</p>

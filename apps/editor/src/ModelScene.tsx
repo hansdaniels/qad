@@ -63,12 +63,22 @@ interface ModelSceneProps {
   readonly onSelect: (id: PartId) => void;
   /** Candidate of a pending edit; its new or changed parts are drawn as ghosts. */
   readonly candidate?: ConstructionSnapshot | undefined;
+  /** Clicking a ghost carries out the pending edit. */
+  readonly onGhostClick?: (() => void) | undefined;
   /** Further content in model coordinates, e.g. virtual arms. */
   readonly children?: ReactNode;
 }
 
 /** Parts of the candidate that are new, retyped or moved compared with the snapshot. */
-function GhostParts({ snapshot, candidate }: { snapshot: ConstructionSnapshot; candidate: ConstructionSnapshot }) {
+function GhostParts({
+  snapshot,
+  candidate,
+  onClick,
+}: {
+  snapshot: ConstructionSnapshot;
+  candidate: ConstructionSnapshot;
+  onClick: (() => void) | undefined;
+}) {
   const parts = useParts(candidate);
   const changed = parts.filter(({ part, pose }) => {
     const before = snapshot.realization.parts.find((p) => p.id === part.id);
@@ -89,6 +99,7 @@ function GhostParts({ snapshot, candidate }: { snapshot: ConstructionSnapshot; c
             colour={displayColour(article?.article.colour)}
             selected={false}
             ghost
+            {...(onClick ? { onSelect: onClick } : {})}
           />
         ) : null,
       )}
@@ -97,7 +108,15 @@ function GhostParts({ snapshot, candidate }: { snapshot: ConstructionSnapshot; c
 }
 
 /** The realised model in model coordinates (z up), turned into the y-up Three.js world. */
-export function ModelScene({ snapshot, selected, highlighted, onSelect, candidate, children }: ModelSceneProps) {
+export function ModelScene({
+  snapshot,
+  selected,
+  highlighted,
+  onSelect,
+  candidate,
+  onGhostClick,
+  children,
+}: ModelSceneProps) {
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
   const lone = useLoneJunctions(snapshot);
@@ -128,7 +147,7 @@ export function ModelScene({ snapshot, selected, highlighted, onSelect, candidat
           <meshStandardMaterial color="#6b7480" />
         </mesh>
       ))}
-      {candidate ? <GhostParts snapshot={snapshot} candidate={candidate} /> : null}
+      {candidate ? <GhostParts snapshot={snapshot} candidate={candidate} onClick={onGhostClick} /> : null}
       {children}
     </group>
   );

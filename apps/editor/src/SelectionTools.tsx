@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Paintbrush, Trash2 } from 'lucide-react';
+import { Paintbrush, RotateCw, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { Box3, Vector3 } from 'three';
 import type { ColourId } from '@qad/model-core';
@@ -16,6 +16,8 @@ interface SelectionToolsProps {
   readonly colour: ColourId | undefined;
   readonly onRecolour: (colour: ColourId) => void;
   readonly onDelete: () => void;
+  /** Puts the part into its next buildable position; only for parts that have one. */
+  readonly onTurn?: (() => void) | undefined;
 }
 
 const BUTTON = 34;
@@ -33,7 +35,15 @@ const round = (size: number): CSSProperties => ({
 });
 
 /** Brush and trash floating above the selected part; the brush opens a ring of colours. */
-export function SelectionTools({ partId, revision, colours, colour, onRecolour, onDelete }: SelectionToolsProps) {
+export function SelectionTools({
+  partId,
+  revision,
+  colours,
+  colour,
+  onRecolour,
+  onDelete,
+  onTurn,
+}: SelectionToolsProps) {
   const scene = useThree((state) => state.scene);
   const [anchor, setAnchor] = useState<[number, number, number] | undefined>();
   const [open, setOpen] = useState(false);
@@ -104,6 +114,17 @@ export function SelectionTools({ partId, revision, colours, colour, onRecolour, 
                 })
               : null}
           </div>
+        ) : null}
+        {onTurn ? (
+          <button
+            type="button"
+            title="Drehen: nächste Lage (R)"
+            aria-label="Drehen"
+            onClick={onTurn}
+            style={{ ...round(BUTTON), border: '1px solid #c8cdd3', background: '#fff' }}
+          >
+            <RotateCw size={18} color="#333" aria-hidden />
+          </button>
         ) : null}
         <button
           type="button"

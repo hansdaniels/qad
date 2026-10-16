@@ -26,14 +26,16 @@ interface PaletteProps {
   readonly onChoose: (choice: PaletteChoice | undefined) => void;
 }
 
+const CURVED = new Set(TUBES.filter((t) => t.category === 'tube' && t.shape === 'bent').map((t) => t.familyId));
 const HINTS = {
   tube: 'Freien Arm (grau) anklicken; Esc legt das Rohr ab.',
+  curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
   plate: 'Fläche zwischen vier Rohren anklicken; R dreht die Flansche, Esc legt die Platte ab.',
 };
 
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */
 export function Palette({ choice, range, onChoose }: PaletteProps) {
-  const entry = (kind: PaletteChoice['kind'], familyId: FamilyId, name: string, supported = true) => {
+  const entry = (kind: PaletteChoice['kind'], familyId: FamilyId, name: string) => {
     const active = familyId === choice?.familyId;
     const fallback = quadroArticleCatalog.defaultColours[kind] ?? 'red';
     // Keep a chosen colour when switching between parts of the same kind.
@@ -42,8 +44,6 @@ export function Palette({ choice, range, onChoose }: PaletteProps) {
       <button
         key={familyId}
         type="button"
-        disabled={!supported}
-        title={supported ? undefined : 'Folgt: Biegeebene muss wählbar sein'}
         onClick={() => onChoose(active ? undefined : { kind, familyId, colour: fitColour(familyId, colour, range) })}
         style={{
           textAlign: 'left',
@@ -51,21 +51,18 @@ export function Palette({ choice, range, onChoose }: PaletteProps) {
           border: active ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
           borderRadius: 4,
           background: active ? '#e8f0fb' : '#fff',
-          color: supported ? '#111' : '#999',
-          cursor: supported ? 'pointer' : 'default',
+          color: '#111',
+          cursor: 'pointer',
         }}
       >
         {name}
-        {supported ? '' : ' (folgt)'}
       </button>
     );
   };
   return (
     <section>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Rohre</h3>
-      <div style={{ display: 'grid', gap: 4 }}>
-        {TUBES.map((t) => entry('tube', t.familyId, t.name, t.category === 'tube' && t.shape === 'straight'))}
-      </div>
+      <div style={{ display: 'grid', gap: 4 }}>{TUBES.map((t) => entry('tube', t.familyId, t.name))}</div>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Platten</h3>
       <div style={{ display: 'grid', gap: 4 }}>{PLATES.map((p) => entry('plate', p.familyId, p.name))}</div>
       {choice ? (
@@ -81,7 +78,9 @@ export function Palette({ choice, range, onChoose }: PaletteProps) {
         </label>
       ) : null}
       <p style={{ fontSize: 13, color: '#555' }}>
-        {choice ? HINTS[choice.kind] : 'Rohr oder Platte wählen, dann im Modell anbauen.'}
+        {choice
+          ? HINTS[choice.kind === 'tube' && CURVED.has(choice.familyId) ? 'curved' : choice.kind]
+          : 'Rohr oder Platte wählen, dann im Modell anbauen.'}
       </p>
     </section>
   );
