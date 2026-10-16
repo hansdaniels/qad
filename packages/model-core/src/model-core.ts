@@ -231,8 +231,7 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
   const fail = (code: DiagnosticCode, message: string, subjects: SubjectRef[] = []): never => {
     throw new OperationError(error(code, message, subjects));
   };
-  const has = (ref: IntentRef) =>
-    (ref.kind === 'tube' ? d.tubes : ref.kind === 'junction' ? d.junctions : d.plates).some((x) => x.id === ref.id);
+  const has = (ref: IntentRef) => intents(d, ref.kind).some((x) => x.id === ref.id);
   const subject = (ref: IntentRef): SubjectRef => ({ kind: 'intent', ref });
   switch (op.kind) {
     case 'add-junction':
@@ -264,6 +263,13 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
     case 'set-plate':
       if (!has({ kind: 'plate', id: op.plate.id })) fail('missing-reference', `Platte ${op.plate.id} gibt es nicht.`);
       return { ...d, plates: d.plates.map((p) => (p.id === op.plate.id ? op.plate : p)) };
+    case 'add-slide':
+      if (has({ kind: 'slide', id: op.slide.id }))
+        fail('duplicate-id', `Rutsche ${op.slide.id} gibt es schon.`, [subject({ kind: 'slide', id: op.slide.id })]);
+      return { ...d, slides: [...d.slides, op.slide] };
+    case 'set-slide':
+      if (!has({ kind: 'slide', id: op.slide.id })) fail('missing-reference', `Rutsche ${op.slide.id} gibt es nicht.`);
+      return { ...d, slides: d.slides.map((s) => (s.id === op.slide.id ? op.slide : s)) };
     case 'set-variant':
       if (!has(op.target))
         fail('missing-reference', `${op.target.kind === 'tube' ? 'Rohr' : 'Platte'} ${op.target.id} gibt es nicht.`);
@@ -279,11 +285,29 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
       return { ...d, anchors: d.anchors.filter((a) => a.id !== op.id) };
     case 'remove-intent':
       if (!has(op.target)) fail('missing-reference', `${op.target.id} gibt es nicht.`, [subject(op.target)]);
-      return op.target.kind === 'tube'
-        ? { ...d, tubes: d.tubes.filter((t) => t.id !== op.target.id) }
-        : op.target.kind === 'junction'
-          ? { ...d, junctions: d.junctions.filter((j) => j.id !== op.target.id) }
-          : { ...d, plates: d.plates.filter((p) => p.id !== op.target.id) };
+      switch (op.target.kind) {
+        case 'tube':
+          return { ...d, tubes: d.tubes.filter((t) => t.id !== op.target.id) };
+        case 'junction':
+          return { ...d, junctions: d.junctions.filter((j) => j.id !== op.target.id) };
+        case 'plate':
+          return { ...d, plates: d.plates.filter((p) => p.id !== op.target.id) };
+        case 'slide':
+          return { ...d, slides: d.slides.filter((s) => s.id !== op.target.id) };
+      }
+  }
+}
+
+function intents(d: ConstructionDesign, kind: IntentRef['kind']): readonly { readonly id: string }[] {
+  switch (kind) {
+    case 'tube':
+      return d.tubes;
+    case 'junction':
+      return d.junctions;
+    case 'plate':
+      return d.plates;
+    case 'slide':
+      return d.slides;
   }
 }
 
@@ -295,7 +319,6 @@ function validateDesign(d: ConstructionDesign, catalog: PartCatalog): Diagnostic
   }
   const junctions = new Set(d.junctions.map((j) => j.id));
   const tubes = new Set(d.tubes.map((t) => t.id));
-  const plates = new Set(d.plates.map((p) => p.id));
   const duplicates = (kind: IntentRef['kind'], ids: readonly string[]) => {
     const seen = new Set<string>();
     for (const id of ids) {
@@ -315,6 +338,10 @@ function validateDesign(d: ConstructionDesign, catalog: PartCatalog): Diagnostic
   duplicates(
     'plate',
     d.plates.map((p) => p.id),
+  );
+  duplicates(
+    'slide',
+    d.slides.map((s) => s.id),
   );
   for (const t of d.tubes) {
     for (const end of ['a', 'b'] as const) {
@@ -352,13 +379,17 @@ function validateDesign(d: ConstructionDesign, catalog: PartCatalog): Diagnostic
       }
     }
   }
+  for (const s of d.slides) {
+    if (!tubes.has(s.tubeId)) {
+      errors.push(
+        error('missing-reference', `Rutsche ${s.id} verweist auf fehlendes Rohr ${s.tubeId}.`, [
+          { kind: 'intent', ref: { kind: 'slide', id: s.id } },
+        ]),
+      );
+    }
+  }
   for (const a of d.anchors) {
-    const ok =
-      a.target.kind === 'junction'
-        ? junctions.has(a.target.id)
-        : a.target.kind === 'tube'
-          ? tubes.has(a.target.id)
-          : plates.has(a.target.id);
+    const ok = intents(d, a.target.kind).some((x) => x.id === a.target.id);
     if (!ok)
       errors.push(
         error('missing-reference', `Anker ${a.id} verweist auf ein fehlendes Objekt.`, [

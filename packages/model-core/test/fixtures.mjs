@@ -164,6 +164,7 @@ export function square({ lengths = [350, 350, 350, 350], reversed = [] } = {}) {
       tubes,
       junctions: corners.map((_, i) => ({ id: `j${i + 1}` })),
       plates: [],
+      slides: [],
       anchors: [{ id: 'anchor', target: { kind: 'junction', id: 'j1' }, worldPose: pose(corners[0]) }],
     },
     realization: {

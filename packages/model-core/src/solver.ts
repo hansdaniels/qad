@@ -1,9 +1,25 @@
-import type { AttachmentSite, ConnectionType, PartCatalog, PartType, PlateType, TubeType } from './catalog.js';
+import type { GridDirection } from './article-catalog.js';
+import type {
+  AttachmentSite,
+  ConnectionType,
+  PartCatalog,
+  PartType,
+  PlateType,
+  SlideType,
+  TubeType,
+} from './catalog.js';
 import type { RealizationSolver, SolveOptions } from './core.js';
-import type { ConstructionDesign, PlateIntent, PlateMountIntent, TubeEndpoint, TubeIntent } from './design.js';
+import type {
+  ConstructionDesign,
+  PlateIntent,
+  PlateMountIntent,
+  SlideIntent,
+  TubeEndpoint,
+  TubeIntent,
+} from './design.js';
 import type { Diagnostic, DiagnosticCode, Result, SubjectRef } from './diagnostics.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import type { IntentRef, JunctionId, PartId, PlateId, SiteId, TubeEnd, TubeId } from './ids.js';
+import type { IntentRef, JunctionId, PartId, PlateId, SiteId, SlideId, TubeEnd, TubeId } from './ids.js';
 import {
   AXIS_ROTATIONS,
   compose,
@@ -25,7 +41,7 @@ import type { Connection, PartInstance, PlateMountResolution, Realization } from
 /**
  * First solver stage (SPEC 6): straight and bent tubes on grid junctions with
  * automatically chosen connectors, angle adapters, closed rings, open tube ends
- * and plates screwed into the holes of straight tubes.
+ * plates screwed into the holes of straight tubes, and slides hanging on tubes.
  */
 export const realizationSolver: RealizationSolver = { solve: solveRealization };
 
@@ -53,6 +69,26 @@ interface AdapterChoice {
   readonly sleeve: AttachmentSite;
   readonly spigot: AttachmentSite;
 }
+
+interface SlidePlacement {
+  readonly slide: SlideIntent;
+  readonly type: SlideType;
+  readonly pose: Pose;
+  readonly tube: TubeIntent;
+  readonly middle: AttachmentSite;
+  readonly hang: AttachmentSite;
+  readonly connectionType: ConnectionType;
+  readonly params: { readonly turnRad: number; readonly flipRad: number };
+}
+
+const GRID: Readonly<Record<GridDirection, Vector3>> = {
+  '+x': vec(1, 0, 0),
+  '-x': vec(-1, 0, 0),
+  '+y': vec(0, 1, 0),
+  '-y': vec(0, -1, 0),
+  '+z': vec(0, 0, 1),
+  '-z': vec(0, 0, -1),
+};
 
 /** A plate mount realised in a tube hole. */
 interface MountFit {
@@ -90,6 +126,7 @@ function conflict(
 const tubeRef = (id: TubeId): SubjectRef => ({ kind: 'intent', ref: { kind: 'tube', id } });
 const junctionRef = (id: JunctionId): SubjectRef => ({ kind: 'intent', ref: { kind: 'junction', id } });
 const plateRef = (id: PlateId): SubjectRef => ({ kind: 'intent', ref: { kind: 'plate', id } });
+const slideRef = (id: SlideId): SubjectRef => ({ kind: 'intent', ref: { kind: 'slide', id } });
 const endKey = (e: EndRef) => `${e.tube.id}\u0000${e.end}`;
 
 export function solveRealization(
@@ -120,6 +157,7 @@ class Solver {
   private readonly plateTypes = new Map<PlateId, PlateType>();
   private readonly platePoses = new Map<PlateId, Pose>();
   private readonly mountFits: MountFit[] = [];
+  private readonly slides: SlidePlacement[] = [];
   private readonly armOffset: number;
 
   constructor(
@@ -155,6 +193,7 @@ class Solver {
       this.chooseConnector(junction.id);
     for (const component of this.components()) this.place(component);
     this.placePlates();
+    this.placeSlides();
     return this.realization();
   }
 
@@ -545,6 +584,88 @@ class Solver {
       'connection-misfit',
       `Rohr ${tube.id} trifft verdreht auf die Kupplung an Verbindungspunkt ${junctionId}.`,
       [tubeRef(tube.id), junctionRef(junctionId)],
+    );
+  }
+
+  // ------------------------------------------------------------ slides
+
+  /**
+   * A slide hangs on the middle of a straight, horizontal tube and runs away from
+   * it in its toward direction, upright in the frame of the tube's junction a.
+   */
+  private placeSlides(): void {
+    for (const slide of [...this.design.slides].sort((a, b) => compare(a.id, b.id))) {
+      const type = this.catalog.partTypes.find(
+        (t): t is SlideType => t.kind === 'slide' && t.familyId === slide.familyId,
+      );
+      if (!type)
+        conflict('no-realization', `Keine Rutsche der Familie ${slide.familyId} im Katalog.`, [slideRef(slide.id)]);
+      const tube = this.design.tubes.find((t) => t.id === slide.tubeId);
+      const tubeType = tube && this.tubeTypes.get(tube.id);
+      const tubePose = tube && this.tubePoses.get(tube.id);
+      const junction = tube && this.junctionPoses.get(tube.a.junctionId);
+      if (!tube || !tubeType || !tubePose || !junction) {
+        conflict('missing-reference', `Rutsche ${slide.id} hängt an Rohr ${slide.tubeId}, das keine Lage hat.`, [
+          slideRef(slide.id),
+          tubeRef(slide.tubeId),
+        ]);
+      }
+      const middle = tubeType.sites.find((s) => s.role === 'hang');
+      const hang = type.sites.find((s) => s.role === 'hang');
+      const connectionType = middle && hang && this.slideConnectionType(middle, hang);
+      if (tubeType.shape !== 'straight' || !middle || !hang || !connectionType) {
+        conflict(
+          'incompatible-attachment',
+          `Rutsche ${slide.id}: An Rohr ${tube.id} lässt sich keine Rutsche hängen.`,
+          [slideRef(slide.id), tubeRef(tube.id)],
+        );
+      }
+      const tol = this.options.tolerance.angleRad;
+      const up = rotate(junction.orientation, Z);
+      const toward = rotate(junction.orientation, GRID[slide.toward]);
+      const axis = rotate(tubePose.orientation, X);
+      if (
+        Math.abs(dot(axis, up)) > Math.sin(tol) ||
+        Math.abs(dot(axis, toward)) > Math.sin(tol) ||
+        Math.abs(dot(toward, up)) > Math.sin(tol)
+      ) {
+        conflict(
+          'incompatible-attachment',
+          `Rutsche ${slide.id} braucht ein waagerechtes Rohr quer zur Richtung ${slide.toward}.`,
+          [slideRef(slide.id), tubeRef(tube.id)],
+        );
+      }
+      const pose: Pose = {
+        position: compose(tubePose, middle.frame).position,
+        orientation: AXIS_ROTATIONS.reduce((best, r) =>
+          dot(rotate(r, X), toward) + dot(rotate(r, Z), up) > dot(rotate(best, X), toward) + dot(rotate(best, Z), up)
+            ? r
+            : best,
+        ),
+      };
+      const bInA = compose(inverse(compose(tubePose, middle.frame)), compose(pose, hang.frame));
+      const evaluate =
+        this.options.connectionEvaluators?.[
+          connectionType.kinematics.kind === 'parametric' ? connectionType.kinematics.evaluatorKey : ''
+        ];
+      const params = evaluate
+        ? [0, 0.5, 1, 1.5]
+            .flatMap((t) => [0, 1].map((f) => ({ turnRad: t * Math.PI, flipRad: f * Math.PI })))
+            .find((p) => qangle(qmul(qconj(evaluate(p).orientation), bInA.orientation)) < tol)
+        : undefined;
+      if (!params) {
+        conflict('connection-misfit', `Rutsche ${slide.id} sitzt nicht passend an Rohr ${tube.id}.`, [
+          slideRef(slide.id),
+          tubeRef(tube.id),
+        ]);
+      }
+      this.slides.push({ slide, type, pose, tube, middle, hang, connectionType, params });
+    }
+  }
+
+  private slideConnectionType(middle: AttachmentSite, hang: AttachmentSite): ConnectionType | undefined {
+    return this.catalog.connectionTypes.find(
+      (c) => c.aInterfaceId === middle.interfaceId && c.bInterfaceId === hang.interfaceId,
     );
   }
 
@@ -987,6 +1108,24 @@ class Solver {
         tubeId: tube.id,
         tubeHole,
         connectionId: c.id,
+      });
+    }
+    for (const { slide, type, pose, tube, middle, hang, connectionType, params } of this.slides) {
+      const origin = { intent: { kind: 'slide', id: slide.id } as IntentRef, role: 'body' };
+      const id = this.partId(origin.intent, origin.role);
+      parts.push({ id, typeId: type.id, origin });
+      poses.push({ partId: id, worldPose: pose });
+      const a = { partId: this.partId({ kind: 'tube', id: tube.id }, 'body'), siteId: middle.id };
+      const b = { partId: id, siteId: hang.id };
+      const previousId = this.previous?.connections.find(
+        (c) => c.a.partId === a.partId && c.a.siteId === a.siteId && c.b.partId === b.partId && c.b.siteId === b.siteId,
+      )?.id;
+      connections.push({
+        id: previousId ?? `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`,
+        a,
+        b,
+        typeId: connectionType.id,
+        parameters: params,
       });
     }
     return {

@@ -42,6 +42,7 @@ function start() {
       tubes: [],
       junctions: [{ id: 'j1' }],
       plates: [],
+      slides: [],
       anchors: [{ id: 'anchor', target: { kind: 'junction', id: 'j1' }, worldPose: at(0, 0, 0) }],
     },
     quadroPartCatalog,

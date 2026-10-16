@@ -9,11 +9,19 @@ import type {
   PartCatalog,
   PartType,
   PlateType,
+  SlideType,
   TubeHole,
   TubeType,
 } from './catalog.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import type { ConnectorArticle, GridDirection, PlateArticle, TubeArticle, TubeDrilling } from './article-catalog.js';
+import type {
+  ConnectorArticle,
+  GridDirection,
+  PlateArticle,
+  SlideArticle,
+  TubeArticle,
+  TubeDrilling,
+} from './article-catalog.js';
 import { add, qaxisAngle, qmul, scale, vec } from './math.js';
 import { quadroArticleCatalog } from './quadro-articles.js';
 
@@ -32,6 +40,8 @@ const ARM = 'quadro-arm';
 const TUBE_END = 'quadro-tube-end';
 const TUBE_HOLE = 'quadro-tube-hole';
 const PLATE_MOUNT = 'quadro-plate-mount';
+const TUBE_MIDDLE = 'quadro-tube-middle';
+const SLIDE_HANG = 'quadro-slide-hang';
 
 /** Hole centre from the tube end face (GEOMETRIE.md, section 5). */
 const HOLE_FROM_END = 25;
@@ -42,6 +52,12 @@ const PLATE = { lift: 25.12, flangeDepth: 22, thickness: 3 };
  * the manufacturer's product picture against the plate width, not measured.
  */
 const PERFORATION = { grid: 3, pitch: 107, diameter: 57 };
+/**
+ * Modular slide body: hangs on a 35 cm tube and drops two storeys over three
+ * grid cells to a parallel tube (client's account). Surface lift above the tube
+ * axes, width inside the posts and the runout length are estimates.
+ */
+const SLIDE = { run: 1200, drop: 800, lift: 45, halfWidth: 170, thickness: 10, wall: 110, end: 35, runout: 450 };
 
 const X = vec(1, 0, 0);
 const Y = vec(0, 1, 0);
@@ -102,6 +118,11 @@ function straightTube(article: TubeArticle): TubeType {
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(length, 0, 0), orientation: Z_TO['+x'] }, TUBE_END),
+      // A slide hangs here; a tube can carry one on either side.
+      {
+        ...site('middle', 'hang', { position: vec(length / 2, 0, 0), orientation: Z_TO['+x'] }, TUBE_MIDDLE),
+        capacity: 2,
+      },
       ...drilled.sites,
     ],
     shape: 'straight',
@@ -232,7 +253,7 @@ function partTypes(): PartType[] {
     else if (entry.category === 'plate' && (entry.plate === 'solid' || entry.plate === 'perforated')) {
       const plate = plateType(entry);
       if (plate) types.push(plate);
-    }
+    } else if (entry.category === 'slide' && entry.slide !== 'curved-body') types.push(slideType(entry));
   }
   return types;
 }
@@ -264,10 +285,28 @@ const TUBE_PLATE: ConnectionType = {
   },
 };
 
+/**
+ * Slide on the middle of a tube: its hang site lies along the tube one way or the
+ * other, turned about the tube axis in 90° steps.
+ */
+const TUBE_SLIDE: ConnectionType = {
+  id: 'quadro-tube-slide',
+  aInterfaceId: TUBE_MIDDLE,
+  bInterfaceId: SLIDE_HANG,
+  kinematics: {
+    kind: 'parametric',
+    evaluatorKey: 'quadro-tube-slide',
+    parameters: [
+      { name: 'turnRad', unit: 'radian', domain: { kind: 'discrete', values: ROLL_STEPS } },
+      { name: 'flipRad', unit: 'radian', domain: { kind: 'discrete', values: [0, Math.PI] } },
+    ],
+  },
+};
+
 export const quadroPartCatalog: PartCatalog = {
   ref: { id: 'quadro-provisional', version: '2006-1' },
   partTypes: partTypes(),
-  connectionTypes: [ARM_TUBE, TUBE_PLATE],
+  connectionTypes: [ARM_TUBE, TUBE_PLATE, TUBE_SLIDE],
 };
 
 /** Site b faces site a (half turn about x), then turns by rollRad about its axis. */
@@ -280,7 +319,52 @@ export const quadroConnectionEvaluators: Readonly<Record<string, ConnectionEvalu
     position: vec(0, 0, 0),
     orientation: qmul(qaxisAngle(X, Math.PI), qaxisAngle(vec(0, 0, 1), parameters.turnRad ?? 0)),
   }),
+  'quadro-tube-slide': (parameters) => ({
+    position: vec(0, 0, 0),
+    orientation: qmul(qaxisAngle(vec(0, 0, 1), parameters.turnRad ?? 0), qaxisAngle(Y, parameters.flipRad ?? 0)),
+  }),
 };
+
+/** Slide body or runout; its hang site has +Z along the tube it hangs on. */
+function slideType(article: SlideArticle): SlideType {
+  const body = article.slide === 'modular-body';
+  return {
+    kind: 'slide',
+    id: article.id,
+    familyId: article.familyId,
+    name: article.name,
+    geometry: { display: { key: article.id }, collision: { key: body ? 'quadro-slide-body' : 'quadro-slide-runout' } },
+    sites: [site('hang', 'hang', { position: vec(0, 0, 0), orientation: Z_TO['+y'] }, SLIDE_HANG)],
+    shape: body ? 'body' : 'runout',
+    tubeLengthMm: 350,
+    ...(body ? { lowerEnd: vec(SLIDE.run, 0, -SLIDE.drop) } : {}),
+  };
+}
+
+/** Box from x0 to x1 along a surface line rising by slope per mm, across y0..y1, z0..z1 above the line. */
+function slantedBox(
+  x0: number,
+  x1: number,
+  slope: number,
+  y0: number,
+  y1: number,
+  z0: number,
+  z1: number,
+): CollisionShape {
+  const points: Vector3[] = [];
+  for (const x of [x0, x1])
+    for (const y of [y0, y1]) for (const z of [z0, z1]) points.push(vec(x, y, SLIDE.lift + slope * x + z));
+  return { kind: 'convex', points };
+}
+
+/** Sliding surface of a body or runout; walls are added for display only. */
+function slideShapes(body: boolean, walls: boolean): CollisionShape[] {
+  const { end, halfWidth: w, thickness: t, wall } = SLIDE;
+  const [x1, slope] = body ? [SLIDE.run - end, -SLIDE.drop / SLIDE.run] : [SLIDE.runout, 0];
+  const surface = slantedBox(end, x1, slope, -w, w, -t / 2, t / 2);
+  if (!walls) return [surface];
+  return [surface, ...[-1, 1].map((side) => slantedBox(end, x1, slope, side * w, side * (w - 8), t / 2, wall))];
+}
 
 function arcCapsules(): CollisionShape[] {
   const shapes: CollisionShape[] = [];
@@ -357,6 +441,8 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         ...plateFlanges(x, y),
       ];
     }
+    if (ref.key === 'quadro-slide-body') return slideShapes(true, false);
+    if (ref.key === 'quadro-slide-runout') return slideShapes(false, false);
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
     if (tube) {
       const length = Number(tube[1]);
@@ -387,6 +473,7 @@ function plateFlanges(x: number, y: number): CollisionShape[] {
 export const quadroDisplayGeometry: DisplayGeometryProvider = {
   shapes(ref) {
     const article = quadroArticleCatalog.entries.find((e) => e.id === ref.key);
+    if (article?.category === 'slide') return slideShapes(article.slide === 'modular-body', true);
     if (article?.category !== 'plate') return undefined;
     const type = quadroPartCatalog.partTypes.find((t) => t.id === article.id);
     if (type?.kind !== 'plate') return undefined;

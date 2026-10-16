@@ -1,7 +1,7 @@
 import { nextId } from './attach.js';
 import type { EditCommand, DesignOperation } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
-import type { ColourId, JunctionId, PartId, PlateId, TubeId } from './ids.js';
+import type { ColourId, JunctionId, PartId, PlateId, SlideId, TubeId } from './ids.js';
 
 /**
  * The tube a part stands for: a tube's own body, or the oblique tube an angle
@@ -39,6 +39,30 @@ export function removePlate(snapshot: ConstructionSnapshot, plateId: PlateId): E
   };
 }
 
+/** The slide body or runout a part realises. */
+export function slideOfPart(snapshot: ConstructionSnapshot, partId: PartId): SlideId | undefined {
+  const part = snapshot.realization.parts.find((p) => p.id === partId);
+  return part?.origin.intent.kind === 'slide' ? part.origin.intent.id : undefined;
+}
+
+/** Command that gives a slide another colour. */
+export function recolourSlide(snapshot: ConstructionSnapshot, slideId: SlideId, colour: ColourId): EditCommand {
+  const slide = snapshot.design.slides.find((s) => s.id === slideId);
+  return {
+    baseRevision: snapshot.revision,
+    operations: slide ? [{ kind: 'set-slide', slide: { ...slide, appearance: { colour } } }] : [],
+  };
+}
+
+/** Command that removes a slide body or runout. */
+export function removeSlide(snapshot: ConstructionSnapshot, slideId: SlideId): EditCommand {
+  const exists = snapshot.design.slides.some((s) => s.id === slideId);
+  return {
+    baseRevision: snapshot.revision,
+    operations: exists ? [{ kind: 'remove-intent', target: { kind: 'slide', id: slideId } }] : [],
+  };
+}
+
 /** Command that gives a tube another colour. */
 export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, colour: ColourId): EditCommand {
   const tube = snapshot.design.tubes.find((t) => t.id === tubeId);
@@ -49,7 +73,7 @@ export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, col
 }
 
 /**
- * Command that removes a tube. Plates screwed to it and junctions left without
+ * Command that removes a tube. Plates screwed to it, slides hanging on it and junctions left without
  * tubes go as well, except anchored junctions. If the model falls apart, every
  * assembly without an anchor gets one at its current place, so nothing moves.
  */
@@ -64,6 +88,9 @@ export function removeTube(snapshot: ConstructionSnapshot, tubeId: TubeId): Edit
     ...design.plates
       .filter((p) => p.mounts.some((m) => m.tubeId === tubeId))
       .map((p): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'plate', id: p.id } })),
+    ...design.slides
+      .filter((s) => s.tubeId === tubeId)
+      .map((s): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'slide', id: s.id } })),
     { kind: 'remove-intent', target: { kind: 'tube', id: tubeId } },
   ];
   for (const anchor of design.anchors) {

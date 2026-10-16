@@ -34,7 +34,14 @@ import {
 import type { Connection, PartInstance } from './realization.js';
 import { containsPoint, segmentParameters, separation, toWorld, type WorldShape } from './collision.js';
 
-const STAGES: readonly CheckStage[] = ['structure', 'closure', 'junction-angles', 'collision', 'plate-mounts'];
+const STAGES: readonly CheckStage[] = [
+  'structure',
+  'closure',
+  'junction-angles',
+  'collision',
+  'plate-mounts',
+  'slides',
+];
 const FLIP_Z = qaxisAngle(vec(1, 0, 0), Math.PI);
 const NORM_TOLERANCE = 1e-6;
 
@@ -102,6 +109,7 @@ export function checkBuildability(
   checkJunctionAngles(ctx);
   const collisionPairsTested = checkCollisions(ctx, geometry, edit);
   checkPlateMounts(ctx);
+  checkSlides(ctx);
 
   const findings = sortFindings(ctx.findings);
   const hasError = findings.some((f) => f.diagnostic.severity === 'error');
@@ -222,12 +230,18 @@ function checkStructure(ctx: Context): readonly Component[] {
   );
 
   const junctions = new Set(design.junctions.map((j) => j.id));
-  const exists = (ref: IntentRef) =>
-    ref.kind === 'junction'
-      ? junctions.has(ref.id)
-      : ref.kind === 'tube'
-        ? design.tubes.some((t) => t.id === ref.id)
-        : design.plates.some((p) => p.id === ref.id);
+  const exists = (ref: IntentRef) => {
+    switch (ref.kind) {
+      case 'junction':
+        return junctions.has(ref.id);
+      case 'tube':
+        return design.tubes.some((t) => t.id === ref.id);
+      case 'plate':
+        return design.plates.some((p) => p.id === ref.id);
+      case 'slide':
+        return design.slides.some((s) => s.id === ref.id);
+    }
+  };
 
   for (const tube of design.tubes) {
     for (const end of [tube.a, tube.b]) {
@@ -1330,4 +1344,61 @@ function deg(rad: number): number {
 
 function round(x: number): number {
   return Math.round(x * 1000) / 1000;
+}
+
+// ---------------------------------------------------------------- stage 6
+
+/**
+ * A slide hangs on a tube of the length it fits, and a body's lower end rests
+ * on the middle of a parallel tube (SPEC 7.5).
+ */
+function checkSlides(ctx: Context): void {
+  const stage = 'slides';
+  const { realization } = ctx.snapshot;
+  const tol = ctx.options.tolerance;
+  const poses = new Map(realization.poses.map((p) => [p.partId, p.worldPose]));
+  const middles = realization.parts.flatMap((part) => {
+    const type = ctx.types.get(part.typeId);
+    const pose = poses.get(part.id);
+    const middle =
+      type?.kind === 'tube' && type.shape === 'straight' ? type.sites.find((s) => s.role === 'hang') : undefined;
+    return pose && middle ? [{ part, frame: compose(pose, middle.frame) }] : [];
+  });
+  for (const part of realization.parts) {
+    const type = ctx.types.get(part.typeId);
+    const pose = poses.get(part.id);
+    if (type?.kind !== 'slide' || !pose || part.origin.intent.kind !== 'slide') continue;
+    const subject = intent(part.origin.intent);
+    const hanging = realization.connections.find((c) => c.b.partId === part.id);
+    const tube = hanging && ctx.parts.get(hanging.a.partId);
+    const tubeType = tube && ctx.types.get(tube.typeId);
+    if (tubeType?.kind === 'tube' && tubeType.nominalLengthMm !== type.tubeLengthMm) {
+      report(
+        ctx,
+        stage,
+        'incompatible-attachment',
+        `${type.name} passt nur an ein Rohr mit ${type.tubeLengthMm / 10} cm.`,
+        [subject],
+      );
+    }
+    if (!type.lowerEnd) continue;
+    const end = transformPoint(pose, type.lowerEnd);
+    const across = rotate(pose.orientation, vec(0, 1, 0));
+    const rests = middles.some(
+      ({ part: p, frame }) =>
+        p.id !== tube?.id &&
+        length(sub(frame.position, end)) <= tol.distanceMm &&
+        Math.abs(dot(rotate(frame.orientation, vec(0, 0, 1)), across)) > Math.cos(tol.angleRad),
+    );
+    if (!rests) {
+      report(
+        ctx,
+        stage,
+        'incompatible-attachment',
+        `${type.name} liegt unten auf keinem Rohr auf; dort braucht es ein Querrohr wie oben.`,
+        [subject],
+        { x: round(end.x), y: round(end.y), z: round(end.z) },
+      );
+    }
+  }
 }

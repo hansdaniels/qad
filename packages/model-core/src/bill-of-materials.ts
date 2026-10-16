@@ -3,6 +3,7 @@ import type { PartCatalog } from './catalog.js';
 import type { ConstructionSnapshot } from './core.js';
 import type { ColourId, PartId } from './ids.js';
 import type { PartInstance } from './realization.js';
+import { length, sub, transformPoint } from './math.js';
 
 /** One line of the bill of materials: an orderable article and how many of it. */
 export interface BillLine {
@@ -29,6 +30,7 @@ export function requestedColour(snapshot: ConstructionSnapshot, part: PartInstan
   const { intent } = part.origin;
   if (intent.kind === 'tube') return snapshot.design.tubes.find((t) => t.id === intent.id)?.appearance.colour;
   if (intent.kind === 'plate') return snapshot.design.plates.find((p) => p.id === intent.id)?.appearance.colour;
+  if (intent.kind === 'slide') return snapshot.design.slides.find((s) => s.id === intent.id)?.appearance.colour;
   return undefined;
 }
 
@@ -36,7 +38,10 @@ export function requestedColour(snapshot: ConstructionSnapshot, part: PartInstan
  * Parts of the realization grouped by article, plus derived screws (HERSTELLERREGELN.md):
  * a tube screw in the tube's colour per tube end on a connector arm or angle adapter,
  * a black plate screw per plate mount instead of the tube screw at that end, and a
- * black plate screw per angle adapter sleeve on a connector arm.
+ * black plate screw per angle adapter sleeve on a connector arm. Slides after the
+ * manufacturer's instructions (hypothesis on counts): two conical slide screws
+ * per slide at the posts, a plate screw at the top of each body, and a slide
+ * screw with two counterparts where a body rests on the next slide.
  */
 export function billOfMaterials(
   snapshot: ConstructionSnapshot,
@@ -113,6 +118,35 @@ export function billOfMaterials(
     }
     // Sleeve of an angle adapter on a connector arm.
     else if (isAdapter(a) !== isAdapter(b) && !tube) addScrew(plateScrews, 'black');
+  }
+
+  const [slideScrews, conical, counterparts] = [
+    fastener('slide-screw'),
+    fastener('conical-slide-screw'),
+    fastener('conical-slide-screw-counterpart'),
+  ];
+  const poses = new Map(snapshot.realization.poses.map((p) => [p.partId, p.worldPose]));
+  const hung = snapshot.realization.connections.flatMap((c) => {
+    const slide = parts.get(c.b.partId);
+    const tube = parts.get(c.a.partId);
+    const pose = tube && poses.get(tube.id);
+    const tubeType = tube && types.get(tube.typeId);
+    const site = tubeType?.sites.find((s) => s.id === c.a.siteId);
+    return slide?.origin.intent.kind === 'slide' && pose && site
+      ? [{ slide, at: transformPoint(pose, site.frame.position) }]
+      : [];
+  });
+  for (const { slide } of hung) {
+    const type = types.get(slide.typeId);
+    for (let i = 0; i < 2; i++) addScrew(conical, undefined);
+    if (type?.kind !== 'slide' || !type.lowerEnd) continue;
+    addScrew(plateScrews, 'black');
+    const pose = poses.get(slide.id);
+    const end = pose && transformPoint(pose, type.lowerEnd);
+    if (end && hung.some((h) => h.slide.id !== slide.id && length(sub(h.at, end)) <= 1)) {
+      addScrew(slideScrews, undefined);
+      for (let i = 0; i < 2; i++) addScrew(counterparts, undefined);
+    }
   }
 
   const order = new Map(catalog.entries.map((e, i) => [e.category === 'fastener' ? e.pieceName : e.name, i]));

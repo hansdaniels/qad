@@ -27,9 +27,21 @@ export {
   towardDirection,
   turnTube,
 } from './attach.js';
-export { plateOfPart, recolourPlate, recolourTube, removePlate, removeTube, tubeOfPart } from './edits.js';
+export {
+  plateOfPart,
+  recolourPlate,
+  recolourSlide,
+  recolourTube,
+  removePlate,
+  removeSlide,
+  removeTube,
+  slideOfPart,
+  tubeOfPart,
+} from './edits.js';
 export type { PlateSpot } from './plates.js';
 export { insertPlate, plateSpots, turnPlate } from './plates.js';
+export type { SlideSpot } from './slides.js';
+export { insertSlide, localToward, slideSpots } from './slides.js';
 export { realizationSolver, solveRealization } from './solver.js';
 export { applyOperations, createModelCore, modelCoreFactory, openModelCore } from './model-core.js';
 export {
@@ -39,6 +51,7 @@ export {
   buildabilityChecker,
   checkBuildability,
 } from './buildability-checker.js';
+export { importPlan, isPlan } from './plan.js';
 export type { HeadTrap } from './head-traps.js';
 export { findHeadTraps } from './head-traps.js';
 export { findOpenEnds } from './open-ends.js';

@@ -46,6 +46,7 @@ function document() {
             ],
           },
         ],
+        slides: [{ id: 's1', familyId: 'slide', tubeId: 'tube-1', toward: '+x', appearance: { colour: 'red' } }],
         anchors: [{ id: 'anchor', target: { kind: 'junction', id: 'j1' }, worldPose: pose }],
       },
       realization: {
@@ -98,6 +99,14 @@ test('fills in default colours: red for tubes, blue for plates', () => {
   const { tubes, plates } = result.value.snapshot.design;
   assert.deepEqual(tubes[0].appearance, { colour: 'red' });
   assert.deepEqual(plates[0].appearance, { colour: 'blue' });
+});
+
+test('reads files from before slides as having none', () => {
+  const input = document();
+  delete input.snapshot.design.slides;
+  const result = parseConstructionDocument(JSON.stringify(input));
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.snapshot.design.slides, []);
 });
 
 test('reports JSON syntax errors without throwing', () => {

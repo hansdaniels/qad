@@ -31,6 +31,7 @@ function start() {
       tubes: [],
       junctions: [{ id: 'j1' }],
       plates: [],
+      slides: [],
       anchors: [
         {
           id: 'anchor',

@@ -21,6 +21,7 @@ function build(steps) {
       tubes: [],
       junctions: [{ id: 'j1' }],
       plates: [],
+      slides: [],
       anchors: [
         {
           id: 'anchor',

@@ -11,6 +11,7 @@ import type {
   PartTypeId,
   PlateId,
   SiteId,
+  SlideId,
   TubeId,
 } from './ids.js';
 
@@ -87,6 +88,20 @@ export interface PlateIntent {
   readonly appearance: Appearance;
 }
 
+/**
+ * Slide body or runout hanging on a straight, horizontal tube. It runs away from
+ * the tube horizontally in the direction toward, in the frame of the tube's
+ * junction a, whose +z counts as up. A body drops from there to a parallel tube
+ * further down (SPEC 7.5).
+ */
+export interface SlideIntent {
+  readonly id: SlideId;
+  readonly familyId: FamilyId;
+  readonly tubeId: TubeId;
+  readonly toward: GridDirection;
+  readonly appearance: Appearance;
+}
+
 export interface PlacementAnchor {
   readonly id: AnchorId;
   /** One anchor per connected assembly; target identifies its reference frame. */
@@ -101,5 +116,6 @@ export interface ConstructionDesign {
   readonly tubes: readonly TubeIntent[];
   readonly junctions: readonly JunctionIntent[];
   readonly plates: readonly PlateIntent[];
+  readonly slides: readonly SlideIntent[];
   readonly anchors: readonly PlacementAnchor[];
 }

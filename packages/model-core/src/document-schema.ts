@@ -17,6 +17,7 @@ const intentRef = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('tube'), id }),
   z.strictObject({ kind: z.literal('junction'), id }),
   z.strictObject({ kind: z.literal('plate'), id }),
+  z.strictObject({ kind: z.literal('slide'), id }),
 ]);
 const attachmentRef = z.strictObject({ partId: id, siteId: id });
 const angularConstraint = z.discriminatedUnion('mode', [
@@ -62,12 +63,21 @@ const plate = z.strictObject({
   mounts: z.array(mount),
   appearance: plateAppearance,
 });
+const slide = z.strictObject({
+  id,
+  familyId: id,
+  tubeId: id,
+  toward: z.enum(['+x', '-x', '+y', '-y', '+z', '-z']),
+  appearance: z.strictObject({ colour: id }),
+});
 const design = z.strictObject({
   id,
   catalog: z.strictObject({ id, version: id }),
   tubes: z.array(tube),
   junctions: z.array(z.strictObject({ id })),
   plates: z.array(plate),
+  // Files from before slides have none; the only other documented default.
+  slides: z.array(slide).default(() => []),
   anchors: z.array(z.strictObject({ id, target: intentRef, worldPose: pose })),
 });
 const realization = z.strictObject({

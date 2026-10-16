@@ -1,5 +1,5 @@
 import type { CollisionShape } from './buildability.js';
-import type { GeometryRef, Pose } from './geometry.js';
+import type { GeometryRef, Pose, Vector3 } from './geometry.js';
 import type { ConnectionTypeId, FamilyId, PartTypeId, SiteId, TubeEnd } from './ids.js';
 
 export interface CatalogRef {
@@ -10,7 +10,7 @@ export interface CatalogRef {
 
 export interface AttachmentSite {
   readonly id: SiteId;
-  readonly role: 'tube-end' | 'socket' | 'hole' | 'mount';
+  readonly role: 'tube-end' | 'socket' | 'hole' | 'mount' | 'hang';
   /** Full site frame in part coordinates; local +Z points out of the site. */
   readonly frame: Pose;
   /** Open catalog vocabulary, interpreted by connection rules. */
@@ -79,11 +79,24 @@ export interface PlateType extends PartTypeBase {
   readonly requiredMounts: readonly SiteId[];
 }
 
+/**
+ * Slide body or runout: hangs on the middle of a tube with its origin on the
+ * tube axis, +x running away from the tube, +z up.
+ */
+export interface SlideType extends PartTypeBase {
+  readonly kind: 'slide';
+  readonly shape: 'body' | 'runout';
+  /** Body only: the axis of the tube its lower end rests on, in its own frame. */
+  readonly lowerEnd?: Vector3;
+  /** Length of the tube it hangs on: the slide fits between the posts at its ends. */
+  readonly tubeLengthMm: number;
+}
+
 export interface AccessoryType extends PartTypeBase {
   readonly kind: 'connector' | 'adapter' | 'accessory';
 }
 
-export type PartType = TubeType | PlateType | AccessoryType;
+export type PartType = TubeType | PlateType | SlideType | AccessoryType;
 
 export interface ConnectionParameter {
   readonly name: string;

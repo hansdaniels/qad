@@ -191,6 +191,14 @@ Die vom Benutzer gewünschte Plattenbefestigung wird getrennt von der aktuell ge
 
 Die Meldung ist ein Hinweis, kein Befund der Baubarkeit: Das Modell bleibt baubar und speicherbar. Der Editor zeigt neben dem Revisionszähler ein Warnzeichen mit der Anzahl; ein Klick öffnet die Liste über der Seitenleiste, und beim Überfahren eines Eintrags werden die beiden Rohre hervorgehoben.
 
+### 7.5 Rutschen
+
+Unterstützt sind der Modularrutschen-Körper und der Rutschenauslauf als eigene Entwurfsobjekte (`SlideIntent`). Eine Rutsche hängt an der Mitte eines geraden, waagerechten 35-cm-Rohrs und läuft quer dazu in der Richtung `toward` weg, angegeben im Rahmen des Verbindungspunkts a dieses Rohrs, dessen +z als oben gilt. Ein Körper reicht nach Auskunft des Auftraggebers zwei Etagen (800 mm) tiefer und drei Felder (1200 mm) weiter und liegt dort auf einem parallelen Rohr auf. An diesem hängt der nächste Körper oder der Auslauf. Die Aufhängung ist eine typisierte Verbindung zwischen der Rohrmitte und der Rutsche; jedes gerade Rohr kann eine Rutsche je Seite tragen.
+
+Prüfstufe 6 verlangt die passende Rohrlänge und beim Körper das Auflagerohr. Die Gleitfläche liegt als schräge Scheibe zwischen den Pfosten und nimmt an der Kollisionsprüfung teil; Seitenwände werden nur dargestellt. Die Stückliste zählt je Rutsche zwei konische Rutschenschrauben, je Körper oben eine Plattenschraube und je Stoß auf der nächsten Rutsche eine Rutschenschraube mit zwei Gegenstücken. Abmessungen außer Gefälle und Länge sowie die Schraubenzahlen sind aus der Sicherheitsanweisung des Herstellers (Abschnitte 1.20 und 1.24) abgelesen und vorläufig ([GEOMETRIE.md](./GEOMETRIE.md), Abschnitt 7). Die Bogenrutsche folgt später.
+
+Dateien ohne Rutschen bleiben lesbar; ein fehlendes Feld `slides` gilt als leer.
+
 ## 8. Änderungen, Invarianten und Editorverhalten
 
 Änderungen erfolgen über fachliche Operationen wie `RohrAnbauen`, `RohrendenVerbinden`, `PlatteEinsetzen`, `VarianteFixieren` und `BauteilEntfernen`.
@@ -337,3 +345,5 @@ Zod 4 prüft beim Einlesen die Dateistruktur; der Dokumenttyp wird aus dem Schem
 abgeleitet. Unbekannte Versionen und Felder werden nicht stillschweigend übernommen.
 Diese Formatprüfung ersetzt weder die Prüfung fachlicher Referenzen und
 Katalogbedingungen noch die geometrische Baubarkeitsprüfung durch den Modellkern.
+
+Daneben öffnet der Editor Baupläne ([BAUPLAN.md](./BAUPLAN.md)): eine Folge von Bauschritten in Weltrichtungen, die etwa ein Sprachmodell aus Fotos eines Baus schreibt. `importPlan` baut die Schritte mit den Bearbeitungsbefehlen des Editors nach und prüft jeden wie eine Bearbeitung; der erste nicht baubare Schritt wird mit Nummer und Grund gemeldet.

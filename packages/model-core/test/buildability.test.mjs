@@ -325,6 +325,7 @@ test('residuals of a rotated rule are reported in site a axes with correct signs
         tubes: [],
         junctions: [{ id: 'j' }],
         plates: [],
+        slides: [],
         anchors: [{ id: 'anchor', target: { kind: 'junction', id: 'j' }, worldPose: blockA }],
       },
       realization: {

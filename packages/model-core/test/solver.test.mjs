@@ -37,6 +37,7 @@ function design(
     id: 'd',
     catalog: quadroPartCatalog.ref,
     plates: [],
+    slides: [],
     anchors: [anchor],
     junctions: junctions.map((id) => ({ id })),
     tubes: tubes.map(([id, familyId, a, b, d]) => ({

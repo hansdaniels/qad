@@ -11,7 +11,7 @@ export type BuildabilityVerdict =
   /** Required catalog data is missing; never treated as a pass. */
   | 'undetermined';
 
-export type CheckStage = 'structure' | 'closure' | 'junction-angles' | 'collision' | 'plate-mounts';
+export type CheckStage = 'structure' | 'closure' | 'junction-angles' | 'collision' | 'plate-mounts' | 'slides';
 
 /**
  * Closing-site position error and relative rotation, expressed in site a axes.

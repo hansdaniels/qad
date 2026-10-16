@@ -156,6 +156,19 @@ Die gerade Rutsche des Programms (alt 10015) ließ sich nicht emulieren und ist
 ohnehin der Vorgänger der heutigen Modularrutsche. Wie die Rutschenrahmen am Raster
 liegen, ist noch auszuwerten.
 
+Für die Modularrutsche gilt vorläufig (`SLIDE` in `quadro-geometry.ts`):
+
+| Größe                           | Wert                                                                                    | Quelle                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
+| Gefälle und Länge eines Körpers | 800 mm tiefer, 1200 mm weiter, jeweils zwischen den Achsen der beiden Querrohre         | Auskunft                                |
+| Aufhängung                      | Mitte eines 35-cm-Querrohrs, Körper zwischen den Pfosten an dessen Enden                | Sicherheitsanweisung 1.20 und 1.24      |
+| Gleitfläche                     | 45 mm über der Linie der Rohrachsen, 340 mm breit, 10 mm dick, 35 mm vor jedem Querrohr | geschätzt                               |
+| Seitenwände (nur Darstellung)   | 110 mm hoch                                                                             | geschätzt                               |
+| Auslauf                         | waagerecht, 450 mm über das untere Querrohr hinaus                                      | geschätzt; Gesamtlänge laut Shop 165 cm |
+
+Nachzumessen sind Breite, Höhe der Gleitfläche über den Querrohren und die Länge
+des Auslaufs.
+
 ## 8. Nicht im Programm
 
 - Bohrungsmuster der Rohre und Bohrungsvarianten (90°, 135°, 180°); eine Hypothese

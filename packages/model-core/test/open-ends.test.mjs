@@ -24,6 +24,7 @@ function design(tubes) {
     tubes,
     junctions: ids.map((id) => ({ id })),
     plates: [],
+    slides: [],
     anchors: [],
   };
 }

@@ -3,6 +3,7 @@ export type ConstructionId = string;
 export type TubeId = string;
 export type JunctionId = string;
 export type PlateId = string;
+export type SlideId = string;
 export type PartId = string;
 export type ConnectionId = string;
 export type AnchorId = string;
@@ -22,7 +23,8 @@ export interface AttachmentRef {
 export type IntentRef =
   | { readonly kind: 'tube'; readonly id: TubeId }
   | { readonly kind: 'junction'; readonly id: JunctionId }
-  | { readonly kind: 'plate'; readonly id: PlateId };
+  | { readonly kind: 'plate'; readonly id: PlateId }
+  | { readonly kind: 'slide'; readonly id: SlideId };
 
 export type TubeEnd = 'a' | 'b';
 

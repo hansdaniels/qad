@@ -82,6 +82,7 @@ function model({ parts, links, junctions, tubes, anchor }) {
       tubes: designTubes,
       junctions: Object.keys(junctions).map((id) => ({ id })),
       plates: [],
+      slides: [],
       anchors: [{ id: 'anchor', target: { kind: 'junction', id: anchor }, worldPose: junctions[anchor] }],
     },
     realization: {
