@@ -594,15 +594,37 @@ export function App() {
                 </ul>
               </section>
             ) : null}
-            <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Auswahl</h3>
+            {/* Heading and delete button share a row; each detail takes one line. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 8px' }}>
+              <h3 style={{ fontSize: 15, margin: 0, marginRight: 'auto' }}>Auswahl</h3>
+              {current && selection ? (
+                <button type="button" onClick={remove} title="Entf">
+                  {selection.kind === 'plate'
+                    ? 'Platte löschen'
+                    : current.part.origin.intent.kind === 'tube'
+                      ? 'Rohr löschen'
+                      : 'Schräges Rohr löschen'}
+                </button>
+              ) : null}
+            </div>
             {current ? (
-              <dl style={{ fontSize: 14 }}>
+              <dl
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr',
+                  alignItems: 'center',
+                  gap: '4px 12px',
+                  margin: 0,
+                  fontSize: 14,
+                }}
+              >
                 <dt>Teil</dt>
-                <dd>{articleName(current.part.typeId)}</dd>
-                <dt>Artikelnummer</dt>
-                <dd>{current.article?.article.articleNumber ?? '–'}</dd>
+                <dd style={{ margin: 0 }}>
+                  {articleName(current.part.typeId)}
+                  <span style={{ color: '#555' }}> · {current.article?.article.articleNumber ?? '–'}</span>
+                </dd>
                 <dt>Farbe</dt>
-                <dd>
+                <dd style={{ margin: 0 }}>
                   {selection?.intent ? (
                     <select value={selection.intent.appearance.colour} onChange={(e) => recolour(e.target.value)}>
                       {selectionColours.map((c) => (
@@ -617,26 +639,16 @@ export function App() {
                   {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
                 </dd>
                 <dt>ID</dt>
-                <dd style={{ fontFamily: 'monospace' }}>{current.part.id}</dd>
+                <dd style={{ margin: 0, fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{current.part.id}</dd>
               </dl>
-            ) : null}
-            {current ? (
-              selection ? (
-                <button type="button" onClick={remove} title="Entf">
-                  {selection.kind === 'plate'
-                    ? 'Platte löschen'
-                    : current.part.origin.intent.kind === 'tube'
-                      ? 'Rohr löschen'
-                      : 'Schräges Rohr löschen'}
-                </button>
-              ) : (
-                <p style={{ fontSize: 13, color: '#555' }}>
-                  Kupplungen entstehen automatisch aus den Rohren und verschwinden mit ihnen.
-                </p>
-              )
             ) : (
-              <p style={{ fontSize: 14 }}>Teil anklicken für Details.</p>
+              <p style={{ fontSize: 14, margin: 0 }}>Teil anklicken für Details.</p>
             )}
+            {current && !selection ? (
+              <p style={{ fontSize: 13, color: '#555' }}>
+                Kupplungen entstehen automatisch aus den Rohren und verschwinden mit ihnen.
+              </p>
+            ) : null}
           </>
         )}
       </aside>
