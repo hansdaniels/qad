@@ -5,10 +5,12 @@ interface GhostTurnProps {
   /** In model coordinates, like the ghost it belongs to. */
   readonly position: readonly [number, number, number];
   readonly onTurn: () => void;
+  /** Pointer entering (true) or leaving (false) the button. */
+  readonly onHover: (inside: boolean) => void;
 }
 
 /** Turns the previewed part to its next position before it is attached. */
-export function GhostTurn({ position, onTurn }: GhostTurnProps) {
+export function GhostTurn({ position, onTurn, onHover }: GhostTurnProps) {
   return (
     <Html position={[...position]} center zIndexRange={[10, 0]}>
       {/* Html lives inside the canvas' event source; without this a click would clear the preview. */}
@@ -16,6 +18,8 @@ export function GhostTurn({ position, onTurn }: GhostTurnProps) {
         type="button"
         title="Drehen: nächste Lage (R)"
         aria-label="Vorschau drehen"
+        onPointerEnter={() => onHover(true)}
+        onPointerLeave={() => onHover(false)}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         onClick={(e) => {

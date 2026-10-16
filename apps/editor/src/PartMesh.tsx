@@ -1,3 +1,4 @@
+import type { ThreeEvent } from '@react-three/fiber';
 import { useMemo } from 'react';
 import { Quaternion, Vector3 } from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
@@ -70,16 +71,22 @@ interface PartMeshProps extends Look {
   readonly pose: Pose;
   readonly shapes: readonly CollisionShape[];
   readonly onSelect?: () => void;
+  /** Pointer entering (true) or leaving (false) the part. */
+  readonly onHover?: (inside: boolean) => void;
 }
 
 /** A realised part at its world pose, drawn from its collision shapes. */
-export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect }: PartMeshProps) {
+export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect, onHover }: PartMeshProps) {
   const { position, orientation } = pose;
   return (
     <group
       name={name}
       position={[position.x, position.y, position.z]}
       quaternion={[orientation.x, orientation.y, orientation.z, orientation.w]}
+      {...(onHover
+        ? { onPointerOver: () => onHover(true), onPointerOut: () => onHover(false) }
+        : // A real part hides the targets behind it from the pointer.
+          { onPointerOver: (event: ThreeEvent<PointerEvent>) => event.stopPropagation() })}
       onClick={(event) => {
         if (!onSelect) return;
         event.stopPropagation();

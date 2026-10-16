@@ -28,7 +28,7 @@ interface PaletteProps {
 
 const CURVED = new Set(TUBES.filter((t) => t.category === 'tube' && t.shape === 'bent').map((t) => t.familyId));
 const HINTS = {
-  tube: 'Freien Arm (grau) anklicken; Esc legt das Rohr ab.',
+  tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, Esc legt es ab.',
   curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
   plate: 'Fläche zwischen vier Rohren anklicken; R dreht die Flansche, Esc legt die Platte ab.',
 };

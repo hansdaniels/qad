@@ -5,6 +5,7 @@ import {
   attachPoints,
   attachTube,
   bendDirections,
+  obliqueDirections,
   billOfMaterials,
   insertPlate,
   math,
@@ -12,13 +13,14 @@ import {
   plateSpots,
   quadroArticleCatalog,
   quadroPartCatalog,
-  rebendTube,
   recolourPlate,
   recolourTube,
   removePlate,
   removeTube,
   tubeOfPart,
   turnPlate,
+  turnTube,
+  type AttachOptions,
   type AttachPoint,
   type ColourId,
   type Diagnostic,
@@ -106,18 +108,31 @@ export function App() {
   const current = parts.find((p) => p.part.id === selected);
   const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
 
-  // Preview of attaching the chosen tube at the arm under the pointer.
-  // A curved tube offers its four bend directions, buildable ones first.
+  // Preview of attaching the chosen tube at the arm under the pointer. A curved tube
+  // offers its four bend directions, buildable ones first. A straight tube is axial
+  // first, then oblique on an angle adapter, previewed only when turned to.
   const plan = useMemo(() => {
     if (choice?.kind !== 'tube' || !hover) return undefined;
-    const bends = CURVED.has(choice.familyId) ? bendDirections(hover.direction) : [undefined];
-    const options = bends
-      .map((bend) => {
-        const command = attachTube(snapshot, hover, choice, quadroPartCatalog, 1, bend);
-        return { key: armKey(hover), command, preview: core.preview(command) };
-      })
-      .sort((a, b) => Number(a.preview.status !== 'valid') - Number(b.preview.status !== 'valid'));
-    return { ...options[turn % options.length]!, alternatives: options.length };
+    const preview = (options: AttachOptions) => {
+      const command = attachTube(snapshot, hover, choice, quadroPartCatalog, options);
+      return { key: armKey(hover), command, preview: core.preview(command) };
+    };
+    if (CURVED.has(choice.familyId)) {
+      const options = bendDirections(hover.direction)
+        .map((bend) => preview({ bend }))
+        .sort((a, b) => Number(a.preview.status !== 'valid') - Number(b.preview.status !== 'valid'));
+      const anyValid = options[0]?.preview.status === 'valid';
+      return { ...options[turn % options.length]!, alternatives: anyValid ? options.length : 1 };
+    }
+    // An angle adapter needs a connector, so a junction without tubes offers none.
+    const carries = snapshot.design.tubes.some(
+      (t) => t.a.junctionId === hover.junctionId || t.b.junctionId === hover.junctionId,
+    );
+    const options: AttachOptions[] = [
+      {},
+      ...(carries ? obliqueDirections(hover.direction).map((oblique) => ({ oblique })) : []),
+    ];
+    return { ...preview(options[turn % options.length]!), alternatives: options.length };
   }, [choice, hover, turn, snapshot, core]);
 
   // Preview of the chosen plate at the cell side under the pointer, best flange direction first.
@@ -131,7 +146,9 @@ export function App() {
       })
       .sort((a, b) => rank(a.preview) - rank(b.preview));
     const chosen = options[turn % Math.max(1, options.length)];
-    return chosen && { ...chosen, alternatives: options.length };
+    // Sorted buildable first: when the first is not, turning shows nothing buildable.
+    const anyValid = options[0]?.preview.status === 'valid';
+    return chosen && { ...chosen, alternatives: anyValid ? options.length : 1 };
   }, [choice, plateHover, turn, spots, snapshot, core]);
   const active = plan ?? platePlan;
 
@@ -146,6 +163,19 @@ export function App() {
     return result.ok;
   };
   /** Applies an insertion; a new part with other positions is selected, so it can be turned. */
+  // The preview outlasts the pointer leaving its target by a moment, so the turn
+  // button and the ghost can be reached; reaching either keeps it.
+  const release = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const holdPreview = () => clearTimeout(release.current);
+  const releasePreview = () => {
+    clearTimeout(release.current);
+    release.current = setTimeout(() => {
+      setHover(undefined);
+      setPlateHover(undefined);
+    }, 1000);
+  };
+  const previewHover = (inside: boolean) => (inside ? holdPreview() : releasePreview());
+  useEffect(() => () => clearTimeout(release.current), []);
   const insert = (command: EditCommand) => {
     if (!apply(command)) return;
     setHover(undefined);
@@ -154,7 +184,7 @@ export function App() {
     const intent =
       added?.kind === 'add-plate'
         ? { kind: 'plate', id: added.plate.id }
-        : added?.kind === 'add-tube' && CURVED.has(added.tube.familyId)
+        : added?.kind === 'add-tube' && (CURVED.has(added.tube.familyId) || added.tube.a.adapterArm)
           ? { kind: 'tube', id: added.tube.id }
           : undefined;
     if (intent) setSelected(`${intent.kind}:${intent.id}/body`);
@@ -183,14 +213,13 @@ export function App() {
           : recolourPlate(snapshot, selection.intent.id, colour),
       );
   };
-  // Other positions of the selected part: bends of a curved tube, flange directions of a plate.
+  // Other positions of the selected part: bends of a curved tube, axial or oblique
+  // for a straight tube with a free end, flange directions of a plate.
   const turns = !selection?.intent
     ? []
     : selection.kind === 'plate'
       ? turnPlate(snapshot, selection.intent.id, quadroPartCatalog)
-      : CURVED.has(selection.intent.familyId)
-        ? rebendTube(snapshot, selection.intent.id, quadroPartCatalog)
-        : [];
+      : turnTube(snapshot, selection.intent.id, quadroPartCatalog);
   const turnSelected = () => {
     const previews = turns.map((command) => ({ command, preview: core.preview(command) }));
     const next = previews.find((p) => p.preview.status === 'valid');
@@ -314,14 +343,15 @@ export function App() {
             onSelect={setSelected}
             candidate={active?.preview.status === 'valid' ? active.preview.candidate : undefined}
             onGhostClick={() => active && insert(active.command)}
+            onGhostHover={previewHover}
           >
             {choice?.kind === 'tube' ? (
               <VirtualArms
                 points={points}
                 hovered={plan ? { key: plan.key, valid: plan.preview.status === 'valid' } : undefined}
                 onHover={(point) => {
-                  // The preview stays when the pointer leaves, so its turn button can be reached.
-                  if (!point) return;
+                  if (!point) return releasePreview();
+                  holdPreview();
                   if (!hover || armKey(point) !== armKey(hover)) setTurn(0);
                   setHover(point);
                 }}
@@ -337,7 +367,8 @@ export function App() {
                     : undefined
                 }
                 onHover={(spot) => {
-                  if (!spot) return;
+                  if (!spot) return releasePreview();
+                  holdPreview();
                   if (spot.cellKey !== plateHover?.cellKey) setTurn(0);
                   setPlateHover(spot);
                 }}
@@ -348,6 +379,7 @@ export function App() {
               <GhostTurn
                 position={platePlan ? ahead(platePlan.spot.worldPose, 90) : ahead(hover!.worldPose, 120)}
                 onTurn={() => setTurn(turn + 1)}
+                onHover={previewHover}
               />
             ) : null}
           </ModelScene>

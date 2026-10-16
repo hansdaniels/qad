@@ -65,6 +65,8 @@ interface ModelSceneProps {
   readonly candidate?: ConstructionSnapshot | undefined;
   /** Clicking a ghost carries out the pending edit. */
   readonly onGhostClick?: (() => void) | undefined;
+  /** Pointer entering or leaving a ghost. */
+  readonly onGhostHover?: ((inside: boolean) => void) | undefined;
   /** Further content in model coordinates, e.g. virtual arms. */
   readonly children?: ReactNode;
 }
@@ -74,10 +76,12 @@ function GhostParts({
   snapshot,
   candidate,
   onClick,
+  onHover,
 }: {
   snapshot: ConstructionSnapshot;
   candidate: ConstructionSnapshot;
   onClick: (() => void) | undefined;
+  onHover: ((inside: boolean) => void) | undefined;
 }) {
   const parts = useParts(candidate);
   const changed = parts.filter(({ part, pose }) => {
@@ -100,6 +104,7 @@ function GhostParts({
             selected={false}
             ghost
             {...(onClick ? { onSelect: onClick } : {})}
+            {...(onHover ? { onHover } : {})}
           />
         ) : null,
       )}
@@ -115,6 +120,7 @@ export function ModelScene({
   onSelect,
   candidate,
   onGhostClick,
+  onGhostHover,
   children,
 }: ModelSceneProps) {
   const parts = useParts(snapshot);
@@ -147,7 +153,9 @@ export function ModelScene({
           <meshStandardMaterial color="#6b7480" />
         </mesh>
       ))}
-      {candidate ? <GhostParts snapshot={snapshot} candidate={candidate} onClick={onGhostClick} /> : null}
+      {candidate ? (
+        <GhostParts snapshot={snapshot} candidate={candidate} onClick={onGhostClick} onHover={onGhostHover} />
+      ) : null}
       {children}
     </group>
   );

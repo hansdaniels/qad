@@ -88,8 +88,7 @@ test('clicking the ghost carries out the previewed edit', async () => {
       { junctionId: 'j1', direction: '+z' },
       { familyId: 'curved-tube', colour: 'green' },
       quadroPartCatalog,
-      1,
-      '+x',
+      { bend: '+x' },
     ),
   );
   expect(preview.status).toBe('valid');
