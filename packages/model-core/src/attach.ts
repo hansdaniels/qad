@@ -1,10 +1,23 @@
 import type { GridDirection } from './article-catalog.js';
-import type { PartCatalog } from './catalog.js';
+import type { PartCatalog, TubeType } from './catalog.js';
 import type { EditCommand } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
 import type { ColourId, FamilyId, JunctionId } from './ids.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
-import { AXIS_ROTATIONS, add, compose, dot, length, qconj, qmul, rotate, scale, sub, vec } from './math.js';
+import {
+  AXIS_ROTATIONS,
+  add,
+  compose,
+  dot,
+  length,
+  qconj,
+  qmul,
+  rotate,
+  scale,
+  sub,
+  transformPoint,
+  vec,
+} from './math.js';
 
 /** A free axis direction at a junction, where the editor offers a virtual arm. */
 export interface AttachPoint {
@@ -32,6 +45,22 @@ export function towardDirection(direction: GridDirection): Quaternion {
 }
 
 const opposite = (d: GridDirection): GridDirection => ((d[0] === '+' ? '-' : '+') + d[1]) as GridDirection;
+const unit = (d: GridDirection): Vector3 => DIRECTIONS.find(([x]) => x === d)![1];
+
+/** The four directions a curved tube leaving along d can bend to, upwards first. */
+export function bendDirections(direction: GridDirection): GridDirection[] {
+  const order: GridDirection[] = ['+z', '+x', '+y', '-x', '-y', '-z'];
+  return order.filter((d) => d[1] !== direction[1]);
+}
+
+/** Rotation whose x, y and z axes are the given orthonormal vectors. */
+function basis(x: Vector3, y: Vector3): Quaternion {
+  return AXIS_ROTATIONS.find(
+    (r) => dot(rotate(r, vec(1, 0, 0)), x) > 1 - 1e-9 && dot(rotate(r, vec(0, 1, 0)), y) > 1 - 1e-9,
+  )!;
+}
+
+const FLIP_Z: Quaternion = { x: 1, y: 0, z: 0, w: 0 };
 
 /**
  * Free directions at every placed junction, also a lone anchored one. Occupied are the axes of
@@ -99,9 +128,10 @@ export function nextId(prefix: string, existing: readonly string[]): string {
 }
 
 /**
- * Command that attaches a straight tube at a free direction. Where the far end
- * meets an existing junction point, the tube joins it and closes the ring; the
- * auto connector there follows from the solver. Otherwise a new junction is added.
+ * Command that attaches a tube at a free direction. A curved tube bends towards
+ * bend, which must be perpendicular to the direction. Where the far end meets an
+ * existing junction point, the tube joins it and closes the ring; the auto
+ * connector there follows from the solver. Otherwise a new junction is added.
  */
 export function attachTube(
   snapshot: ConstructionSnapshot,
@@ -109,12 +139,17 @@ export function attachTube(
   tube: { readonly familyId: FamilyId; readonly colour: ColourId },
   catalog: PartCatalog,
   toleranceMm = 1,
+  bend?: GridDirection,
 ): EditCommand {
   const { design } = snapshot;
   const tubeId = nextId(
     't',
     design.tubes.map((t) => t.id),
   );
+  const type = catalog.partTypes.find(
+    (t): t is TubeType => t.kind === 'tube' && t.familyId === tube.familyId && t.standardVariant,
+  );
+  if (type?.shape === 'bent') return attachCurvedTube(snapshot, at, tube, type, catalog, bend, toleranceMm, tubeId);
   const existing = farEndJunction(snapshot, at, tube.familyId, catalog, toleranceMm);
   const junctionId =
     existing ??
@@ -133,6 +168,70 @@ export function attachTube(
           familyId: tube.familyId,
           a: { junctionId: at.junctionId, orientation: towardDirection(at.direction), roll: { mode: 'free' } },
           b: { junctionId, orientation: towardDirection(opposite(at.direction)), roll: { mode: 'free' } },
+          variant: { mode: 'automatic' },
+          appearance: { colour: tube.colour },
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * A curved tube in the plane of direction and bend. Its end frames carry the
+ * bending plane, so the solver also finds it at open ends, where no connector
+ * offers turns to try.
+ */
+function attachCurvedTube(
+  snapshot: ConstructionSnapshot,
+  at: { readonly junctionId: JunctionId; readonly direction: GridDirection },
+  tube: { readonly familyId: FamilyId; readonly colour: ColourId },
+  type: TubeType,
+  catalog: PartCatalog,
+  bend: GridDirection | undefined,
+  toleranceMm: number,
+  tubeId: string,
+): EditCommand {
+  const { design, realization } = snapshot;
+  const toward = bend ?? bendDirections(at.direction)[0]!;
+  const [d, b] = [unit(at.direction), unit(toward)];
+  if (Math.abs(dot(d, b)) > 1e-9) return { baseRevision: snapshot.revision, operations: [] };
+  const socket = catalog.partTypes
+    .flatMap((t) => (t.kind === 'connector' ? t.sites : []))
+    .find((s) => s.role === 'socket');
+  const armOffset = socket ? length(socket.frame.position) : 0;
+  // Tube frame in the junction frame: origin at the end a face, x along d, y towards the bend.
+  const frame = { position: scale(d, armOffset), orientation: basis(d, b) };
+  const site = (end: 'a' | 'b') => type.sites.find((s) => s.id === type.ends[end])!;
+  const into = (end: 'a' | 'b') => qmul(frame.orientation, qmul(site(end).frame.orientation, FLIP_Z));
+  const endB = compose(frame, site('b').frame);
+  const farLocal = add(endB.position, scale(rotate(endB.orientation, vec(0, 0, 1)), armOffset));
+
+  const poses = realization.intentPoses.filter((p) => p.intent.kind === 'junction');
+  const start = poses.find((p) => p.intent.id === at.junctionId)?.worldPose;
+  const target = start && transformPoint(start, farLocal);
+  const existing =
+    target &&
+    poses.find((p) => p.intent.id !== at.junctionId && length(sub(p.worldPose.position, target)) <= toleranceMm);
+  const junctionId =
+    existing?.intent.id ??
+    nextId(
+      'j',
+      design.junctions.map((j) => j.id),
+    );
+  // Orientation at end b in the far junction's frame; a new junction takes the start frame.
+  const bOrientation =
+    existing && start ? qmul(qconj(existing.worldPose.orientation), qmul(start.orientation, into('b'))) : into('b');
+  return {
+    baseRevision: snapshot.revision,
+    operations: [
+      ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
+      {
+        kind: 'add-tube',
+        tube: {
+          id: tubeId,
+          familyId: tube.familyId,
+          a: { junctionId: at.junctionId, orientation: into('a'), roll: { mode: 'free' } },
+          b: { junctionId, orientation: bOrientation, roll: { mode: 'free' } },
           variant: { mode: 'automatic' },
           appearance: { colour: tube.colour },
         },
@@ -168,4 +267,67 @@ function farEndJunction(
   const target = add(start.position, scale(direction, pitch));
   return poses.find((p) => p.intent.id !== at.junctionId && length(sub(p.worldPose.position, target)) <= toleranceMm)
     ?.intent.id;
+}
+
+/**
+ * Commands that bend an existing curved tube the other ways around its end a,
+ * keeping its ID and colour, in turning order after the current bend. A far
+ * junction left without tubes goes, unless anchored.
+ */
+export function rebendTube(snapshot: ConstructionSnapshot, tubeId: string, catalog: PartCatalog): EditCommand[] {
+  const { design, realization } = snapshot;
+  const tube = design.tubes.find((t) => t.id === tubeId);
+  const type = catalog.partTypes.find(
+    (t): t is TubeType => t.kind === 'tube' && t.familyId === tube?.familyId && t.standardVariant,
+  );
+  const frame = (id: JunctionId) =>
+    realization.intentPoses.find((p) => p.intent.kind === 'junction' && p.intent.id === id)?.worldPose;
+  const [start, far] = tube ? [frame(tube.a.junctionId), frame(tube.b.junctionId)] : [];
+  if (!tube || type?.shape !== 'bent' || !start || !far) return [];
+  const grid = (v: Vector3) => DIRECTIONS.find(([, u]) => dot(u, v) > 1 - 1e-6)?.[0];
+  const direction = grid(rotate(tube.a.orientation, vec(0, 0, 1)));
+  // End b points back into the tube, against the bend; expressed in the start frame.
+  const intoB = rotate(qmul(far.orientation, tube.b.orientation), vec(0, 0, 1));
+  const current = grid(scale(rotate(qconj(start.orientation), intoB), -1));
+  if (!direction || !current) return [];
+
+  const farId = tube.b.junctionId;
+  const keepFar =
+    design.tubes.some((t) => t.id !== tubeId && (t.a.junctionId === farId || t.b.junctionId === farId)) ||
+    design.anchors.some((a) => a.target.kind === 'junction' && a.target.id === farId);
+  // A far junction that goes with the old bend is no target for the new one.
+  const without: ConstructionSnapshot = keepFar
+    ? snapshot
+    : {
+        ...snapshot,
+        realization: { ...realization, intentPoses: realization.intentPoses.filter((p) => p.intent.id !== farId) },
+      };
+  const bends = bendDirections(direction);
+  const at = bends.indexOf(current);
+  const order = [...bends.slice(at + 1), ...bends.slice(0, at)];
+  return order.flatMap((bend) => {
+    const attached = attachCurvedTube(
+      without,
+      { junctionId: tube.a.junctionId, direction },
+      { familyId: tube.familyId, colour: tube.appearance.colour },
+      type,
+      catalog,
+      bend,
+      1,
+      tubeId,
+    );
+    const added = attached.operations.find((op) => op.kind === 'add-tube');
+    if (added?.kind !== 'add-tube') return [];
+    const reused = added.tube.b.junctionId === farId;
+    return [
+      {
+        baseRevision: snapshot.revision,
+        operations: [
+          ...attached.operations.filter((op) => op.kind === 'add-junction'),
+          { kind: 'set-tube', tube: { ...tube, a: added.tube.a, b: added.tube.b } } as const,
+          ...(keepFar || reused ? [] : [{ kind: 'remove-intent', target: { kind: 'junction', id: farId } } as const]),
+        ],
+      },
+    ];
+  });
 }

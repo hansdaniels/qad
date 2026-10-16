@@ -38,9 +38,14 @@ interface Side {
 /**
  * Cells of four straight tubes forming a rectangle that matches a plate type,
  * on both sides of the cell and for each flange direction the type allows.
- * A side already holding a plate is left out.
+ * A side already holding a plate is left out, except the side of plate except.
  */
-export function plateSpots(snapshot: ConstructionSnapshot, catalog: PartCatalog, toleranceMm = 1): PlateSpot[] {
+export function plateSpots(
+  snapshot: ConstructionSnapshot,
+  catalog: PartCatalog,
+  toleranceMm = 1,
+  except?: PlateId,
+): PlateSpot[] {
   const { design, realization } = snapshot;
   const types = new Map(catalog.partTypes.map((t) => [t.id, t]));
   const plateTypes = catalog.partTypes.filter((t): t is PlateType => t.kind === 'plate');
@@ -76,7 +81,7 @@ export function plateSpots(snapshot: ConstructionSnapshot, catalog: PartCatalog,
   }
   const between = (from: JunctionId, to: JunctionId) => sides.get(from)?.find((s) => s.other === to);
   const occupied = realization.parts
-    .filter((p) => p.origin.intent.kind === 'plate')
+    .filter((p) => p.origin.intent.kind === 'plate' && p.origin.intent.id !== except)
     .flatMap((p) => {
       const pose = tubePose.get(p.id);
       return pose ? [{ centre: pose.position, normal: rotate(pose.orientation, Z) }] : [];
@@ -215,4 +220,36 @@ export function insertPlate(snapshot: ConstructionSnapshot, spot: PlateSpot, col
       },
     ],
   };
+}
+
+/**
+ * Commands that turn an existing plate to the other flange directions on its cell
+ * side, keeping its ID and colour.
+ */
+export function turnPlate(snapshot: ConstructionSnapshot, plateId: PlateId, catalog: PartCatalog): EditCommand[] {
+  const plate = snapshot.design.plates.find((p) => p.id === plateId);
+  const body = snapshot.realization.parts.find(
+    (p) => p.origin.intent.kind === 'plate' && p.origin.intent.id === plateId,
+  );
+  const pose = body && snapshot.realization.poses.find((p) => p.partId === body.id)?.worldPose;
+  if (!plate || !body || !pose) return [];
+  const normal = rotate(pose.orientation, Z);
+  const tubes = new Set(plate.mounts.map((m) => m.tubeId));
+  return plateSpots(snapshot, catalog, 1, plateId)
+    .filter(
+      (s) =>
+        s.typeId === body.typeId &&
+        length(sub(s.worldPose.position, pose.position)) <= 1 &&
+        dot(rotate(s.worldPose.orientation, Z), normal) > 0.5 &&
+        !s.flangeTubes.every((t) => tubes.has(t)),
+    )
+    .map((spot) => ({
+      baseRevision: snapshot.revision,
+      operations: [
+        {
+          kind: 'set-plate',
+          plate: { ...plate, placement: { junctionId: spot.junctionId, pose: spot.pose }, mounts: spot.mounts },
+        },
+      ],
+    }));
 }

@@ -8,6 +8,7 @@ import {
   encodeConstruction,
   openConstruction,
   removeTube,
+  turnPlate,
   createModelCore,
   insertPlate,
   plateSpots,
@@ -264,4 +265,18 @@ test('a wall plate inside next to the floor plate collides, as a stair riser wou
     assert.equal(r.status, 'invalid');
     assert.ok(r.diagnostics.some((d) => d.code === 'collision' || d.code === 'plate-mount-conflict'));
   }
+});
+
+test('a plate turns to the other flange direction on its cell side and keeps its ID', () => {
+  const core = build(square);
+  const spot = spotsOf(core).find((s) => top(s) && s.flangeTubes.includes('t1'));
+  const s = execute(core, insertPlate(core.snapshot, spot, 'blue'));
+  const [other, ...more] = turnPlate(s, 'p1', quadroPartCatalog);
+  assert.equal(more.length, 0);
+  const turned = execute(core, other);
+  assert.deepEqual(
+    turned.design.plates.map((p) => p.id),
+    ['p1'],
+  );
+  assert.deepEqual([...new Set(turned.realization.plateMounts.map((m) => m.tubeId))].sort(byText), ['t2', 't4']);
 });
