@@ -7,6 +7,7 @@ import {
   bendDirections,
   obliqueDirections,
   billOfMaterials,
+  findHeadTraps,
   insertPlate,
   math,
   plateOfPart,
@@ -44,6 +45,7 @@ import { emptyModel } from './models';
 import { DEFAULT_FILE_NAME, download, downloadModel, openModel, restoreModel, storeModel } from './storage';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
+import { Warnings } from './Warnings';
 
 const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
 const CURVED = new Set(
@@ -112,6 +114,7 @@ export function App() {
   const cells = useMemo(() => [...new Map(spots.map((s) => [s.cellKey, s])).values()], [spots]);
   const current = parts.find((p) => p.part.id === selected);
   const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
+  const traps = useMemo(() => findHeadTraps(snapshot, quadroPartCatalog), [snapshot]);
 
   // Preview of attaching the chosen tube at the arm under the pointer. A curved tube
   // offers its four bend directions, buildable ones first. A straight tube is axial
@@ -395,7 +398,7 @@ export function App() {
           <ModelScene
             snapshot={snapshot}
             selected={selected}
-            highlighted={view === 'bill' ? highlighted : undefined}
+            highlighted={highlighted}
             onSelect={setSelected}
             candidate={active?.preview.status === 'valid' ? active.preview.candidate : undefined}
             onGhostClick={() => active && insert(active.command)}
@@ -496,7 +499,10 @@ export function App() {
               type="button"
               role="tab"
               aria-selected={view === id}
-              onClick={() => setView(id)}
+              onClick={() => {
+                setView(id);
+                setHighlighted(new Set());
+              }}
               style={{
                 padding: '6px 10px',
                 border: 'none',
@@ -518,7 +524,8 @@ export function App() {
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: '14px 0 0' }}>
               <span style={{ color: '#555', fontSize: 14, marginRight: 'auto' }}>
                 Revision {snapshot.revision} · {snapshot.realization.parts.length} Teile · {openEnds.length} offene
-                Enden
+                Enden{' '}
+                <Warnings traps={traps} onHighlight={(ids) => setHighlighted(new Set(ids))} onPick={setSelected} />
               </span>
               <button type="button" disabled={!canUndo} onClick={() => run(undo)} title="Strg+Z">
                 Zurück
