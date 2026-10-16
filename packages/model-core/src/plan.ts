@@ -1,13 +1,17 @@
 import * as z from 'zod';
 import type { ArticleCatalog, GridDirection } from './article-catalog.js';
-import { attachPoints, attachTube, type AttachOptions } from './attach.js';
+import { attachTube, nextId, type AttachOptions } from './attach.js';
 import type { PartCatalog } from './catalog.js';
-import type { EditPreview, ModelCore, ModelCoreOptions } from './core.js';
+import type { EditCommand } from './commands.js';
+import type { ConstructionSnapshot, EditPreview, ModelCore, ModelCoreOptions } from './core.js';
+import type { ConstructionDesign } from './design.js';
 import type { Diagnostic, Result } from './diagnostics.js';
 import type { Vector3 } from './geometry.js';
 import type { JunctionId, TubeId } from './ids.js';
 import { dot, length, qconj, rotate, sub, vec } from './math.js';
-import { createModelCore } from './model-core.js';
+import { checkBuildability } from './buildability-checker.js';
+import { applyOperations, createModelCore } from './model-core.js';
+import { solveRealization } from './solver.js';
 import { insertPlate, plateSpots } from './plates.js';
 import { insertSlide, localToward, slideSpots } from './slides.js';
 
@@ -45,17 +49,24 @@ const slideStep = z.strictObject({
   toward: direction,
   colour: id.exactOptional(),
 });
+const pointStep = z.strictObject({
+  kind: z.literal('point'),
+  name,
+  /** Position in cm, in the plan's axes from the start point. */
+  at: z.tuple([z.number(), z.number(), z.number()]),
+});
 const PlanSchema = z.strictObject({
   format: z.literal('qad-bauplan'),
   version: z.literal(1),
   name: z.string().exactOptional(),
   start: name,
-  steps: z.array(z.discriminatedUnion('kind', [tubeStep, plateStep, slideStep])),
+  steps: z.array(z.discriminatedUnion('kind', [tubeStep, plateStep, slideStep, pointStep])),
   notes: z.array(z.string()).exactOptional(),
 });
 type TubeStep = z.infer<typeof tubeStep>;
 type PlateStep = z.infer<typeof plateStep>;
 type SlideStep = z.infer<typeof slideStep>;
+type PointStep = z.infer<typeof pointStep>;
 
 const UNIT: Record<GridDirection, Vector3> = {
   '+x': vec(1, 0, 0),
@@ -104,44 +115,123 @@ export function importPlan(
     };
   }
   const plan = parsed.data;
-  const created = createModelCore(
-    {
-      id: plan.name ?? 'bauplan',
-      catalog: catalog.ref,
-      tubes: [],
-      junctions: [{ id: 'j1' }],
-      plates: [],
-      slides: [],
-      anchors: [
-        {
-          id: 'anchor',
-          target: { kind: 'junction', id: 'j1' },
-          worldPose: { position: vec(0, 0, 0), orientation: { x: 0, y: 0, z: 0, w: 1 } },
-        },
-      ],
-    },
-    catalog,
-    options,
-  );
-  if (!created.ok) return created;
-  const core = created.value;
-  const points = new Map<string, JunctionId>([[plan.start, 'j1']]);
-  for (const [index, step] of plan.steps.entries()) {
-    const error =
-      step.kind === 'tube'
-        ? buildTube(core, step, points, catalog, articles)
-        : step.kind === 'plate'
-          ? buildPlate(core, step, points, catalog, articles)
-          : buildSlide(core, step, points, catalog, articles);
-    if (error) return failure(`Schritt ${index + 1}: ${error}`, index + 1);
-  }
+  const design: ConstructionDesign = {
+    id: plan.name ?? 'bauplan',
+    catalog: catalog.ref,
+    tubes: [],
+    junctions: [{ id: 'j1' }],
+    plates: [],
+    slides: [],
+    anchors: [
+      {
+        id: 'anchor',
+        target: { kind: 'junction', id: 'j1' },
+        worldPose: { position: vec(0, 0, 0), orientation: { x: 0, y: 0, z: 0, w: 1 } },
+      },
+    ],
+  };
   // Notes come back as warnings, so the editor can show what the plan's author was unsure of.
   const notes = (plan.notes ?? []).map((note): Diagnostic => ({ ...problem(note), severity: 'warning' }));
-  return { ok: true, value: core, diagnostics: notes };
+  const run = (builder: Builder): Diagnostic | undefined => {
+    const points = new Map<string, JunctionId>([[plan.start, 'j1']]);
+    for (const [index, step] of plan.steps.entries()) {
+      const error =
+        step.kind === 'tube'
+          ? buildTube(builder, step, points, catalog, articles)
+          : step.kind === 'plate'
+            ? buildPlate(builder, step, points, catalog, articles)
+            : step.kind === 'slide'
+              ? buildSlide(builder, step, points, catalog, articles)
+              : buildPoint(builder, step, points);
+      if (error) return problem(`Schritt ${index + 1}: ${error}`, index + 1);
+    }
+    return undefined;
+  };
+
+  // Fast: each step is only solved, the whole model is checked once at the end.
+  const draft = draftBuilder(design, catalog, options);
+  if (draft && !run(draft)) {
+    const created = createModelCore(draft.snapshot.design, catalog, options);
+    if (created.ok) return { ok: true, value: created.value, diagnostics: notes };
+  }
+  // Something is not buildable: check every step to name the first that is not.
+  const created = createModelCore(design, catalog, options);
+  if (!created.ok) return created;
+  const error = run(created.value);
+  return error ? { ok: false, diagnostics: [error] } : { ok: true, value: created.value, diagnostics: notes };
+}
+
+/**
+ * What building a plan needs of a model core. A careful preview checks
+ * buildability even where the builder otherwise only solves, to choose between
+ * alternatives such as flange directions.
+ */
+interface Builder {
+  readonly snapshot: ConstructionSnapshot;
+  preview(command: EditCommand, careful?: boolean): EditPreview;
+  execute(command: EditCommand): Result<ConstructionSnapshot>;
+}
+
+/**
+ * Builder that solves each edit without the buildability check, for speed. Its
+ * variant changes list only the nonstandard tubes, which is all ranking needs.
+ */
+function draftBuilder(design: ConstructionDesign, catalog: PartCatalog, options: ModelCoreOptions) {
+  const solved = solveRealization(design, catalog, options);
+  if (!solved.ok) return undefined;
+  const types = new Map(catalog.partTypes.map((t) => [t.id, t]));
+  let snapshot: ConstructionSnapshot = { revision: 0, design, realization: solved.value };
+  const preview = (command: EditCommand, careful = false): EditPreview => {
+    const baseRevision = snapshot.revision;
+    const applied = applyOperations(snapshot.design, command.operations);
+    if (!applied.ok) return { status: 'invalid', baseRevision, diagnostics: applied.diagnostics };
+    const result = solveRealization(applied.value, catalog, options, snapshot.realization);
+    if (!result.ok) return { status: 'invalid', baseRevision, diagnostics: result.diagnostics };
+    if (careful) {
+      const report = checkBuildability(
+        { revision: baseRevision + 1, design: applied.value, realization: result.value },
+        catalog,
+        options.geometry,
+        {
+          tolerance: options.tolerance,
+          minClearanceMm: options.minClearanceMm ?? 0,
+          maxRemediesPerFinding: 0,
+          ...(options.connectionEvaluators ? { connectionEvaluators: options.connectionEvaluators } : {}),
+        },
+      );
+      if (report.verdict !== 'buildable')
+        return { status: 'invalid', baseRevision, diagnostics: report.findings.map((f) => f.diagnostic) };
+    }
+    const variantChanges = result.value.parts.flatMap((p) => {
+      const type = types.get(p.typeId);
+      return type?.kind === 'tube' && !type.standardVariant && p.origin.intent.kind === 'tube'
+        ? [{ intent: p.origin.intent, partId: p.id, selectedTypeId: p.typeId, nonstandard: true }]
+        : [];
+    });
+    return {
+      status: 'valid',
+      baseRevision,
+      candidate: { revision: baseRevision + 1, design: applied.value, realization: result.value },
+      variantChanges,
+      diagnostics: [],
+    };
+  };
+  return {
+    get snapshot() {
+      return snapshot;
+    },
+    preview,
+    execute(command: EditCommand): Result<ConstructionSnapshot> {
+      const p = preview(command);
+      if (p.status === 'invalid') return { ok: false, diagnostics: p.diagnostics };
+      snapshot = p.candidate;
+      return { ok: true, value: snapshot, diagnostics: [] };
+    },
+  } satisfies Builder;
 }
 
 function buildTube(
-  core: ModelCore,
+  core: Builder,
   step: TubeStep,
   points: Map<string, JunctionId>,
   catalog: PartCatalog,
@@ -156,11 +246,7 @@ function buildTube(
   if (typeof colour !== 'string') return colour.error;
   const local = localDirections(core, from);
   if (!local) return `An Punkt „${step.from}“ lässt sich nichts in Rasterrichtung anbauen.`;
-  const free = new Set(
-    attachPoints(core.snapshot, catalog)
-      .filter((p) => p.junctionId === from)
-      .map((p) => p.direction),
-  );
+  const free = freeArms(core, from);
 
   const candidates: { arm: GridDirection; options: AttachOptions }[] = [];
   const [first, second] = [step.direction.slice(0, 2), step.direction.slice(2)] as [GridDirection, string];
@@ -192,6 +278,18 @@ function buildTube(
     const arms = candidates.map((c) => world(core, from, c.arm)).join(' oder ');
     return `Am Punkt „${step.from}“ ist die Richtung ${arms} schon belegt.`;
   }
+  // A single way to attach needs no trial: building it checks it.
+  if (usable.length === 1) {
+    const [c] = usable as [(typeof usable)[number]];
+    const command = attachTube(
+      core.snapshot,
+      { junctionId: from, direction: c.arm },
+      { familyId: step.part, colour },
+      catalog,
+      c.options,
+    );
+    return finishTube(core, step, points, command);
+  }
   const attempts = usable.map((c) => {
     const command = attachTube(
       core.snapshot,
@@ -200,13 +298,23 @@ function buildTube(
       catalog,
       c.options,
     );
-    return { command, preview: core.preview(command) };
+    return { command, preview: core.preview(command, true) };
   });
   const chosen = attempts.find((a) => a.preview.status === 'valid') ?? attempts[0]!;
   if (chosen.preview.status !== 'valid') return messages(chosen.preview);
-  const added = chosen.command.operations.find((o) => o.kind === 'add-tube');
+  return finishTube(core, step, points, chosen.command);
+}
+
+/** Builds the tube and names or checks its far end. */
+function finishTube(
+  core: Builder,
+  step: TubeStep,
+  points: Map<string, JunctionId>,
+  command: EditCommand,
+): string | undefined {
+  const added = command.operations.find((o) => o.kind === 'add-tube');
   const far = added?.kind === 'add-tube' ? added.tube.b.junctionId : undefined;
-  const result = core.execute(chosen.command);
+  const result = core.execute(command);
   if (!result.ok || !far) return result.diagnostics.map((d) => d.message).join(' ');
 
   const named = [...points].find(([, j]) => j === far)?.[0];
@@ -225,7 +333,7 @@ function buildTube(
 }
 
 function buildPlate(
-  core: ModelCore,
+  core: Builder,
   step: PlateStep,
   points: Map<string, JunctionId>,
   catalog: PartCatalog,
@@ -261,7 +369,7 @@ function buildPlate(
   const attempts = flanged
     .map((spot) => {
       const command = insertPlate(snapshot, spot, colour);
-      return { command, preview: core.preview(command) };
+      return { command, preview: core.preview(command, flanged.length > 1) };
     })
     .sort((a, b) => rank(a.preview) - rank(b.preview));
   const chosen = attempts[0]!;
@@ -270,8 +378,44 @@ function buildPlate(
   return result.ok ? undefined : result.diagnostics.map((d) => d.message).join(' ');
 }
 
+/** A loose point of its own assembly, e.g. a separate tower standing beside the model. */
+function buildPoint(core: Builder, step: PointStep, points: Map<string, JunctionId>): string | undefined {
+  if (points.has(step.name)) return `Punkt „${step.name}“ gibt es schon.`;
+  const position = vec(step.at[0] * 10, step.at[1] * 10, step.at[2] * 10);
+  const taken = [...points].find(([, j]) => {
+    const pose = junctionPose(core, j);
+    return pose && length(sub(pose.position, position)) < 1;
+  });
+  if (taken) return `An dieser Stelle liegt schon Punkt „${taken[0]}“.`;
+  const { design } = core.snapshot;
+  const id = nextId(
+    'j',
+    design.junctions.map((j) => j.id),
+  );
+  const result = core.execute({
+    baseRevision: core.snapshot.revision,
+    operations: [
+      { kind: 'add-junction', junction: { id } },
+      {
+        kind: 'set-anchor',
+        anchor: {
+          id: nextId(
+            'anchor',
+            design.anchors.map((a) => a.id),
+          ),
+          target: { kind: 'junction', id },
+          worldPose: { position, orientation: { x: 0, y: 0, z: 0, w: 1 } },
+        },
+      },
+    ],
+  });
+  if (!result.ok) return result.diagnostics.map((d) => d.message).join(' ');
+  points.set(step.name, id);
+  return undefined;
+}
+
 function buildSlide(
-  core: ModelCore,
+  core: Builder,
   step: SlideStep,
   points: Map<string, JunctionId>,
   catalog: PartCatalog,
@@ -315,8 +459,18 @@ const rank = (p: EditPreview) => (p.status === 'valid' ? p.variantChanges.filter
 const messages = (preview: EditPreview) =>
   preview.status === 'valid' ? '' : preview.diagnostics.map((d) => d.message).join(' ');
 
+/** Arms of a junction, in its frame, that no tube end or angle adapter takes yet. */
+function freeArms(core: Builder, junctionId: JunctionId): Set<GridDirection> {
+  const taken = core.snapshot.design.tubes.flatMap((t) =>
+    [t.a, t.b]
+      .filter((e) => e.junctionId === junctionId)
+      .map((e) => e.adapterArm ?? axisOf(rotate(e.orientation, vec(0, 0, 1)))),
+  );
+  return new Set(DIRECTIONS.filter((d) => !taken.includes(d)));
+}
+
 /** Maps world directions into the junction's frame; undefined if that frame is not on the grid. */
-function localDirections(core: ModelCore, junctionId: JunctionId) {
+function localDirections(core: Builder, junctionId: JunctionId) {
   const frame = junctionPose(core, junctionId);
   if (!frame) return undefined;
   const inverse = qconj(frame.orientation);
@@ -325,17 +479,17 @@ function localDirections(core: ModelCore, junctionId: JunctionId) {
   return (d: GridDirection) => map.get(d)!;
 }
 
-function world(core: ModelCore, junctionId: JunctionId, local: GridDirection): string {
+function world(core: Builder, junctionId: JunctionId, local: GridDirection): string {
   const frame = junctionPose(core, junctionId);
   return (frame && axisOf(rotate(frame.orientation, UNIT[local]))) ?? local;
 }
 
-function junctionPose(core: ModelCore, junctionId: JunctionId) {
+function junctionPose(core: Builder, junctionId: JunctionId) {
   return core.snapshot.realization.intentPoses.find((p) => p.intent.kind === 'junction' && p.intent.id === junctionId)
     ?.worldPose;
 }
 
-function distance(core: ModelCore, a: JunctionId, b: JunctionId): number | undefined {
+function distance(core: Builder, a: JunctionId, b: JunctionId): number | undefined {
   const [p, q] = [junctionPose(core, a), junctionPose(core, b)];
   return p && q ? length(sub(p.position, q.position)) : undefined;
 }

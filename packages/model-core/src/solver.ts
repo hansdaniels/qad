@@ -70,6 +70,38 @@ interface AdapterChoice {
   readonly spigot: AttachmentSite;
 }
 
+interface Earlier {
+  readonly parts: ReadonlyMap<string, PartInstance>;
+  readonly poses: ReadonlyMap<PartId, Pose>;
+  readonly junctions: ReadonlyMap<JunctionId, Pose>;
+  /** By site pair, as connection IDs are formed. */
+  readonly connections: ReadonlyMap<string, Connection>;
+  /** By the two parts, in either order. */
+  readonly between: ReadonlyMap<string, readonly Connection[]>;
+}
+
+const partKey = (intent: IntentRef, role: string) => `${intent.kind}\u0000${intent.id}\u0000${role}`;
+const pairKey = (x: PartId, y: PartId) => (x < y ? `${x}\u0000${y}` : `${y}\u0000${x}`);
+
+function index(previous: Realization): Earlier {
+  const between = new Map<string, Connection[]>();
+  for (const c of previous.connections) {
+    const key = pairKey(c.a.partId, c.b.partId);
+    between.set(key, [...(between.get(key) ?? []), c]);
+  }
+  return {
+    parts: new Map(previous.parts.map((p) => [partKey(p.origin.intent, p.origin.role), p])),
+    poses: new Map(previous.poses.map((p) => [p.partId, p.worldPose])),
+    junctions: new Map(
+      previous.intentPoses.flatMap((p) => (p.intent.kind === 'junction' ? [[p.intent.id, p.worldPose]] : [])),
+    ),
+    connections: new Map(
+      previous.connections.map((c) => [`${c.a.partId}#${c.a.siteId}~${c.b.partId}#${c.b.siteId}`, c]),
+    ),
+    between,
+  };
+}
+
 interface SlidePlacement {
   readonly slide: SlideIntent;
   readonly type: SlideType;
@@ -159,14 +191,17 @@ class Solver {
   private readonly mountFits: MountFit[] = [];
   private readonly slides: SlidePlacement[] = [];
   private readonly armOffset: number;
+  /** The previous realization, indexed: the solver looks it up for every part. */
+  private readonly earlier?: Earlier;
 
   constructor(
     private readonly design: ConstructionDesign,
     private readonly catalog: PartCatalog,
     private readonly options: SolveOptions,
-    private readonly previous?: Realization,
+    previous?: Realization,
   ) {
     this.types = new Map(catalog.partTypes.map((t) => [t.id, t]));
+    if (previous) this.earlier = index(previous);
     const junctions = new Set(design.junctions.map((j) => j.id));
     for (const tube of design.tubes) {
       for (const end of ['a', 'b'] as const) {
@@ -934,17 +969,13 @@ class Solver {
   }
 
   private previousPart(intent: IntentRef, role: string): PartInstance | undefined {
-    return this.previous?.parts.find(
-      (p) => p.origin.intent.kind === intent.kind && p.origin.intent.id === intent.id && p.origin.role === role,
-    );
+    return this.earlier?.parts.get(partKey(intent, role));
   }
 
   private previousConnectorRotation(junctionId: JunctionId): Quaternion | undefined {
     const part = this.previousPart({ kind: 'junction', id: junctionId }, 'connector');
-    const frame = this.previous?.intentPoses.find(
-      (p) => p.intent.kind === 'junction' && p.intent.id === junctionId,
-    )?.worldPose;
-    const pose = part && this.previous?.poses.find((p) => p.partId === part.id)?.worldPose;
+    const frame = this.earlier?.junctions.get(junctionId);
+    const pose = part && this.earlier?.poses.get(part.id);
     if (!frame || !pose) return undefined;
     const relative = qmul(qconj(frame.orientation), pose.orientation);
     return AXIS_ROTATIONS.find((r) => qangle(qmul(qconj(r), relative)) < 1e-6);
@@ -954,17 +985,11 @@ class Solver {
   private previousAdapterArm(junctionId: JunctionId, e: EndRef): Vector3 | undefined {
     const adapter = this.previousPart({ kind: 'junction', id: junctionId }, `angle-adapter:${e.tube.id}:${e.end}`);
     const connector = this.previousPart({ kind: 'junction', id: junctionId }, 'connector');
-    const frame = this.previous?.intentPoses.find(
-      (p) => p.intent.kind === 'junction' && p.intent.id === junctionId,
-    )?.worldPose;
-    const pose = connector && this.previous?.poses.find((p) => p.partId === connector.id)?.worldPose;
+    const frame = this.earlier?.junctions.get(junctionId);
+    const pose = connector && this.earlier?.poses.get(connector.id);
     const type = connector && this.types.get(connector.typeId);
     if (!adapter || !frame || !pose || !type) return undefined;
-    const link = this.previous?.connections.find(
-      (c) =>
-        (c.a.partId === connector.id && c.b.partId === adapter.id) ||
-        (c.b.partId === connector.id && c.a.partId === adapter.id),
-    );
+    const link = this.earlier?.between.get(pairKey(connector.id, adapter.id))?.[0];
     const siteId = link && (link.a.partId === connector.id ? link.a.siteId : link.b.siteId);
     const site = type.sites.find((s) => s.id === siteId);
     if (!site) return undefined;
@@ -973,17 +998,15 @@ class Solver {
   }
 
   private previousLinkParameters(e: EndRef, connectorTypeId: string): Params | undefined {
-    if (!this.previous) return undefined;
+    if (!this.earlier) return undefined;
     const tube = this.previousPart({ kind: 'tube', id: e.tube.id }, 'body');
     const connector = this.previousPart({ kind: 'junction', id: e.tube[e.end].junctionId }, 'connector');
     if (!tube || !connector || connector.typeId !== connectorTypeId) return undefined;
     const type = this.types.get(tube.typeId);
     const siteId = type?.kind === 'tube' ? type.ends[e.end] : undefined;
-    const link = this.previous.connections.find(
-      (c) =>
-        (c.a.partId === connector.id && c.b.partId === tube.id && c.b.siteId === siteId) ||
-        (c.b.partId === connector.id && c.a.partId === tube.id && c.a.siteId === siteId),
-    );
+    const link = this.earlier.between
+      .get(pairKey(connector.id, tube.id))
+      ?.find((c) => (c.b.partId === tube.id ? c.b.siteId : c.a.siteId) === siteId);
     return link?.parameters;
   }
 
@@ -1000,10 +1023,8 @@ class Solver {
   ): Connection {
     const { type, armIsA } = this.connectionBetween(arm, end, e);
     const [a, b] = armIsA ? [armRef, endRef] : [endRef, armRef];
-    const previousId = this.previous?.connections.find(
-      (c) => c.a.partId === a.partId && c.a.siteId === a.siteId && c.b.partId === b.partId && c.b.siteId === b.siteId,
-    )?.id;
-    return { id: previousId ?? `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`, a, b, typeId: type.id, parameters };
+    const key = `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`;
+    return { id: this.earlier?.connections.get(key)?.id ?? key, a, b, typeId: type.id, parameters };
   }
 
   private partId(intent: IntentRef, role: string): PartId {
@@ -1117,11 +1138,9 @@ class Solver {
       poses.push({ partId: id, worldPose: pose });
       const a = { partId: this.partId({ kind: 'tube', id: tube.id }, 'body'), siteId: middle.id };
       const b = { partId: id, siteId: hang.id };
-      const previousId = this.previous?.connections.find(
-        (c) => c.a.partId === a.partId && c.a.siteId === a.siteId && c.b.partId === b.partId && c.b.siteId === b.siteId,
-      )?.id;
+      const key = `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`;
       connections.push({
-        id: previousId ?? `${a.partId}#${a.siteId}~${b.partId}#${b.siteId}`,
+        id: this.earlier?.connections.get(key)?.id ?? key,
         a,
         b,
         typeId: connectionType.id,

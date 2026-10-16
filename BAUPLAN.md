@@ -98,6 +98,27 @@ meist zwei Bodenschienen aus 35er-Rohren bis zum unteren Querrohr.
 | `modular-slide-body` | Modularrutschen-Körper |
 | `slide-runout`       | Rutschenauslauf        |
 
+Auf Fotos erkennt man die Modularrutsche so:
+
+- **Körper:** eine gerade, breite Kunststoffwanne mit hohen Seitenwänden, etwa
+  50 cm breit, meist rot. Stöße zwischen zwei Körpern sind als Querfuge mit
+  Schrauben an beiden Seiten zu sehen; jeder Abschnitt zwischen Oberkante,
+  Fugen und Auslauf ist ein Körper.
+- **Auslauf:** das flache, nach oben gebogene Endstück am Boden, meist gelb oder
+  dunkelgrau. Es gehört immer dazu, auch wenn es halb verdeckt ist.
+- **Oberes Querrohr:** das Rohr an der Vorderkante der Plattform, über das die
+  Rutsche oben greift; links und rechts davon stehen die Pfosten, oft mit
+  Bogenrohren als Haltegriff darüber. Seine Höhe ergibt sich aus der Zahl der
+  Körper: je Körper zwei Etagen (80 cm).
+- **Unteres Querrohr:** liegt 120 cm vor dem oberen; bei einem einzelnen Körper
+  am Boden am Ende der beiden Bodenschienen, bei einer Doppelrutsche auf einem
+  Zwischengestell zwei Etagen hoch.
+- **`toward`** ist die Richtung, in die man hinunterrutscht, vom Turm weg.
+
+Passen Höhe und Länge auf dem Foto nicht zu 80 cm je Körper und 120 cm
+Abstand, baut man das Gerüst trotzdem nach diesem Maß und vermerkt die
+Abweichung in `notes`.
+
 Die Bogenrutsche kennt das Format noch nicht.
 
 ### Farben
@@ -208,6 +229,24 @@ Standardrohren auskommt.
 Der Auslauf hängt am unteren Querrohr des untersten Körpers, mit derselben
 Richtung `toward`. Bei einer Doppelrutsche hängt der zweite Körper am unteren
 Querrohr des ersten.
+
+### Loses Bauteil
+
+Steht neben dem Bau ein Teil, das nicht mit ihm verbunden ist, etwa ein zweiter
+Turm, beginnt es mit einem eigenen Punkt:
+
+```text
+{
+  "kind": "point",
+  "name": "-240/0/0",            Name des neuen Punkts
+  "at": [-240, 0, 0]             Lage in cm, in denselben Richtungen ab dem Startpunkt
+}
+```
+
+Von diesem Punkt aus baut man das lose Teil wie gewohnt weiter. Man legt es auf
+dasselbe 40-cm-Raster wie den Hauptbau, auch wenn es in echt etwas versetzt
+steht, und vermerkt das in `notes`. So lässt es sich im Editor später mit
+passenden Rohren an den Hauptbau anschließen.
 
 ## 5. Vorgehen
 
@@ -345,6 +384,8 @@ Meldung beginnt mit der Schrittnummer, gezählt ab 1. Häufige Fälle:
 - Platten nur in Rahmen aus vier geraden Rohren, nicht an Bogenrohren; keine
   geknickten Platten.
 - Am freien Ende eines schrägen Rohrs lässt sich nichts anbauen.
+- Setzstufen einer Treppe neben einer Stufenplatte gehen nicht: Dafür müssten
+  Platten geknickt werden. Man lässt sie weg und vermerkt sie in `notes`.
 - Der Bauplan wird beim Öffnen in ein Modell übersetzt; gespeichert wird danach
   im Modellformat, unter dem Namen des Bauplans mit „-modell“ angehängt. Die
   Schritte selbst bleiben nicht erhalten.

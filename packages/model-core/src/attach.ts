@@ -1,7 +1,8 @@
 import type { GridDirection } from './article-catalog.js';
 import type { PartCatalog, TubeType } from './catalog.js';
-import type { EditCommand } from './commands.js';
+import type { DesignOperation, EditCommand } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
+import type { ConstructionDesign } from './design.js';
 import type { ColourId, FamilyId, JunctionId } from './ids.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
 import {
@@ -174,6 +175,7 @@ export function attachTube(
     baseRevision: snapshot.revision,
     operations: [
       ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
+      ...(existing ? joinAssemblies(design, at.junctionId, existing) : []),
       {
         kind: 'add-tube',
         tube: {
@@ -292,6 +294,7 @@ function attachCurvedTube(
     baseRevision: snapshot.revision,
     operations: [
       ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
+      ...(existing ? joinAssemblies(design, at.junctionId, existing.intent.id) : []),
       {
         kind: 'add-tube',
         tube: {
@@ -305,6 +308,35 @@ function attachCurvedTube(
       },
     ],
   };
+}
+
+/**
+ * When a tube joins two separate assemblies, the one it reaches gives up its
+ * anchor: it already lies where the tube ends, and one assembly has one anchor.
+ */
+function joinAssemblies(design: ConstructionDesign, from: JunctionId, to: JunctionId): DesignOperation[] {
+  const neighbours = new Map<JunctionId, JunctionId[]>();
+  for (const t of design.tubes) {
+    neighbours.set(t.a.junctionId, [...(neighbours.get(t.a.junctionId) ?? []), t.b.junctionId]);
+    neighbours.set(t.b.junctionId, [...(neighbours.get(t.b.junctionId) ?? []), t.a.junctionId]);
+  }
+  const reached = new Set([to]);
+  const queue = [to];
+  while (queue.length > 0) {
+    for (const n of neighbours.get(queue.shift()!) ?? []) {
+      if (!reached.has(n)) {
+        reached.add(n);
+        queue.push(n);
+      }
+    }
+  }
+  if (reached.has(from)) return [];
+  const tubes = new Set(design.tubes.filter((t) => reached.has(t.a.junctionId)).map((t) => t.id));
+  return design.anchors
+    .filter((a) =>
+      a.target.kind === 'junction' ? reached.has(a.target.id) : a.target.kind === 'tube' && tubes.has(a.target.id),
+    )
+    .map((a): DesignOperation => ({ kind: 'remove-anchor', id: a.id }));
 }
 
 /**

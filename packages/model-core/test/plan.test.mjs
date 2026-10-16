@@ -140,3 +140,40 @@ test('only building plans are taken for one; format errors name the field', () =
     /steps\.0\.direction/,
   );
 });
+
+test('a point step starts a loose assembly that a tube can later join to the model', async () => {
+  const { attachTube } = await import('../src/index.ts');
+  const result = load(
+    plan([tube('A', '+x', 'B'), { kind: 'point', name: 'T', at: [120, 0, 0] }, tube('T', '+x', 'U')]),
+  );
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  const core = result.value;
+  assert.equal(core.snapshot.design.anchors.length, 2);
+  assert.deepEqual(position(core, 'j3'), [1200, 0, 0]);
+  // From B a 35 cm tube reaches the loose point T one grid step on: the tower joins
+  // the model and gives up its own anchor.
+  const join = attachTube(
+    core.snapshot,
+    { junctionId: 'j2', direction: '+x' },
+    { familyId: 'tube-15cm', colour: 'red' },
+    quadroPartCatalog,
+  );
+  const gap = core.preview(join);
+  assert.equal(gap.status, 'valid', JSON.stringify(gap.diagnostics));
+  // 15 cm reaches only 200 mm, so nothing is joined yet.
+  assert.equal(gap.candidate.design.anchors.length, 2);
+  const bridge = load(
+    plan([
+      tube('A', '+x', 'B'),
+      { kind: 'point', name: 'T', at: [80, 0, 0] },
+      tube('T', '+x', 'U'),
+      tube('B', '+x', 'T'),
+    ]),
+  );
+  assert.equal(bridge.ok, true, JSON.stringify(bridge.diagnostics));
+  assert.equal(bridge.value.snapshot.design.anchors.length, 1);
+  assert.match(
+    message(load(plan([{ kind: 'point', name: 'A2', at: [0, 0, 0] }]))),
+    /An dieser Stelle liegt schon Punkt „A“/,
+  );
+});

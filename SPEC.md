@@ -346,4 +346,6 @@ abgeleitet. Unbekannte Versionen und Felder werden nicht stillschweigend überno
 Diese Formatprüfung ersetzt weder die Prüfung fachlicher Referenzen und
 Katalogbedingungen noch die geometrische Baubarkeitsprüfung durch den Modellkern.
 
-Daneben öffnet der Editor Baupläne ([BAUPLAN.md](./BAUPLAN.md)): eine Folge von Bauschritten in Weltrichtungen, die etwa ein Sprachmodell aus Fotos eines Baus schreibt. `importPlan` baut die Schritte mit den Bearbeitungsbefehlen des Editors nach und prüft jeden wie eine Bearbeitung; der erste nicht baubare Schritt wird mit Nummer und Grund gemeldet.
+Daneben öffnet der Editor Baupläne ([BAUPLAN.md](./BAUPLAN.md)): eine Folge von Bauschritten in Weltrichtungen, die etwa ein Sprachmodell aus Fotos eines Baus schreibt. `importPlan` baut die Schritte mit den Bearbeitungsbefehlen des Editors nach und prüft jeden wie eine Bearbeitung; der erste nicht baubare Schritt wird mit Nummer und Grund gemeldet. Ein Schritt `point` beginnt ein loses Bauteil mit eigenem Anker. Schneller Weg: Die Schritte werden nur gelöst und das fertige Modell einmal geprüft; scheitert diese Prüfung, wird jeder Schritt geprüft, um den ersten nicht baubaren zu nennen.
+
+Schließt ein angebautes Rohr an einen Verbindungspunkt eines anderen Bauteils an, gibt dieses Bauteil seinen Anker auf; es liegt schon dort, wo das Rohr endet, und die verbundene Baugruppe hat wieder genau einen Anker.
