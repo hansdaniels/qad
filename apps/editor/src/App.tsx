@@ -31,6 +31,7 @@ import {
   type PlateSpot,
   type Pose,
 } from '@qad/model-core';
+import { ASSORTMENTS, inAssortment, type Assortment } from './assortment';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
 import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
@@ -84,6 +85,7 @@ export function App() {
   // Steps through the alternatives at the place under the pointer: flange or bend direction.
   const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
+  const [assortment, setAssortment] = useState<Assortment>('common');
   const [view, setView] = useState<'build' | 'bill'>('build');
   const [camera, setCamera] = useState<ViewId>('perspective');
   const [fit, setFit] = useState(0);
@@ -241,6 +243,14 @@ export function App() {
   const chooseRange = (next: ColourRange) => {
     setRange(next);
     if (choice) setChoice({ ...choice, colour: fitColour(choice.familyId, choice.colour, next) });
+  };
+  const chooseAssortment = (next: Assortment) => {
+    setAssortment(next);
+    if (choice && !inAssortment(choice.familyId, next)) {
+      setChoice(undefined);
+      setHover(undefined);
+      setPlateHover(undefined);
+    }
   };
   const run = (step: () => readonly Diagnostic[]) => {
     setHover(undefined);
@@ -517,9 +527,20 @@ export function App() {
                 ))}
               </select>
             </label>
+            <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
+              Teile{' '}
+              <select value={assortment} onChange={(e) => chooseAssortment(e.target.value as Assortment)}>
+                {ASSORTMENTS.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Palette
               choice={choice}
               range={range}
+              assortment={assortment}
               onChoose={(next) => {
                 if (next?.familyId !== choice?.familyId) {
                   setHover(undefined);

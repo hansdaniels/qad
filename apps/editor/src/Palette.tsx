@@ -1,4 +1,5 @@
 import { quadroArticleCatalog, quadroPartCatalog, type ColourId, type FamilyId } from '@qad/model-core';
+import { inAssortment, type Assortment } from './assortment';
 import { fitColour, familyColours, type ColourRange } from './colours';
 
 export interface PaletteChoice {
@@ -23,6 +24,7 @@ const PLATES = quadroArticleCatalog.entries.filter(
 interface PaletteProps {
   readonly choice: PaletteChoice | undefined;
   readonly range: ColourRange;
+  readonly assortment: Assortment;
   readonly onChoose: (choice: PaletteChoice | undefined) => void;
 }
 
@@ -34,7 +36,7 @@ const HINTS = {
 };
 
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */
-export function Palette({ choice, range, onChoose }: PaletteProps) {
+export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
   const entry = (kind: PaletteChoice['kind'], familyId: FamilyId, name: string) => {
     const active = familyId === choice?.familyId;
     const fallback = quadroArticleCatalog.defaultColours[kind] ?? 'red';
@@ -62,9 +64,13 @@ export function Palette({ choice, range, onChoose }: PaletteProps) {
   return (
     <section>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Rohre</h3>
-      <div style={{ display: 'grid', gap: 4 }}>{TUBES.map((t) => entry('tube', t.familyId, t.name))}</div>
+      <div style={{ display: 'grid', gap: 4 }}>
+        {TUBES.filter((t) => inAssortment(t.familyId, assortment)).map((t) => entry('tube', t.familyId, t.name))}
+      </div>
       <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Platten</h3>
-      <div style={{ display: 'grid', gap: 4 }}>{PLATES.map((p) => entry('plate', p.familyId, p.name))}</div>
+      <div style={{ display: 'grid', gap: 4 }}>
+        {PLATES.filter((p) => inAssortment(p.familyId, assortment)).map((p) => entry('plate', p.familyId, p.name))}
+      </div>
       {choice ? (
         <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
           Farbe{' '}
