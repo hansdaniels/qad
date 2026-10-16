@@ -1,5 +1,5 @@
 import { expect, test } from 'vite-plus/test';
-import { findOpenEnds, recolourTube, removeTube } from '@qad/model-core';
+import { findOpenEnds, insertPlate, plateSpots, quadroPartCatalog, recolourTube, removeTube } from '@qad/model-core';
 import { demoModel } from './demo';
 
 test('the demo model is built through ModelCore commands and is buildable', () => {
@@ -33,4 +33,14 @@ test('every tube of the demo model can be recoloured and removed without moving 
       ).toBeLessThan(0.01);
     }
   }
+});
+
+test('a plate fits on top of the demo frame next to its upright tube', () => {
+  const core = demoModel();
+  const spots = plateSpots(core.snapshot, quadroPartCatalog).filter(
+    (s) => s.typeId === 'panel-40-40cm' && s.cellKey.endsWith('00+'),
+  );
+  expect(spots).toHaveLength(2);
+  const previews = spots.map((spot) => core.preview(insertPlate(core.snapshot, spot, 'blue')));
+  expect(previews.map((p) => p.status)).toContain('valid');
 });

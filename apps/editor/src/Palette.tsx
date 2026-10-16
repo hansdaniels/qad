@@ -1,7 +1,8 @@
-import { quadroArticleCatalog, type ColourId, type FamilyId } from '@qad/model-core';
-import { fitColour, tubeColours, type ColourRange } from './colours';
+import { quadroArticleCatalog, quadroPartCatalog, type ColourId, type FamilyId } from '@qad/model-core';
+import { fitColour, familyColours, type ColourRange } from './colours';
 
 export interface PaletteChoice {
+  readonly kind: 'tube' | 'plate';
   readonly familyId: FamilyId;
   readonly colour: ColourId;
 }
@@ -11,10 +12,13 @@ export interface PaletteChoice {
  * variant. The 35 cm tube is by far the most used part and comes first.
  */
 const FIRST = 'tube-35cm';
-const FAMILIES = quadroArticleCatalog.entries
+const TUBES = quadroArticleCatalog.entries
   .filter((e) => e.category === 'tube' && e.stage === 'initial' && e.drilling.kind === 'standard')
   .sort((a, b) => Number(b.familyId === FIRST) - Number(a.familyId === FIRST));
-const DEFAULT_COLOUR = quadroArticleCatalog.defaultColours.tube ?? 'red';
+/** Plates the geometry catalog can place. */
+const PLATES = quadroArticleCatalog.entries.filter(
+  (e) => e.category === 'plate' && quadroPartCatalog.partTypes.some((t) => t.kind === 'plate' && t.id === e.id),
+);
 
 interface PaletteProps {
   readonly choice: PaletteChoice | undefined;
@@ -22,53 +26,53 @@ interface PaletteProps {
   readonly onChoose: (choice: PaletteChoice | undefined) => void;
 }
 
+const HINTS = {
+  tube: 'Freien Arm (grau) anklicken; Esc legt das Rohr ab.',
+  plate: 'Fläche zwischen vier Rohren anklicken; R dreht die Flansche, Esc legt die Platte ab.',
+};
+
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */
 export function Palette({ choice, range, onChoose }: PaletteProps) {
-  const current = FAMILIES.find((f) => f.familyId === choice?.familyId);
+  const entry = (kind: PaletteChoice['kind'], familyId: FamilyId, name: string, supported = true) => {
+    const active = familyId === choice?.familyId;
+    const fallback = quadroArticleCatalog.defaultColours[kind] ?? 'red';
+    // Keep a chosen colour when switching between parts of the same kind.
+    const colour = choice?.kind === kind ? choice.colour : fallback;
+    return (
+      <button
+        key={familyId}
+        type="button"
+        disabled={!supported}
+        title={supported ? undefined : 'Folgt: Biegeebene muss wählbar sein'}
+        onClick={() => onChoose(active ? undefined : { kind, familyId, colour: fitColour(familyId, colour, range) })}
+        style={{
+          textAlign: 'left',
+          padding: '6px 8px',
+          border: active ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
+          borderRadius: 4,
+          background: active ? '#e8f0fb' : '#fff',
+          color: supported ? '#111' : '#999',
+          cursor: supported ? 'pointer' : 'default',
+        }}
+      >
+        {name}
+        {supported ? '' : ' (folgt)'}
+      </button>
+    );
+  };
   return (
     <section>
-      <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Teile</h3>
+      <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Rohre</h3>
       <div style={{ display: 'grid', gap: 4 }}>
-        {FAMILIES.map((family) => {
-          const supported = family.category === 'tube' && family.shape === 'straight';
-          const active = family.familyId === choice?.familyId;
-          return (
-            <button
-              key={family.familyId}
-              type="button"
-              disabled={!supported}
-              title={supported ? undefined : 'Folgt: Biegeebene muss wählbar sein'}
-              onClick={() =>
-                onChoose(
-                  active
-                    ? undefined
-                    : {
-                        familyId: family.familyId,
-                        colour: fitColour(family.familyId, choice?.colour ?? DEFAULT_COLOUR, range),
-                      },
-                )
-              }
-              style={{
-                textAlign: 'left',
-                padding: '6px 8px',
-                border: active ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
-                borderRadius: 4,
-                background: active ? '#e8f0fb' : '#fff',
-                color: supported ? '#111' : '#999',
-                cursor: supported ? 'pointer' : 'default',
-              }}
-            >
-              {family.name}
-              {supported ? '' : ' (folgt)'}
-            </button>
-          );
-        })}
+        {TUBES.map((t) => entry('tube', t.familyId, t.name, t.category === 'tube' && t.shape === 'straight'))}
       </div>
-      {current && choice ? (
+      <h3 style={{ fontSize: 15, margin: '16px 0 8px' }}>Platten</h3>
+      <div style={{ display: 'grid', gap: 4 }}>{PLATES.map((p) => entry('plate', p.familyId, p.name))}</div>
+      {choice ? (
         <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
           Farbe{' '}
           <select value={choice.colour} onChange={(e) => onChoose({ ...choice, colour: e.target.value })}>
-            {tubeColours(current.familyId, range).map((c) => (
+            {familyColours(choice.familyId, range).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -77,9 +81,7 @@ export function Palette({ choice, range, onChoose }: PaletteProps) {
         </label>
       ) : null}
       <p style={{ fontSize: 13, color: '#555' }}>
-        {choice
-          ? 'Freien Arm (grau) anklicken; Esc legt das Rohr ab.'
-          : 'Rohr wählen, dann an einem freien Arm anbauen.'}
+        {choice ? HINTS[choice.kind] : 'Rohr oder Platte wählen, dann im Modell anbauen.'}
       </p>
     </section>
   );

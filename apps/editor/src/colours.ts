@@ -44,20 +44,26 @@ const NAMES = new Map(quadroArticleCatalog.colours.map((c) => [c.id, c.name]));
 
 export const colourName = (colour: ColourId | undefined): string => (colour && NAMES.get(colour)) ?? colour ?? '–';
 
-/** Colours a tube family comes in, within the range: those of its standard variant. */
-export function tubeColours(familyId: FamilyId, range: ColourRange): ColourOption[] {
-  const entry = quadroArticleCatalog.entries.find(
-    (e) => e.familyId === familyId && e.category === 'tube' && e.drilling.kind === 'standard',
+/** Article entry standing for a tube or plate family: a tube's standard variant, or the plate. */
+function familyEntry(familyId: FamilyId) {
+  return quadroArticleCatalog.entries.find(
+    (e) =>
+      e.familyId === familyId && ((e.category === 'tube' && e.drilling.kind === 'standard') || e.category === 'plate'),
   );
-  return (entry?.articles ?? [])
+}
+
+/** Colours a tube or plate family comes in, within the range. */
+export function familyColours(familyId: FamilyId, range: ColourRange): ColourOption[] {
+  return (familyEntry(familyId)?.articles ?? [])
     .filter((a) => inRange(a.colour, range))
     .map((a) => ({ id: a.colour, name: colourName(a.colour) }));
 }
 
 /** The colour itself if the family offers it within the range, else the default or the first offered. */
 export function fitColour(familyId: FamilyId, colour: ColourId, range: ColourRange): ColourId {
-  const offered = tubeColours(familyId, range).map((c) => c.id);
-  const fallback = quadroArticleCatalog.defaultColours.tube ?? 'red';
+  const offered = familyColours(familyId, range).map((c) => c.id);
+  const category = familyEntry(familyId)?.category;
+  const fallback = (category && quadroArticleCatalog.defaultColours[category]) ?? 'red';
   return offered.includes(colour) ? colour : offered.includes(fallback) ? fallback : (offered[0] ?? colour);
 }
 

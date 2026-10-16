@@ -5,21 +5,30 @@ import {
   attachPoints,
   attachTube,
   billOfMaterials,
+  insertPlate,
+  plateOfPart,
+  plateSpots,
   quadroArticleCatalog,
   quadroPartCatalog,
+  recolourPlate,
   recolourTube,
+  removePlate,
   removeTube,
   tubeOfPart,
   type AttachPoint,
+  type ColourId,
   type Diagnostic,
   type EditCommand,
+  type EditPreview,
   type ModelCore,
   type PartId,
+  type PlateSpot,
 } from '@qad/model-core';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
-import { COLOUR_RANGES, colourName, fitColour, tubeColours, type ColourRange } from './colours';
+import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
+import { PlateSpots } from './PlateSpots';
 import { SelectionTools } from './SelectionTools';
 import { emptyModel } from './models';
 import { DEFAULT_FILE_NAME, download, downloadModel, openModel, restoreModel, storeModel } from './storage';
@@ -35,6 +44,9 @@ interface Notice {
 const unbuildable = (diagnostics: readonly Diagnostic[]): Notice | undefined =>
   diagnostics.length > 0 ? { title: 'Nicht baubar:', diagnostics } : undefined;
 
+/** Valid before invalid, then the fewest tubes that change to another drilling. */
+const rank = (p: EditPreview) => (p.status === 'valid' ? p.variantChanges.filter((c) => c.nonstandard).length : 1e6);
+
 export function App() {
   const [restored] = useState(restoreModel);
   const [core, setCore] = useState(restored.core);
@@ -47,6 +59,9 @@ export function App() {
   const [selected, setSelected] = useState<PartId | undefined>();
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
+  const [plateHover, setPlateHover] = useState<PlateSpot | undefined>();
+  // The other flange direction than the preferred one, for the cell under the pointer.
+  const [flipped, setFlipped] = useState(false);
   const [range, setRange] = useState<ColourRange>('both');
   const [view, setView] = useState<'build' | 'bill'>('build');
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
@@ -58,16 +73,42 @@ export function App() {
   );
   const parts = useParts(snapshot);
   const openEnds = useOpenEnds(snapshot);
-  const points = useMemo(() => (choice ? attachPoints(snapshot, quadroPartCatalog) : []), [choice, snapshot]);
+  const points = useMemo(
+    () => (choice?.kind === 'tube' ? attachPoints(snapshot, quadroPartCatalog) : []),
+    [choice, snapshot],
+  );
+  const spots = useMemo(
+    () =>
+      choice?.kind === 'plate'
+        ? plateSpots(snapshot, quadroPartCatalog).filter((s) => s.familyId === choice.familyId)
+        : [],
+    [choice, snapshot],
+  );
+  const cells = useMemo(() => [...new Map(spots.map((s) => [s.cellKey, s])).values()], [spots]);
   const current = parts.find((p) => p.part.id === selected);
-  const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog), [snapshot]);
+  const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
 
   // Preview of attaching the chosen tube at the arm under the pointer.
   const plan = useMemo(() => {
-    if (!choice || !hover) return undefined;
+    if (choice?.kind !== 'tube' || !hover) return undefined;
     const command = attachTube(snapshot, hover, choice, quadroPartCatalog);
     return { key: armKey(hover), command, preview: core.preview(command) };
   }, [choice, hover, snapshot, core]);
+
+  // Preview of the chosen plate at the cell side under the pointer, best flange direction first.
+  const platePlan = useMemo(() => {
+    if (choice?.kind !== 'plate' || !plateHover) return undefined;
+    const options = spots
+      .filter((s) => s.cellKey === plateHover.cellKey)
+      .map((spot) => {
+        const command = insertPlate(snapshot, spot, choice.colour);
+        return { spot, command, preview: core.preview(command) };
+      })
+      .sort((a, b) => rank(a.preview) - rank(b.preview));
+    const chosen = (flipped && options[1]) || options[0];
+    return chosen && { ...chosen, alternatives: options.length };
+  }, [choice, plateHover, flipped, spots, snapshot, core]);
+  const active = plan ?? platePlan;
 
   const apply = (command: EditCommand): boolean => {
     const result = core.execute(command);
@@ -83,11 +124,33 @@ export function App() {
     if (!choice) return;
     apply(plan?.key === armKey(point) ? plan.command : attachTube(snapshot, point, choice, quadroPartCatalog));
   };
+  const placePlate = (spot: PlateSpot) => {
+    if (choice?.kind !== 'plate') return;
+    apply(platePlan?.spot.cellKey === spot.cellKey ? platePlan.command : insertPlate(snapshot, spot, choice.colour));
+  };
+  // The tube or plate a selected part stands for; connectors stand for none.
   const selectedTube = selected ? tubeOfPart(snapshot, selected) : undefined;
-  const selectedTubeIntent = snapshot.design.tubes.find((t) => t.id === selectedTube);
+  const selectedPlate = selected ? plateOfPart(snapshot, selected) : undefined;
+  const selection = selectedTube
+    ? { kind: 'tube' as const, intent: snapshot.design.tubes.find((t) => t.id === selectedTube) }
+    : selectedPlate
+      ? { kind: 'plate' as const, intent: snapshot.design.plates.find((p) => p.id === selectedPlate) }
+      : undefined;
+  const recolour = (colour: ColourId) => {
+    if (selection?.intent)
+      apply(
+        selection.kind === 'tube'
+          ? recolourTube(snapshot, selection.intent.id, colour)
+          : recolourPlate(snapshot, selection.intent.id, colour),
+      );
+  };
   const remove = () => {
-    if (!selectedTube) return;
-    if (apply(removeTube(snapshot, selectedTube))) setSelected(undefined);
+    if (!selection?.intent) return;
+    const command =
+      selection.kind === 'tube'
+        ? removeTube(snapshot, selection.intent.id)
+        : removePlate(snapshot, selection.intent.id);
+    if (apply(command)) setSelected(undefined);
   };
   const chooseRange = (next: ColourRange) => {
     setRange(next);
@@ -95,6 +158,7 @@ export function App() {
   };
   const run = (step: () => readonly Diagnostic[]) => {
     setHover(undefined);
+    setPlateHover(undefined);
     setNotice(unbuildable(step()));
   };
 
@@ -109,6 +173,7 @@ export function App() {
     setSelected(undefined);
     setChoice(undefined);
     setHover(undefined);
+    setPlateHover(undefined);
     setNotice(undefined);
   };
   const newModel = () => {
@@ -145,12 +210,15 @@ export function App() {
       } else if (mod && event.key.toLowerCase() === 'y') {
         event.preventDefault();
         run(redo);
+      } else if (!mod && event.key.toLowerCase() === 'r' && platePlan && platePlan.alternatives > 1) {
+        setFlipped(!flipped);
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();
       } else if (event.key === 'Escape') {
         setChoice(undefined);
         setHover(undefined);
+        setPlateHover(undefined);
         setSelected(undefined);
       }
     };
@@ -158,7 +226,8 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const shown = plan?.preview.status === 'invalid' ? unbuildable(plan.preview.diagnostics) : notice;
+  const shown = active?.preview.status === 'invalid' ? unbuildable(active.preview.diagnostics) : notice;
+  const special = active?.preview.status === 'valid' ? active.preview.variantChanges.filter((c) => c.nonstandard) : [];
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -183,9 +252,9 @@ export function App() {
             selected={selected}
             highlighted={view === 'bill' ? highlighted : undefined}
             onSelect={setSelected}
-            candidate={plan?.preview.status === 'valid' ? plan.preview.candidate : undefined}
+            candidate={active?.preview.status === 'valid' ? active.preview.candidate : undefined}
           >
-            {choice ? (
+            {choice?.kind === 'tube' ? (
               <VirtualArms
                 points={points}
                 hovered={plan ? { key: plan.key, valid: plan.preview.status === 'valid' } : undefined}
@@ -193,17 +262,30 @@ export function App() {
                 onPick={pick}
               />
             ) : null}
+            {choice?.kind === 'plate' ? (
+              <PlateSpots
+                spots={cells}
+                hovered={
+                  platePlan
+                    ? { cellKey: platePlan.spot.cellKey, valid: platePlan.preview.status === 'valid' }
+                    : undefined
+                }
+                onHover={(spot) => {
+                  if (spot?.cellKey !== plateHover?.cellKey) setFlipped(false);
+                  setPlateHover(spot);
+                }}
+                onPick={placePlate}
+              />
+            ) : null}
           </ModelScene>
-          {selected && selectedTube ? (
+          {selected && selection?.intent ? (
             <SelectionTools
               key={selected}
               partId={selected}
               revision={snapshot.revision}
-              colours={selectedTubeIntent ? tubeColours(selectedTubeIntent.familyId, range) : []}
-              colour={selectedTubeIntent?.appearance.colour}
-              onRecolour={(colour) =>
-                selectedTubeIntent && apply(recolourTube(snapshot, selectedTubeIntent.id, colour))
-              }
+              colours={familyColours(selection.intent.familyId, range)}
+              colour={selection.intent.appearance.colour}
+              onRecolour={recolour}
               onDelete={remove}
             />
           ) : null}
@@ -292,6 +374,21 @@ export function App() {
               </select>
             </label>
             <Palette choice={choice} range={range} onChoose={setChoice} />
+            {special.length > 0 ? (
+              <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fff6e0', color: '#6b4a00' }}>
+                <p style={{ margin: '0 0 4px' }}>Braucht Sonderrohre:</p>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {special.map((c) => (
+                    <li key={c.partId}>
+                      {c.intent.id}: {articleName(c.selectedTypeId)}
+                    </li>
+                  ))}
+                </ul>
+                {platePlan && platePlan.alternatives > 1 ? (
+                  <p style={{ margin: '4px 0 0' }}>R dreht die Flansche.</p>
+                ) : null}
+              </section>
+            ) : null}
             {shown ? (
               <section style={{ fontSize: 14, padding: 8, borderRadius: 4, background: '#fdecea', color: '#8a1c1c' }}>
                 <p style={{ margin: '0 0 4px' }}>{shown.title}</p>
@@ -311,7 +408,7 @@ export function App() {
                 <dd>{current.article?.article.articleNumber ?? '–'}</dd>
                 <dt>Farbe</dt>
                 <dd>
-                  {colourName(selectedTubeIntent?.appearance.colour ?? current.article?.article.colour)}
+                  {colourName(selection?.intent?.appearance.colour ?? current.article?.article.colour)}
                   {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
                 </dd>
                 <dt>ID</dt>
@@ -319,9 +416,13 @@ export function App() {
               </dl>
             ) : null}
             {current ? (
-              selectedTube ? (
+              selection ? (
                 <button type="button" onClick={remove} title="Entf">
-                  {current.part.origin.intent.kind === 'tube' ? 'Rohr löschen' : 'Schräges Rohr löschen'}
+                  {selection.kind === 'plate'
+                    ? 'Platte löschen'
+                    : current.part.origin.intent.kind === 'tube'
+                      ? 'Rohr löschen'
+                      : 'Schräges Rohr löschen'}
                 </button>
               ) : (
                 <p style={{ fontSize: 13, color: '#555' }}>
