@@ -210,6 +210,13 @@ export function App() {
     : selectedPlate
       ? { kind: 'plate' as const, intent: snapshot.design.plates.find((p) => p.id === selectedPlate) }
       : undefined;
+  // Colours the selected part may take, its own one included even outside the range.
+  const selectionColours = (() => {
+    if (!selection?.intent) return [];
+    const offered = familyColours(selection.intent.familyId, range);
+    const own = selection.intent.appearance.colour;
+    return offered.some((c) => c.id === own) ? offered : [{ id: own, name: colourName(own) }, ...offered];
+  })();
   const recolour = (colour: ColourId) => {
     if (selection?.intent)
       apply(
@@ -437,7 +444,7 @@ export function App() {
               key={selected}
               partId={selected}
               revision={snapshot.revision}
-              colours={familyColours(selection.intent.familyId, range)}
+              colours={selectionColours}
               colour={selection.intent.appearance.colour}
               onRecolour={recolour}
               onDelete={remove}
@@ -589,7 +596,17 @@ export function App() {
                 <dd>{current.article?.article.articleNumber ?? '–'}</dd>
                 <dt>Farbe</dt>
                 <dd>
-                  {colourName(selection?.intent?.appearance.colour ?? current.article?.article.colour)}
+                  {selection?.intent ? (
+                    <select value={selection.intent.appearance.colour} onChange={(e) => recolour(e.target.value)}>
+                      {selectionColours.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    colourName(current.article?.article.colour)
+                  )}
                   {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
                 </dd>
                 <dt>ID</dt>

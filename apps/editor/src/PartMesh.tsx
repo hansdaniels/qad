@@ -1,8 +1,8 @@
 import type { ThreeEvent } from '@react-three/fiber';
 import { useMemo } from 'react';
-import { Quaternion, Vector3 } from 'three';
+import { ExtrudeGeometry, Path, Quaternion, Shape as Outline, Vector2, Vector3 } from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
-import type { CollisionShape, Pose } from '@qad/model-core';
+import type { DisplayShape, Pose, SlabShape } from '@qad/model-core';
 
 const UP = new Vector3(0, 1, 0);
 
@@ -26,8 +26,8 @@ function Material({ colour, selected, ghost }: Look) {
   );
 }
 
-/** One collision primitive in part coordinates. Capsules are drawn as flat-ended tubes. */
-function Shape({ shape, look }: { shape: CollisionShape; look: Look }) {
+/** One display primitive in part coordinates. Capsules are drawn as flat-ended tubes. */
+function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
   switch (shape.kind) {
     case 'capsule': {
       const a = new Vector3(shape.a.x, shape.a.y, shape.a.z);
@@ -53,7 +53,24 @@ function Shape({ shape, look }: { shape: CollisionShape; look: Look }) {
       );
     case 'convex':
       return <ConvexMesh points={shape.points} look={look} />;
+    case 'slab':
+      return <SlabMesh slab={shape} look={look} />;
   }
+}
+
+function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
+  const geometry = useMemo(() => {
+    const outline = new Outline(slab.outline.map((p) => new Vector2(p.x, p.y)));
+    for (const hole of slab.holes) {
+      outline.holes.push(new Path().absarc(hole.x, hole.y, hole.radiusMm, 0, 2 * Math.PI, true));
+    }
+    return new ExtrudeGeometry(outline, { depth: slab.thicknessMm, bevelEnabled: false, curveSegments: 32 });
+  }, [slab]);
+  return (
+    <mesh geometry={geometry} position={[0, 0, slab.bottomZ]}>
+      <Material {...look} />
+    </mesh>
+  );
 }
 
 function ConvexMesh({ points, look }: { points: readonly { x: number; y: number; z: number }[]; look: Look }) {
@@ -69,13 +86,13 @@ interface PartMeshProps extends Look {
   /** Part ID, also the Three.js object name for picking and tests. */
   readonly name: string;
   readonly pose: Pose;
-  readonly shapes: readonly CollisionShape[];
+  readonly shapes: readonly DisplayShape[];
   readonly onSelect?: () => void;
   /** Pointer entering (true) or leaving (false) the part. */
   readonly onHover?: (inside: boolean) => void;
 }
 
-/** A realised part at its world pose, drawn from its collision shapes. */
+/** A realised part at its world pose, drawn from its display shapes. */
 export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect, onHover }: PartMeshProps) {
   const { position, orientation } = pose;
   return (

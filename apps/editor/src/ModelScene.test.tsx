@@ -1,4 +1,5 @@
 import ReactThreeTestRenderer from '@react-three/test-renderer';
+import { BoxGeometry, ExtrudeGeometry, Mesh, type Shape } from 'three';
 import { expect, test } from 'vite-plus/test';
 import { demoModel } from './demo';
 import { ModelScene } from './ModelScene';
@@ -129,4 +130,23 @@ test('the model box covers built parts but not attach targets', async () => {
   const armed = builtBox((await scene(true)).scene.instance);
   expect(plain.isEmpty()).toBe(false);
   expect(armed.equals(plain)).toBe(true);
+});
+
+test('a hole panel is drawn as one extruded slab with its holes', async () => {
+  const { insertPlate, plateSpots, quadroPartCatalog } = await import('@qad/model-core');
+  const core = demoModel();
+  const spot = plateSpots(core.snapshot, quadroPartCatalog).find((s) => s.familyId === 'hole-panel-40-40cm')!;
+  const result = core.execute(insertPlate(core.snapshot, spot, 'blue'));
+  expect(result.ok).toBe(true);
+  const renderer = await ReactThreeTestRenderer.create(
+    <ModelScene snapshot={core.snapshot} selected={undefined} onSelect={() => {}} />,
+  );
+  const plate = core.snapshot.realization.parts.find((p) => p.typeId === 'hole-panel-40-40cm')!;
+  const geometries = renderer.scene
+    .findByProps({ name: plate.id })
+    .allChildren.flatMap((c) => (c.instance instanceof Mesh ? [c.instance.geometry] : []));
+  const slab = geometries.find((g) => g instanceof ExtrudeGeometry) as ExtrudeGeometry;
+  expect((slab.parameters.shapes as Shape).holes).toHaveLength(9);
+  // The two flanges are boxes as before.
+  expect(geometries.filter((g) => g instanceof BoxGeometry)).toHaveLength(2);
 });

@@ -4,6 +4,7 @@ import {
   findOpenEnds,
   quadroArticleCatalog,
   quadroCollisionGeometry,
+  quadroDisplayGeometry,
   quadroPartCatalog,
   requestedColour,
   resolveArticle,
@@ -27,14 +28,18 @@ function useLoneJunctions(snapshot: ConstructionSnapshot) {
   }, [snapshot]);
 }
 
-/** Parts with pose, collision shapes and resolved article. */
+/** Parts with pose, display shapes (collision shapes where a part has none) and resolved article. */
 export function useParts(snapshot: ConstructionSnapshot) {
   return useMemo(
     () =>
       snapshot.realization.parts.map((part) => {
         const pose = snapshot.realization.poses.find((p) => p.partId === part.id)?.worldPose;
         const type = types.get(part.typeId);
-        const shapes = (type && quadroCollisionGeometry.shapes(type.geometry.collision)) ?? [];
+        const shapes =
+          (type &&
+            (quadroDisplayGeometry.shapes(type.geometry.display) ??
+              quadroCollisionGeometry.shapes(type.geometry.collision))) ??
+          [];
         const article = resolveArticle(quadroArticleCatalog, part.typeId, requestedColour(snapshot, part));
         return { part, pose, shapes, article };
       }),
