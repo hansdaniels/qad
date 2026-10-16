@@ -1,3 +1,4 @@
+import type { CollisionShape } from './buildability.js';
 import type { GeometryRef, Pose } from './geometry.js';
 import type { ConnectionTypeId, FamilyId, PartTypeId, SiteId, TubeEnd } from './ids.js';
 
@@ -15,6 +16,26 @@ export interface AttachmentSite {
   /** Open catalog vocabulary, interpreted by connection rules. */
   readonly interfaceId: string;
   readonly capacity: number;
+}
+
+/**
+ * Flat body in the part's x-y plane: an outline extruded upwards from bottomZ,
+ * cut through by round holes. Display only; collision keeps simpler shapes.
+ */
+export interface SlabShape {
+  readonly kind: 'slab';
+  /** Counter-clockwise. */
+  readonly outline: readonly { readonly x: number; readonly y: number }[];
+  readonly holes: readonly { readonly x: number; readonly y: number; readonly radiusMm: number }[];
+  readonly bottomZ: number;
+  readonly thicknessMm: number;
+}
+
+export type DisplayShape = CollisionShape | SlabShape;
+
+export interface DisplayGeometryProvider {
+  /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */
+  shapes(ref: GeometryRef): readonly DisplayShape[] | undefined;
 }
 
 export interface PartGeometry {

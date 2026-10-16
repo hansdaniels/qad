@@ -4,6 +4,8 @@ import type {
   AccessoryType,
   AttachmentSite,
   ConnectionType,
+  DisplayGeometryProvider,
+  DisplayShape,
   PartCatalog,
   PartType,
   PlateType,
@@ -35,6 +37,11 @@ const PLATE_MOUNT = 'quadro-plate-mount';
 const HOLE_FROM_END = 25;
 /** Plate: underside and flange faces 25.12 from the tube axes, flanges down to z = -22, 3 thick. */
 const PLATE = { lift: 25.12, flangeDepth: 22, thickness: 3 };
+/**
+ * Hole panel: 3 × 3 round holes in a square grid. Pitch and diameter are read off
+ * the manufacturer's product picture against the plate width, not measured.
+ */
+const PERFORATION = { grid: 3, pitch: 107, diameter: 57 };
 
 const X = vec(1, 0, 0);
 const Y = vec(0, 1, 0);
@@ -340,22 +347,14 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
     const plate = /^quadro-plate-(\d+)x(\d+)$/.exec(ref.key);
     if (plate) {
       const [x, y] = [Number(plate[1]), Number(plate[2])];
-      const { lift, flangeDepth, thickness } = PLATE;
-      // Flanges end a plate thickness short of the crossing tubes, so an outward wall
-      // plate clears a floor plate lying inside on the same tube (platform).
-      const flange = (side: number): CollisionShape => ({
-        kind: 'box',
-        center: vec(0, side * (y / 2 - lift - thickness / 2), (lift - flangeDepth) / 2),
-        halfExtents: vec(x / 2 - lift - thickness, thickness / 2, (lift + flangeDepth) / 2),
-      });
+      const { lift, thickness } = PLATE;
       // Corners are cut out around the junctions, so upright tubes fit (GEOMETRIE.md,
       // section 5); two crossing boxes cover the rest.
       const z = lift + thickness / 2;
       return [
         { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2 - lift, y / 2, thickness / 2) },
         { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2, y / 2 - lift, thickness / 2) },
-        flange(1),
-        flange(-1),
+        ...plateFlanges(x, y),
       ];
     }
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
@@ -366,5 +365,55 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
       ];
     }
     return undefined;
+  },
+};
+
+/** Flanges along x on the tubes at y = ±y/2. */
+function plateFlanges(x: number, y: number): CollisionShape[] {
+  const { lift, flangeDepth, thickness } = PLATE;
+  // Flanges end a plate thickness short of the crossing tubes, so an outward wall
+  // plate clears a floor plate lying inside on the same tube (platform).
+  return [1, -1].map((side) => ({
+    kind: 'box',
+    center: vec(0, side * (y / 2 - lift - thickness / 2), (lift - flangeDepth) / 2),
+    halfExtents: vec(x / 2 - lift - thickness, thickness / 2, (lift + flangeDepth) / 2),
+  }));
+}
+
+/**
+ * How parts look, where that differs from their collision shapes: plates are one
+ * slab with cut-out corners, the hole panel with its holes.
+ */
+export const quadroDisplayGeometry: DisplayGeometryProvider = {
+  shapes(ref) {
+    const article = quadroArticleCatalog.entries.find((e) => e.id === ref.key);
+    if (article?.category !== 'plate') return undefined;
+    const type = quadroPartCatalog.partTypes.find((t) => t.id === article.id);
+    if (type?.kind !== 'plate') return undefined;
+    const [x, y] = type.cellMm;
+    const { lift, thickness } = PLATE;
+    const [hx, hy, n] = [x / 2, y / 2, lift];
+    const outline = [
+      [hx - n, -hy],
+      [hx - n, -hy + n],
+      [hx, -hy + n],
+      [hx, hy - n],
+      [hx - n, hy - n],
+      [hx - n, hy],
+      [-hx + n, hy],
+      [-hx + n, hy - n],
+      [-hx, hy - n],
+      [-hx, -hy + n],
+      [-hx + n, -hy + n],
+      [-hx + n, -hy],
+    ].map(([px, py]) => ({ x: px!, y: py! }));
+    const { grid, pitch, diameter } = PERFORATION;
+    const steps = Array.from({ length: grid }, (_, i) => (i - (grid - 1) / 2) * pitch);
+    const holes =
+      article.plate === 'perforated'
+        ? steps.flatMap((cy) => steps.map((cx) => ({ x: cx, y: cy, radiusMm: diameter / 2 })))
+        : [];
+    const slab: DisplayShape = { kind: 'slab', outline, holes, bottomZ: lift, thicknessMm: thickness };
+    return [slab, ...plateFlanges(x, y)];
   },
 };

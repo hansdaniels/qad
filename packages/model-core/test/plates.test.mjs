@@ -15,6 +15,7 @@ import {
   quadroArticleCatalog,
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
+  quadroDisplayGeometry,
   quadroPartCatalog,
 } from '../src/index.ts';
 import { rotate, vec } from '../src/math.ts';
@@ -279,4 +280,37 @@ test('a plate turns to the other flange direction on its cell side and keeps its
     ['p1'],
   );
   assert.deepEqual([...new Set(turned.realization.plateMounts.map((m) => m.tubeId))].sort(byText), ['t2', 't4']);
+});
+
+test('plates are drawn as one slab with cut-out corners; the hole panel has a 3 × 3 grid of holes', () => {
+  const display = (id) => {
+    const type = quadroPartCatalog.partTypes.find((t) => t.id === id);
+    return { type, shapes: quadroDisplayGeometry.shapes(type.geometry.display) };
+  };
+  const solid = display('panel-40-40cm');
+  const perforated = display('hole-panel-40-40cm');
+  for (const { type, shapes } of [solid, perforated]) {
+    const [slab, ...rest] = shapes;
+    assert.equal(slab.kind, 'slab');
+    // The slab covers what the two crossing collision boxes cover, flanges stay the same.
+    const boxes = quadroCollisionGeometry.shapes(type.geometry.collision);
+    const xs = slab.outline.map((p) => p.x);
+    const ys = slab.outline.map((p) => p.y);
+    assert.equal(Math.max(...xs), boxes[1].halfExtents.x);
+    assert.equal(Math.max(...ys), boxes[0].halfExtents.y);
+    assert.equal(slab.outline.length, 12);
+    assert.equal(slab.bottomZ + slab.thicknessMm / 2, boxes[0].center.z);
+    assert.deepEqual(rest, boxes.slice(2));
+  }
+  assert.equal(solid.shapes[0].holes.length, 0);
+  const holes = perforated.shapes[0].holes;
+  assert.equal(holes.length, 9);
+  assert.deepEqual(
+    [...new Set(holes.map((h) => h.x))].sort((a, b) => a - b),
+    [-107, 0, 107],
+  );
+  const [hx, hy] = perforated.type.cellMm.map((c) => c / 2 - 25.12);
+  for (const h of holes) assert.ok(Math.abs(h.x) + h.radiusMm < hx && Math.abs(h.y) + h.radiusMm < hy);
+  // Tubes and connectors keep their collision shapes as their looks.
+  assert.equal(quadroDisplayGeometry.shapes({ key: 'tube-35cm' }), undefined);
 });

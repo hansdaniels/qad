@@ -164,6 +164,11 @@ liegen, ist noch auszuwerten.
 - Schrauben.
 - Bodenverankerung, Acrylglas, Holzgitter und ihre Halteplatten, Lochplatte,
   Modularrutsche.
+- Lochmuster der Lochplatte: 3 × 3 runde Löcher im Quadratraster, Abstand etwa
+  107 mm, Durchmesser etwa 57 mm. Geschätzt aus der aktuellen Produktabbildung des
+  Herstellers im Verhältnis zur Plattenbreite, nicht gemessen. Ältere Fotos zeigen
+  ein anderes, versetztes Muster mit kleineren Löchern. Das Muster dient nur der
+  Darstellung; für Kollisionen gilt die Lochplatte als geschlossen.
 
 ## 9. Offen
 
