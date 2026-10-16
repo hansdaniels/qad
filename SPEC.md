@@ -300,8 +300,8 @@ Three.js-Szenenobjekte bilden nicht das persistierte Fachmodell. Kamerabewegunge
 
 ### 13.3 Navigation und Ansichten
 
-- Eine frei um einen Zielpunkt drehbare 3D-Ansicht mit Pan und Zoom wird über `OrbitControls` umgesetzt.
-- Zusätzlich werden feste orthografische Ansichten von oben, vorn und der Seite angeboten.
+- Eine frei um einen Zielpunkt drehbare 3D-Ansicht mit Pan und Zoom wird über `CameraControls` (camera-controls, über drei) umgesetzt; gezoomt wird zum Mauszeiger hin.
+- Zusätzlich werden feste orthografische Ansichten von oben, vorn und der Seite angeboten. Sie lassen sich nur verschieben und zoomen; die Rückkehr zur 3D-Ansicht stellt deren letzte Lage wieder her. „Einpassen“ zeigt das ganze Modell, in der 3D-Ansicht ohne den Blickwinkel zu ändern.
 - Eine perspektivische Ansicht unterstützt das räumliche Verständnis; orthografische Ansichten unterstützen präzise Platzierung.
 - Auswahl und Erkennung von Teilen unter dem Mauszeiger erfolgen über `Raycaster` mit Rückzuordnung zu fachlichen IDs.
 - Kameranavigation und Bearbeitungswerkzeuge erhalten getrennte Eingabegesten, damit das Setzen eines Rohrs nicht gleichzeitig die Ansicht dreht.
@@ -319,7 +319,7 @@ Generische freie Objekttransformationen dürfen fachliche Bedingungen nicht umge
 ### 13.5 Technische Referenzen
 
 - [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer)
-- [Three.js OrbitControls](https://threejs.org/docs/pages/OrbitControls.html)
+- [camera-controls](https://github.com/yomotsu/camera-controls)
 - [Three.js Raycaster](https://threejs.org/docs/pages/Raycaster.html)
 - [Three.js WebGPURenderer als mögliche spätere Alternative](https://threejs.org/docs/pages/WebGPURenderer.html)
 
