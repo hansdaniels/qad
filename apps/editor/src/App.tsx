@@ -36,6 +36,7 @@ import { ASSORTMENTS, inAssortment, type Assortment } from './assortment';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
 import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
+import { DOCKS, useDock, type Dock } from './dock';
 import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
 import { Palette, type PaletteChoice } from './Palette';
@@ -90,6 +91,7 @@ export function App() {
   const [assortment, setAssortment] = useState<Assortment>('common');
   const [view, setView] = useState<'build' | 'bill'>('build');
   const [camera, setCamera] = useState<ViewId>('perspective');
+  const { dock, choose: chooseDock, bottom } = useDock();
   const [fit, setFit] = useState(0);
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
   const [notice, setNotice] = useState<Notice | undefined>(
@@ -337,9 +339,9 @@ export function App() {
   const shown = active?.preview.status === 'invalid' ? unbuildable(active.preview.diagnostics) : notice;
   const special = active?.preview.status === 'valid' ? active.preview.variantChanges.filter((c) => c.nonstandard) : [];
 
-  // Side by side in landscape, sidebar below in portrait; see index.html.
+  // Sidebar beside or below the model, see index.html.
   return (
-    <div className="layout">
+    <div className={bottom ? 'layout bottom' : 'layout'}>
       <div className="stage">
         <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 20, display: 'flex', gap: 4 }}>
           {VIEWS.map((v) => (
@@ -375,6 +377,20 @@ export function App() {
             Einpassen
           </button>
         </div>
+        {/* On the model rather than in the sidebar, so it costs the sidebar no row. */}
+        <select
+          aria-label="Seitenleiste"
+          title="Wo die Seitenleiste liegt"
+          value={dock}
+          onChange={(e) => chooseDock(e.target.value as Dock)}
+          style={{ position: 'absolute', top: 8, right: 8, zIndex: 20, padding: '4px 6px', fontSize: 14 }}
+        >
+          {DOCKS.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
         <Canvas
           camera={{ position: [1300, 900, 900], fov: 40, near: 10, far: 50000 }}
           onPointerMissed={() => {

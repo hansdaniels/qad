@@ -41,30 +41,29 @@
         display: grid;
         gap: 4px;
       }
-      @media (orientation: portrait) {
-        .layout {
-          flex-direction: column;
-        }
-        .sidebar {
-          width: auto;
-          flex: 0 0 28%;
-          border-left: none;
-          border-top: 1px solid #d0d5db;
-        }
-        .masthead {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 8px 16px;
-        }
-        .masthead h2,
-        .masthead p {
-          margin: 0;
-        }
-        /* The full width holds several parts side by side. */
-        .choices {
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        }
+      /* Sidebar below the model; App sets it in portrait or when chosen. */
+      .layout.bottom {
+        flex-direction: column;
+      }
+      .layout.bottom .sidebar {
+        width: auto;
+        flex: 0 0 28%;
+        border-left: none;
+        border-top: 1px solid #d0d5db;
+      }
+      .layout.bottom .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
+      }
+      .layout.bottom .masthead h2,
+      .layout.bottom .masthead p {
+        margin: 0;
+      }
+      /* The full width holds several parts side by side. */
+      .layout.bottom .choices {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       }
     </style>
   </head>
