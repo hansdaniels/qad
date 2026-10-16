@@ -106,3 +106,27 @@ test('clicking the ghost carries out the previewed edit', async () => {
   await renderer.fireEvent(renderer.scene.findByProps({ name: 'ghost:tube:t7/body' }), 'click');
   expect(clicks).toBe(1);
 });
+
+test('the model box covers built parts but not attach targets', async () => {
+  const { attachPoints, quadroPartCatalog } = await import('@qad/model-core');
+  const { VirtualArms } = await import('./VirtualArms');
+  const { builtBox } = await import('./ModelScene');
+  const { snapshot } = demoModel();
+  const scene = (withArms: boolean) =>
+    ReactThreeTestRenderer.create(
+      <ModelScene snapshot={snapshot} selected={undefined} onSelect={() => {}}>
+        {withArms ? (
+          <VirtualArms
+            points={attachPoints(snapshot, quadroPartCatalog)}
+            hovered={undefined}
+            onHover={() => {}}
+            onPick={() => {}}
+          />
+        ) : null}
+      </ModelScene>,
+    );
+  const plain = builtBox((await scene(false)).scene.instance);
+  const armed = builtBox((await scene(true)).scene.instance);
+  expect(plain.isEmpty()).toBe(false);
+  expect(armed.equals(plain)).toBe(true);
+});

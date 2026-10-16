@@ -1,4 +1,4 @@
-import { Grid, OrbitControls } from '@react-three/drei';
+import { Grid } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,6 +32,7 @@ import {
   type Pose,
 } from '@qad/model-core';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
+import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
 import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
@@ -84,6 +85,8 @@ export function App() {
   const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
   const [view, setView] = useState<'build' | 'bill'>('build');
+  const [camera, setCamera] = useState<ViewId>('perspective');
+  const [fit, setFit] = useState(0);
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
   const [notice, setNotice] = useState<Notice | undefined>(
     restored.problems && {
@@ -316,7 +319,41 @@ export function App() {
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
-      <div style={{ flex: 1, background: '#eef1f4' }}>
+      <div style={{ flex: 1, position: 'relative', background: '#eef1f4' }}>
+        <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 20, display: 'flex', gap: 4 }}>
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              title={v.title}
+              aria-pressed={camera === v.id}
+              onClick={() => (camera === v.id ? setFit(fit + 1) : setCamera(v.id))}
+              style={{
+                padding: '4px 10px',
+                border: camera === v.id ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
+                borderRadius: 4,
+                background: camera === v.id ? '#e8f0fb' : '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              {v.name}
+            </button>
+          ))}
+          <button
+            type="button"
+            title="Modell einpassen"
+            onClick={() => setFit(fit + 1)}
+            style={{
+              padding: '4px 10px',
+              border: '1px solid #c8cdd3',
+              borderRadius: 4,
+              background: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            Einpassen
+          </button>
+        </div>
         <Canvas
           camera={{ position: [1300, 900, 900], fov: 40, near: 10, far: 50000 }}
           onPointerMissed={() => {
@@ -332,6 +369,7 @@ export function App() {
             cellSize={100}
             sectionSize={400}
             infiniteGrid
+            fadeFrom={camera === 'perspective' ? 1 : 0}
             fadeDistance={6000}
             cellColor="#c8cdd3"
             sectionColor="#9aa3ad"
@@ -395,7 +433,7 @@ export function App() {
               onTurn={turns.length > 0 ? turnSelected : undefined}
             />
           ) : null}
-          <OrbitControls makeDefault target={[200, 100, -200]} />
+          <CameraRig view={camera} fit={fit} />
         </Canvas>
       </div>
       <aside

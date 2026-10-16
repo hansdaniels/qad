@@ -56,7 +56,7 @@ export function SelectionTools({
     object.updateWorldMatrix(true, true);
     const box = new Box3().setFromObject(object);
     const centre = box.getCenter(new Vector3());
-    setAnchor([centre.x, box.max.y + 60, centre.z]);
+    setAnchor([centre.x, box.max.y, centre.z]);
   }, [scene, partId, revision]);
   if (!anchor) return null;
   // Swatches sit on a circle around the brush, just apart from each other.
@@ -65,7 +65,8 @@ export function SelectionTools({
     <Html position={anchor} center zIndexRange={[10, 0]}>
       {/* Html lives inside the canvas' event source; without this a click would deselect the part. */}
       <div
-        style={{ display: 'flex', gap: 8 }}
+        // Lifted on screen rather than in the world, so the tools clear the part from the top as well.
+        style={{ display: 'flex', gap: 8, transform: 'translateY(-48px)' }}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}

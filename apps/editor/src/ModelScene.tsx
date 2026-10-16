@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import { Box3, type Object3D } from 'three';
 import {
   findOpenEnds,
   quadroArticleCatalog,
@@ -110,6 +111,18 @@ function GhostParts({
       )}
     </>
   );
+}
+
+/** World box of the built model: parts, open ends and lone junctions, without previews or targets. */
+export function builtBox(scene: Object3D): Box3 {
+  const box = new Box3();
+  const model = scene.getObjectByName('model');
+  if (!model) return box;
+  model.updateWorldMatrix(true, true);
+  for (const child of model.children) {
+    if (child.name && !/^(ghost:|virtual-arms$|plate-spots$)/.test(child.name)) box.expandByObject(child);
+  }
+  return box;
 }
 
 /** The realised model in model coordinates (z up), turned into the y-up Three.js world. */
