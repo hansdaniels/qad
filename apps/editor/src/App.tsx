@@ -2,7 +2,9 @@ import { Grid } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  assemblyOf,
   attachPoints,
+  connectionSnaps,
   attachTube,
   bendDirections,
   obliqueDirections,
@@ -12,6 +14,7 @@ import {
   insertSlide,
   isPlan,
   math,
+  moveAssembly,
   plateOfPart,
   plateSpots,
   slideOfPart,
@@ -37,6 +40,7 @@ import {
   type PartId,
   type PlateSpot,
   type SlideSpot,
+  type Vector3,
   type Pose,
 } from '@qad/model-core';
 import { ASSORTMENTS, inAssortment, type Assortment } from './assortment';
@@ -46,6 +50,7 @@ import { GhostTurn } from './GhostTurn';
 import { DOCKS, useDock, type Dock } from './dock';
 import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts } from './ModelScene';
+import { MoveGizmo } from './MoveGizmo';
 import { Palette, type PaletteChoice } from './Palette';
 import { PlateSpots } from './PlateSpots';
 import { SelectionTools } from './SelectionTools';
@@ -69,6 +74,17 @@ interface Notice {
 }
 const unbuildable = (diagnostics: readonly Diagnostic[]): Notice | undefined =>
   diagnostics.length > 0 ? { title: 'Nicht baubar:', diagnostics } : undefined;
+
+/** Snapping of a moved assembly: the grid of a 35 cm tube, and how near a fitting place must come. */
+const GRID_MM = 400;
+const SNAP_MM = 150;
+/** Arrow keys move along model x and y: right, and away from the front. */
+const ARROWS: Readonly<Record<string, readonly [number, number]>> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, 1],
+  ArrowDown: [0, -1],
+};
 
 /** Valid before invalid, then the fewest tubes that change to another drilling. */
 const rank = (p: EditPreview) => (p.status === 'valid' ? p.variantChanges.filter((c) => c.nonstandard).length : 1e6);
@@ -96,6 +112,14 @@ export function App() {
   const [hover, setHover] = useState<AttachPoint | undefined>();
   const [plateHover, setPlateHover] = useState<PlateSpot | undefined>();
   const [slideHover, setSlideHover] = useState<SlideSpot | undefined>();
+  // Moving the selected part's assembly: the handle's snapped translation while dragging.
+  const [moveMode, setMoveMode] = useState(false);
+  const [drag, setDrag] = useState<
+    { readonly x: number; readonly y: number; readonly z: number; readonly label?: string } | undefined
+  >();
+  const gizmoUsed = useRef(0);
+  // Which tube fits after a click on an arrow stopped at a fitting place.
+  const [stepLabel, setStepLabel] = useState<string | undefined>();
   // Steps through the alternatives at the place under the pointer: flange or bend direction.
   const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
@@ -185,6 +209,29 @@ export function App() {
     return { spot: slideHover, command, preview: core.preview(command), alternatives: 1 };
   }, [choice, slideHover, snapshot, core]);
   const active = plan ?? platePlan ?? slidePlan;
+
+  const assembly = useMemo(
+    () => (moveMode && selected ? assemblyOf(snapshot, selected) : undefined),
+    [moveMode, selected, snapshot],
+  );
+  const snaps = useMemo(
+    () => (assembly ? connectionSnaps(snapshot, quadroPartCatalog, assembly, 0) : []),
+    [assembly, snapshot],
+  );
+  const movePlan = useMemo(() => {
+    if (!assembly || !drag || (drag.x === 0 && drag.y === 0 && drag.z === 0)) return undefined;
+    const command = moveAssembly(snapshot, assembly, {
+      translation: math.vec(drag.x, drag.y, drag.z),
+      quarterTurns: 0,
+    });
+    return { command, preview: core.preview(command) };
+  }, [assembly, drag, snapshot, core]);
+  const moved = useMemo(() => new Set(assembly?.partIds ?? []), [assembly]);
+  useEffect(() => {
+    setMoveMode(false);
+    setDrag(undefined);
+    setStepLabel(undefined);
+  }, [selected]);
 
   const apply = (command: EditCommand): boolean => {
     const result = core.execute(command);
@@ -281,6 +328,46 @@ export function App() {
     else if (previews[0])
       setNotice({ title: 'Keine andere Lage ist baubar:', diagnostics: previews[0].preview.diagnostics });
   };
+  // Grid steps of a 35 cm tube, or a place where one tube joins this assembly to
+  // another; never below the floor.
+  const dragTo = (raw: Vector3) => {
+    if (!assembly) return;
+    const floor = -assembly.lowest;
+    let best: (typeof snaps)[number] | undefined;
+    let bestDistance = SNAP_MM;
+    for (const s of snaps) {
+      const d = Math.hypot(s.translation.x - raw.x, s.translation.y - raw.y, s.translation.z - raw.z);
+      if (d < bestDistance && s.translation.z >= floor - 1) [best, bestDistance] = [s, d];
+    }
+    const step = (v: number) => Math.round(v / GRID_MM) * GRID_MM;
+    const next = best
+      ? { ...best.translation, label: `passt: ${articleName(best.familyId)}` }
+      : { x: step(raw.x), y: step(raw.y), z: Math.max(step(raw.z), Math.ceil((floor - 1) / GRID_MM) * GRID_MM) };
+    if (next.x !== drag?.x || next.y !== drag?.y || next.z !== drag?.z) setDrag(next);
+  };
+  const dropMove = () => {
+    if (movePlan?.preview.status === 'valid') apply(movePlan.command);
+    else if (movePlan) setNotice(unbuildable(movePlan.preview.diagnostics));
+    setDrag(undefined);
+  };
+  // One stop along an axis: the next grid step, or a place nearer where a tube fits.
+  const stepAssembly = (axis: 'x' | 'y' | 'z', sign: 1 | -1) => {
+    const others = (['x', 'y', 'z'] as const).filter((a) => a !== axis);
+    const fitting = snaps
+      .filter((s) => others.every((a) => Math.abs(s.translation[a]) < 1) && s.translation[axis] * sign > 1)
+      .sort((a, b) => Math.abs(a.translation[axis]) - Math.abs(b.translation[axis]))[0];
+    const distance =
+      fitting && Math.abs(fitting.translation[axis]) < GRID_MM ? fitting.translation[axis] : sign * GRID_MM;
+    const t = { x: 0, y: 0, z: 0, [axis]: distance };
+    setDrag(undefined);
+    shiftAssembly(t.x, t.y, t.z);
+    setStepLabel(distance === fitting?.translation[axis] ? `passt: ${articleName(fitting.familyId)}` : undefined);
+  };
+  const shiftAssembly = (x: number, y: number, z: number, quarterTurns = 0) => {
+    setStepLabel(undefined);
+    if (!assembly || assembly.lowest + z < -1) return;
+    apply(moveAssembly(snapshot, assembly, { translation: math.vec(x, y, z), quarterTurns }));
+  };
   const remove = () => {
     if (!selection?.intent) return;
     const command =
@@ -368,6 +455,15 @@ export function App() {
       } else if (mod && event.key.toLowerCase() === 'y') {
         event.preventDefault();
         run(redo);
+      } else if (!mod && assembly && event.key.startsWith('Arrow')) {
+        event.preventDefault();
+        const [x, y] = ARROWS[event.key] ?? [0, 0];
+        shiftAssembly(x * GRID_MM, y * GRID_MM, 0);
+      } else if (!mod && assembly && (event.key === 'PageUp' || event.key === 'PageDown')) {
+        event.preventDefault();
+        shiftAssembly(0, 0, event.key === 'PageUp' ? GRID_MM : -GRID_MM);
+      } else if (!mod && assembly && event.key.toLowerCase() === 'r') {
+        shiftAssembly(0, 0, 0, 1);
       } else if (!mod && event.key.toLowerCase() === 'r' && active && active.alternatives > 1) {
         setTurn(turn + 1);
       } else if (!mod && event.key.toLowerCase() === 'r' && !active && turns.length > 0) {
@@ -375,6 +471,9 @@ export function App() {
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();
+      } else if (event.key === 'Escape' && assembly) {
+        setMoveMode(false);
+        setDrag(undefined);
       } else if (event.key === 'Escape') {
         setChoice(undefined);
         setHover(undefined);
@@ -445,6 +544,8 @@ export function App() {
         <Canvas
           camera={{ position: [1300, 900, 900], fov: 40, near: 10, far: 50000 }}
           onPointerMissed={() => {
+            // A click on the move handle is no click beside the model.
+            if (performance.now() - gizmoUsed.current < 400) return;
             setSelected(undefined);
             setHover(undefined);
             setPlateHover(undefined);
@@ -466,10 +567,18 @@ export function App() {
           <ModelScene
             snapshot={snapshot}
             selected={selected}
-            highlighted={highlighted}
+            highlighted={assembly ? moved : highlighted}
             onSelect={setSelected}
-            candidate={active?.preview.status === 'valid' ? active.preview.candidate : undefined}
-            onGhostClick={() => active && insert(active.command)}
+            candidate={
+              movePlan
+                ? movePlan.preview.status === 'valid'
+                  ? movePlan.preview.candidate
+                  : undefined
+                : active?.preview.status === 'valid'
+                  ? active.preview.candidate
+                  : undefined
+            }
+            onGhostClick={() => (movePlan ? dropMove() : active && insert(active.command))}
             onGhostHover={previewHover}
           >
             {choice?.kind === 'tube' ? (
@@ -533,7 +642,21 @@ export function App() {
               colour={selection.intent.appearance.colour}
               onRecolour={recolour}
               onDelete={remove}
-              onTurn={turns.length > 0 ? turnSelected : undefined}
+              onTurn={assembly ? () => shiftAssembly(0, 0, 0, 1) : turns.length > 0 ? turnSelected : undefined}
+              moving={assembly !== undefined}
+              onMove={() => setMoveMode(!moveMode)}
+            />
+          ) : null}
+          {assembly ? (
+            <MoveGizmo
+              pivot={assembly.pivot}
+              translation={math.vec(drag?.x ?? 0, drag?.y ?? 0, drag?.z ?? 0)}
+              label={drag ? drag.label : stepLabel}
+              invalid={movePlan?.preview.status === 'invalid'}
+              onDrag={dragTo}
+              onDragEnd={dropMove}
+              onStep={stepAssembly}
+              onUse={() => (gizmoUsed.current = performance.now())}
             />
           ) : null}
           <CameraRig view={camera} fit={fit} />

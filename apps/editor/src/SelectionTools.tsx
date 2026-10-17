@@ -1,6 +1,6 @@
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
-import { Paintbrush, RotateCw, Trash2 } from 'lucide-react';
+import { Move, Paintbrush, RotateCw, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { Box3, Vector3 } from 'three';
 import type { ColourId } from '@qad/model-core';
@@ -18,6 +18,9 @@ interface SelectionToolsProps {
   readonly onDelete: () => void;
   /** Puts the part into its next buildable position; only for parts that have one. */
   readonly onTurn?: (() => void) | undefined;
+  /** Whether the part's assembly is being moved; then turning turns the assembly. */
+  readonly moving?: boolean;
+  readonly onMove?: () => void;
 }
 
 const BUTTON = 34;
@@ -43,6 +46,8 @@ export function SelectionTools({
   onRecolour,
   onDelete,
   onTurn,
+  moving = false,
+  onMove,
 }: SelectionToolsProps) {
   const scene = useThree((state) => state.scene);
   const [anchor, setAnchor] = useState<[number, number, number] | undefined>();
@@ -116,10 +121,22 @@ export function SelectionTools({
               : null}
           </div>
         ) : null}
+        {onMove ? (
+          <button
+            type="button"
+            title="Bauteil verschieben (Pfeiltasten, Bild auf/ab hebt und senkt, R dreht, Esc beendet)"
+            aria-label="Verschieben"
+            aria-pressed={moving}
+            onClick={onMove}
+            style={{ ...round(BUTTON), border: '1px solid #c8cdd3', background: moving ? '#e8edf3' : '#fff' }}
+          >
+            <Move size={18} color="#333" aria-hidden />
+          </button>
+        ) : null}
         {onTurn ? (
           <button
             type="button"
-            title="Drehen: nächste Lage (R)"
+            title={moving ? 'Bauteil um 90° drehen (R)' : 'Drehen: nächste Lage (R)'}
             aria-label="Drehen"
             onClick={onTurn}
             style={{ ...round(BUTTON), border: '1px solid #c8cdd3', background: '#fff' }}
