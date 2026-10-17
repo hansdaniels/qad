@@ -91,6 +91,26 @@ export function CameraRig({ view, fit, zoom }: CameraRigProps) {
     else void c.fitToSphere(box.getBoundingSphere(new Sphere()), true);
   }, [fit, scene]);
 
+  // In the free view Shift + drag pans, for touchpads without a right button.
+  useEffect(() => {
+    if (ortho) return;
+    const set = (pan: boolean) => {
+      const c = controls.current;
+      if (c) c.mouseButtons.left = pan ? CameraControlsImpl.ACTION.TRUCK : CameraControlsImpl.ACTION.ROTATE;
+    };
+    const onKey = (event: KeyboardEvent) => set(event.shiftKey);
+    const onBlur = () => set(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+      window.removeEventListener('blur', onBlur);
+      set(false);
+    };
+  }, [ortho, camera]);
+
   useEffect(() => {
     const c = controls.current;
     if (!c || zoom.count === 0) return;

@@ -313,7 +313,7 @@ Three.js-Szenenobjekte bilden nicht das persistierte Fachmodell. Kamerabewegunge
 
 ### 13.3 Navigation und Ansichten
 
-- Eine frei um einen Zielpunkt drehbare 3D-Ansicht mit Pan und Zoom wird über `CameraControls` (camera-controls, über drei) umgesetzt; gezoomt wird zum Mauszeiger hin.
+- Eine frei um einen Zielpunkt drehbare 3D-Ansicht mit Pan und Zoom wird über `CameraControls` (camera-controls, über drei) umgesetzt; gezoomt wird zum Mauszeiger hin. Verschoben wird mit der rechten Maustaste, mit Umschalt und linker Maustaste oder mit zwei Fingern; Knöpfe und die Tasten + und − zoomen schrittweise.
 - Zusätzlich werden feste orthografische Ansichten von oben, vorn und der Seite angeboten. Sie lassen sich nur verschieben und zoomen; die Rückkehr zur 3D-Ansicht stellt deren letzte Lage wieder her. „Einpassen“ zeigt das ganze Modell, in der 3D-Ansicht ohne den Blickwinkel zu ändern.
 - Eine perspektivische Ansicht unterstützt das räumliche Verständnis; orthografische Ansichten unterstützen präzise Platzierung.
 - Auswahl und Erkennung von Teilen unter dem Mauszeiger erfolgen über `Raycaster` mit Rückzuordnung zu fachlichen IDs.
