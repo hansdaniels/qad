@@ -51,6 +51,8 @@ export {
   buildabilityChecker,
   checkBuildability,
 } from './buildability-checker.js';
+export type { Assembly, AssemblyMove, ConnectionSnap } from './assemblies.js';
+export { assemblyOf, connectionSnaps, moveAssembly } from './assemblies.js';
 export { importPlan, isPlan } from './plan.js';
 export type { HeadTrap } from './head-traps.js';
 export { findHeadTraps } from './head-traps.js';

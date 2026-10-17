@@ -331,6 +331,8 @@ Eine Mausposition im Bild legt allein keine eindeutige Position im Raum fest. Pl
 
 Generische freie Objekttransformationen dürfen fachliche Bedingungen nicht umgehen. Änderungen werden über die in Abschnitt 8 beschriebenen Operationen geprüft und übernommen.
 
+Ein ganzes Bauteil (eine zusammenhängende Baugruppe) wird über den Knopf „Verschieben“ an einem gewählten Teil bewegt. Ein Griff mit drei Pfeilen (`TransformControls` aus drei) verschiebt es auf dem Boden und hebt oder senkt es, nie unter den Boden; es rastet im 40-cm-Raster ein und zusätzlich überall dort, wo ein freier Arm des Bauteils einem freien Arm eines anderen gegenübersteht und genau ein gerades Standardrohr dazwischen passt (`connectionSnaps`); der Editor nennt dann das Rohr. Ein Klick auf eine Pfeilspitze schiebt bis zum nächsten Halt in dieser Richtung, dem nächsten Rasterfeld oder einer näheren Anschlussstelle. Pfeiltasten verschieben um ein Rasterfeld, Bild auf und Bild ab heben und senken um eines, R und der Drehknopf drehen um 90° um die Hochachse durch einen Verbindungspunkt nahe der Mitte. `moveAssembly` setzt dafür nur den Anker neu; Teile, IDs und Beziehungen bleiben erhalten (Abnahmeszenario 8). Eine Lage, die mit anderen Teilen kollidiert, wird nicht übernommen.
+
 ### 13.5 Technische Referenzen
 
 - [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer)
