@@ -1,5 +1,6 @@
 import { Grid } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   assemblyOf,
@@ -128,6 +129,8 @@ export function App() {
   const [camera, setCamera] = useState<ViewId>('perspective');
   const { dock, choose: chooseDock, bottom } = useDock();
   const [fit, setFit] = useState(0);
+  const [zoom, setZoom] = useState<{ readonly count: number; readonly direction: 1 | -1 }>({ count: 0, direction: 1 });
+  const zoomBy = (direction: 1 | -1) => setZoom((z) => ({ count: z.count + 1, direction }));
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
   const [notice, setNotice] = useState<Notice | undefined>(
     restored.problems && {
@@ -471,6 +474,8 @@ export function App() {
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();
+      } else if (!mod && (event.key === '+' || event.key === '-')) {
+        zoomBy(event.key === '+' ? 1 : -1);
       } else if (event.key === 'Escape' && assembly) {
         setMoveMode(false);
         setDrag(undefined);
@@ -526,6 +531,31 @@ export function App() {
           >
             Einpassen
           </button>
+          {(
+            [
+              [1, 'Vergrößern (+)', ZoomIn],
+              [-1, 'Verkleinern (−)', ZoomOut],
+            ] as const
+          ).map(([direction, title, Icon]) => (
+            <button
+              key={direction}
+              type="button"
+              title={title}
+              aria-label={title}
+              onClick={() => zoomBy(direction)}
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                padding: '4px 8px',
+                border: '1px solid #c8cdd3',
+                borderRadius: 4,
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              <Icon size={18} color="#333" aria-hidden />
+            </button>
+          ))}
         </div>
         {/* On the model rather than in the sidebar, so it costs the sidebar no row. */}
         <select
@@ -659,7 +689,7 @@ export function App() {
               onUse={() => (gizmoUsed.current = performance.now())}
             />
           ) : null}
-          <CameraRig view={camera} fit={fit} />
+          <CameraRig view={camera} fit={fit} zoom={zoom} />
         </Canvas>
       </div>
       <aside className="sidebar">

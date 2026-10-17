@@ -17,7 +17,12 @@ interface CameraRigProps {
   readonly view: ViewId;
   /** Counts requests to fit the model into the current view. */
   readonly fit: number;
+  /** Zoom requests: each change zooms one step in (+1) or out (-1). */
+  readonly zoom: { readonly count: number; readonly direction: 1 | -1 };
 }
+
+/** Share of the distance, or of the zoom factor, one zoom step changes. */
+const ZOOM_STEP = 0.3;
 
 /** Far enough that no model reaches behind an orthographic camera. */
 const DISTANCE = 20000;
@@ -43,7 +48,7 @@ function modelBox(scene: Parameters<typeof builtBox>[0]) {
  * orthographic one looking straight from the top, front or side. These only pan
  * and zoom. Coming back to 3D restores the last free view.
  */
-export function CameraRig({ view, fit }: CameraRigProps) {
+export function CameraRig({ view, fit, zoom }: CameraRigProps) {
   const controls = useRef<CameraControlsImpl>(null);
   const camera = useThree((state) => state.camera);
   const scene = useThree((state) => state.scene);
@@ -85,6 +90,13 @@ export function CameraRig({ view, fit }: CameraRigProps) {
     if (isOrthographic(c.camera)) void c.fitToBox(box, true, PADDING);
     else void c.fitToSphere(box.getBoundingSphere(new Sphere()), true);
   }, [fit, scene]);
+
+  useEffect(() => {
+    const c = controls.current;
+    if (!c || zoom.count === 0) return;
+    if (isOrthographic(c.camera)) void c.zoom(c.camera.zoom * ZOOM_STEP * zoom.direction, true);
+    else void c.dolly(c.distance * ZOOM_STEP * zoom.direction, true);
+  }, [zoom]);
 
   return (
     <>
