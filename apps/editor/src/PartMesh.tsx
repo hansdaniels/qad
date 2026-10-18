@@ -1,9 +1,21 @@
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import { Outlines } from '@react-three/drei';
 import { useMemo } from 'react';
-import { ExtrudeGeometry, Path, Quaternion, Shape as Outline, Vector2, Vector3 } from 'three';
+import {
+  BufferGeometry,
+  DoubleSide,
+  ExtrudeGeometry,
+  FrontSide,
+  LatheGeometry,
+  Path,
+  Quaternion,
+  Shape as Outline,
+  Vector2,
+  Vector3,
+} from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
-import type { DisplayShape, Pose, SlabShape } from '@qad/model-core';
+import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { DisplayShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
 
 const UP = new Vector3(0, 1, 0);
 
@@ -18,10 +30,11 @@ interface Look {
   readonly outline?: string | undefined;
 }
 
-function Material({ colour, selected, ghost, opacity }: Look) {
+function Material({ colour, selected, ghost, opacity, twoSided }: Look & { twoSided?: boolean }) {
   const alpha = opacity ?? (ghost ? 0.45 : 1);
   return (
     <meshStandardMaterial
+      side={twoSided ? DoubleSide : FrontSide}
       color={colour}
       emissive={selected ? '#ffb000' : '#000000'}
       emissiveIntensity={selected ? 0.6 : 0}
@@ -69,7 +82,51 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
       return <ConvexMesh points={shape.points} look={look} />;
     case 'slab':
       return <SlabMesh slab={shape} look={look} />;
+    case 'pipe':
+      return <PipeMesh pipe={shape} look={look} />;
+    case 'arc':
+      return (
+        <mesh position={[shape.center.x, shape.center.y, shape.center.z]} rotation={[0, 0, shape.startRad]}>
+          <torusGeometry args={[shape.radiusMm, shape.tubeRadiusMm, 24, 32, shape.endRad - shape.startRad]} />
+          <Material {...look} />
+          <Contour colour={look.outline} />
+        </mesh>
+      );
   }
+}
+
+/** Straight tube along a to b, turned from its profile; hollow ones show their bore at the ends. */
+function PipeMesh({ pipe, look }: { pipe: PipeShape; look: Look }) {
+  const a = new Vector3(pipe.a.x, pipe.a.y, pipe.a.z);
+  const axis = new Vector3(pipe.b.x, pipe.b.y, pipe.b.z).sub(a);
+  const length = axis.length();
+  const geometry = useMemo(() => {
+    const [r, inner] = [pipe.radiusMm, pipe.innerRadiusMm];
+    const profile = (
+      inner > 0
+        ? [
+            [inner, 0],
+            [r, 0],
+            [r, length],
+            [inner, length],
+            [inner, 0],
+          ]
+        : [
+            [0, 0],
+            [r, 0],
+            [r, length],
+            [0, length],
+          ]
+    ).map(([x, y]) => new Vector2(x, y));
+    return new LatheGeometry(profile, 32);
+  }, [pipe.radiusMm, pipe.innerRadiusMm, length]);
+  const direction = length > 0 ? axis.clone().normalize() : UP;
+  return (
+    <mesh geometry={geometry} position={a} quaternion={new Quaternion().setFromUnitVectors(UP, direction)}>
+      <Material {...look} twoSided={pipe.innerRadiusMm > 0} />
+      <Contour colour={look.outline} />
+    </mesh>
+  );
 }
 
 function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
@@ -88,8 +145,23 @@ function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
   );
 }
 
+/**
+ * Hulls by their points: the catalog hands out the same points for every part of
+ * a type, so all connectors of one kind share one geometry.
+ */
+const hulls = new WeakMap<object, BufferGeometry>();
+function hull(points: readonly { x: number; y: number; z: number }[]): BufferGeometry {
+  let geometry = hulls.get(points);
+  if (!geometry) {
+    // Smooth across the facets of a curved hull, sharp at real edges such as a tube's rim.
+    geometry = toCreasedNormals(new ConvexGeometry(points.map((p) => new Vector3(p.x, p.y, p.z))), Math.PI / 6);
+    hulls.set(points, geometry);
+  }
+  return geometry;
+}
+
 function ConvexMesh({ points, look }: { points: readonly { x: number; y: number; z: number }[]; look: Look }) {
-  const geometry = useMemo(() => new ConvexGeometry(points.map((p) => new Vector3(p.x, p.y, p.z))), [points]);
+  const geometry = useMemo(() => hull(points), [points]);
   return (
     <mesh geometry={geometry}>
       <Material {...look} />
