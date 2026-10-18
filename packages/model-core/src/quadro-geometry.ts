@@ -22,7 +22,7 @@ import type {
   TubeArticle,
   TubeDrilling,
 } from './article-catalog.js';
-import { add, qaxisAngle, qmul, scale, vec } from './math.js';
+import { add, qaxisAngle, qmul, rotate, scale, vec } from './math.js';
 import { quadroArticleCatalog } from './quadro-articles.js';
 
 /**
@@ -52,6 +52,8 @@ const PLATE = { lift: 25.12, flangeDepth: 22, thickness: 3 };
  * the manufacturer's product picture against the plate width, not measured.
  */
 const PERFORATION = { grid: 3, pitch: 107, diameter: 57 };
+/** Segments of the rounded corner notches of plates, for display. */
+const NOTCH_STEPS = 8;
 /**
  * Modular slide body: hangs on a 35 cm tube and drops two storeys over three
  * grid cells to a parallel tube (client's account). Surface lift above the tube
@@ -467,40 +469,122 @@ function plateFlanges(x: number, y: number): CollisionShape[] {
 }
 
 /**
- * How parts look, where that differs from their collision shapes: plates are one
- * slab with cut-out corners, the hole panel with its holes.
+ * Tube bore: the connector arm (Ø 41.7, GEOMETRIE.md, section 2) slides in, so
+ * the tube is about 4 mm thick. Not measured.
+ */
+const TUBE_BORE_RADIUS = 21;
+
+/** A straight tube from a to b, hollow. */
+const pipe = (a: Vector3, b: Vector3): DisplayShape => ({
+  kind: 'pipe',
+  a,
+  b,
+  radiusMm: TUBE_RADIUS,
+  innerRadiusMm: TUBE_BORE_RADIUS,
+});
+
+/** Display shapes of tubes and connectors; undefined for other parts. */
+function tubeOrConnectorShapes(key: string): DisplayShape[] | undefined {
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === key);
+  if (type?.kind === 'tube' && type.shape === 'straight')
+    return [pipe(vec(0, 0, 0), vec(type.centerlineLengthMm, 0, 0))];
+  if (type?.kind === 'tube') {
+    const reach = BEND.straight + BEND.radius;
+    return [
+      pipe(vec(0, 0, 0), vec(BEND.straight, 0, 0)),
+      {
+        kind: 'arc',
+        center: vec(BEND.straight, BEND.radius, 0),
+        radiusMm: BEND.radius,
+        tubeRadiusMm: TUBE_RADIUS,
+        startRad: -Math.PI / 2,
+        endRad: 0,
+      },
+      pipe(vec(reach, BEND.radius, 0), vec(reach, reach, 0)),
+    ];
+  }
+  if (type?.kind === 'connector') {
+    // Flush with the tubes and bulging outwards: the convex hull of a ball in the
+    // middle and the tube-thick rim at the shoulder of every arm. Opposite arms
+    // give a straight cylinder through.
+    const points: Vector3[] = [vec(0, 0, TUBE_RADIUS), vec(0, 0, -TUBE_RADIUS)];
+    for (let i = 1; i < 8; i++) {
+      const polar = (Math.PI * i) / 8;
+      for (let j = 0; j < 16; j++) {
+        const azimuth = (2 * Math.PI * j) / 16;
+        const unit = vec(Math.sin(polar) * Math.cos(azimuth), Math.sin(polar) * Math.sin(azimuth), Math.cos(polar));
+        points.push(scale(unit, TUBE_RADIUS));
+      }
+    }
+    for (const s of type.sites) {
+      for (let j = 0; j < 32; j++) {
+        const t = (2 * Math.PI * j) / 32;
+        // The site's local x and y span the rim; its +Z points along the arm.
+        const rim = vec(TUBE_RADIUS * Math.cos(t), TUBE_RADIUS * Math.sin(t), 0);
+        points.push(add(s.frame.position, rotate(s.frame.orientation, rim)));
+      }
+    }
+    return [{ kind: 'convex', points }];
+  }
+  if (type?.kind === 'adapter') {
+    // Closed sleeve on the arm, then the body along the spigot axis up to its shoulder.
+    const crossing = vec(ANGLE.crossing - ARM_SHOULDER, 0, 0);
+    const from = add(crossing, scale(SPIGOT_DIRECTION, (ANGLE.crossing - ARM_SHOULDER - ANGLE.sleeve) / Math.SQRT1_2));
+    return [
+      { kind: 'pipe', a: vec(0, 0, 0), b: vec(ANGLE.sleeve, 0, 0), radiusMm: TUBE_RADIUS, innerRadiusMm: 0 },
+      { kind: 'pipe', a: from, b: SPIGOT_SHOULDER, radiusMm: TUBE_RADIUS, innerRadiusMm: 0 },
+    ];
+  }
+  return undefined;
+}
+
+/**
+ * How parts look, where that differs from their collision shapes: tubes are
+ * hollow, connectors flush with them and bulging outwards, plates one slab with cut-out corners, the hole
+ * panel with its holes.
  */
 export const quadroDisplayGeometry: DisplayGeometryProvider = {
   shapes(ref) {
-    const article = quadroArticleCatalog.entries.find((e) => e.id === ref.key);
-    if (article?.category === 'slide') return slideShapes(article.slide === 'modular-body', true);
-    if (article?.category !== 'plate') return undefined;
-    const type = quadroPartCatalog.partTypes.find((t) => t.id === article.id);
-    if (type?.kind !== 'plate') return undefined;
-    const [x, y] = type.cellMm;
-    const { lift, thickness } = PLATE;
-    const [hx, hy, n] = [x / 2, y / 2, lift];
-    const outline = [
-      [hx - n, -hy],
-      [hx - n, -hy + n],
-      [hx, -hy + n],
-      [hx, hy - n],
-      [hx - n, hy - n],
-      [hx - n, hy],
-      [-hx + n, hy],
-      [-hx + n, hy - n],
-      [-hx, hy - n],
-      [-hx, -hy + n],
-      [-hx + n, -hy + n],
-      [-hx + n, -hy],
-    ].map(([px, py]) => ({ x: px!, y: py! }));
-    const { grid, pitch, diameter } = PERFORATION;
-    const steps = Array.from({ length: grid }, (_, i) => (i - (grid - 1) / 2) * pitch);
-    const holes =
-      article.plate === 'perforated'
-        ? steps.flatMap((cy) => steps.map((cx) => ({ x: cx, y: cy, radiusMm: diameter / 2 })))
-        : [];
-    const slab: DisplayShape = { kind: 'slab', outline, holes, bottomZ: lift, thicknessMm: thickness };
-    return [slab, ...plateFlanges(x, y)];
+    // The same shapes for every part of a type, so renderers can share what they build from them.
+    if (!displayCache.has(ref.key)) displayCache.set(ref.key, displayShapes(ref.key));
+    return displayCache.get(ref.key);
   },
 };
+
+const displayCache = new Map<string, readonly DisplayShape[] | undefined>();
+
+function displayShapes(key: string): readonly DisplayShape[] | undefined {
+  const own = tubeOrConnectorShapes(key);
+  if (own) return own;
+  const article = quadroArticleCatalog.entries.find((e) => e.id === key);
+  if (article?.category === 'slide') return slideShapes(article.slide === 'modular-body', true);
+  if (article?.category !== 'plate') return undefined;
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === article.id);
+  if (type?.kind !== 'plate') return undefined;
+  const [x, y] = type.cellMm;
+  const { lift, thickness } = PLATE;
+  const [hx, hy] = [x / 2, y / 2];
+  // Counter-clockwise; each corner is a quarter-circle notch around the junction,
+  // turning clockwise about it from the edge arriving there (at angle start) to
+  // the edge leaving it.
+  const corners = [
+    { x: hx, y: -hy, start: Math.PI },
+    { x: hx, y: hy, start: -Math.PI / 2 },
+    { x: -hx, y: hy, start: 0 },
+    { x: -hx, y: -hy, start: Math.PI / 2 },
+  ];
+  const outline = corners.flatMap(({ x: cx, y: cy, start }) =>
+    Array.from({ length: NOTCH_STEPS + 1 }, (_, k) => {
+      const t = start - (Math.PI / 2) * (k / NOTCH_STEPS);
+      return { x: cx + lift * Math.cos(t), y: cy + lift * Math.sin(t) };
+    }),
+  );
+  const { grid, pitch, diameter } = PERFORATION;
+  const steps = Array.from({ length: grid }, (_, i) => (i - (grid - 1) / 2) * pitch);
+  const holes =
+    article.plate === 'perforated'
+      ? steps.flatMap((cy) => steps.map((cx) => ({ x: cx, y: cy, radiusMm: diameter / 2 })))
+      : [];
+  const slab: DisplayShape = { kind: 'slab', outline, holes, bottomZ: lift, thicknessMm: thickness };
+  return [slab, ...plateFlanges(x, y)];
+}

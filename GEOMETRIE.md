@@ -183,6 +183,17 @@ des Auslaufs.
   ein anderes, versetztes Muster mit kleineren Löchern. Das Muster dient nur der
   Darstellung; für Kollisionen gilt die Lochplatte als geschlossen.
 
+## 8a. Darstellung
+
+Nur für die Anzeige, ohne Einfluss auf Kollisionen (`quadroDisplayGeometry`):
+Rohre sind hohl mit Innendurchmesser 42 mm, geschätzt aus dem Kupplungsarm (Ø 41,7),
+der hineinpasst. Der Kupplungskörper ist bündig mit den Rohren und nach außen gewölbt: die
+konvexe Hülle einer Kugel Ø 50 in der Mitte und der Ränder Ø 50 an den Schultern
+aller Arme; gegenüberliegende Arme ergeben einen durchgehenden Zylinder. Bogenrohre sind ein Ringstück
+zwischen zwei hohlen geraden Enden. Die Winkelkupplung besteht aus geschlossener
+Hülse und Körper als Zylinder. Platten haben an den Ecken viertelkreisförmige Aussparungen
+mit 25 mm Radius um den Kupplungsmittelpunkt; für Kollisionen bleiben sie eckig.
+
 ## 9. Offen
 
 - Nachmessen der Werte aus Abschnitt 3 an einer Winkelkupplung (00911), außerdem

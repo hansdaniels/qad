@@ -31,7 +31,26 @@ export interface SlabShape {
   readonly thicknessMm: number;
 }
 
-export type DisplayShape = CollisionShape | SlabShape;
+/** Cylinder from a to b; hollow and open at both ends when innerRadiusMm is above 0. */
+export interface PipeShape {
+  readonly kind: 'pipe';
+  readonly a: Vector3;
+  readonly b: Vector3;
+  readonly radiusMm: number;
+  readonly innerRadiusMm: number;
+}
+
+/** Part of a ring in the part's x-y plane, from startRad to endRad about centre, e.g. a bend. */
+export interface ArcShape {
+  readonly kind: 'arc';
+  readonly center: Vector3;
+  readonly radiusMm: number;
+  readonly tubeRadiusMm: number;
+  readonly startRad: number;
+  readonly endRad: number;
+}
+
+export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape;
 
 export interface DisplayGeometryProvider {
   /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */

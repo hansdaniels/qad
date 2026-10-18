@@ -259,3 +259,29 @@ test('a tube pushed through a connector collides', () => {
   };
   assert.ok(codes(check(snapshot)).includes('collision'));
 });
+
+test('tubes look hollow, connectors flush with them and bulging outwards, bent tubes as a ring piece between two hollow ends', async () => {
+  const { quadroDisplayGeometry } = await import('../src/index.ts');
+  const [tube] = quadroDisplayGeometry.shapes({ key: 'tube-35cm' });
+  assert.equal(tube.kind, 'pipe');
+  assert.equal(tube.b.x - tube.a.x, 350);
+  assert.ok(tube.innerRadiusMm > 0 && tube.innerRadiusMm < tube.radiusMm);
+  // One convex body: tube-thick rims at the arm shoulders around a ball, so a
+  // straight connector is a cylinder through, never wider than the tubes.
+  const [straight] = quadroDisplayGeometry.shapes({ key: 'straight-connector' });
+  assert.equal(straight.kind, 'convex');
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === 'straight-connector');
+  const axis = type.sites[0].frame.position;
+  for (const p of straight.points) {
+    const along = (p.x * axis.x + p.y * axis.y + p.z * axis.z) / 25;
+    const across = Math.sqrt(Math.max(0, p.x ** 2 + p.y ** 2 + p.z ** 2 - along ** 2));
+    assert.ok(Math.abs(along) <= 25 + 1e-9 && across <= 25 + 1e-9);
+  }
+  const bent = quadroDisplayGeometry.shapes({ key: 'curved-tube-135deg-3hole' });
+  assert.deepEqual(
+    bent.map((s) => s.kind),
+    ['pipe', 'arc', 'pipe'],
+  );
+  // Plate shapes stay as before; unknown keys have none of their own.
+  assert.equal(quadroDisplayGeometry.shapes({ key: 'no-such-part' }), undefined);
+});

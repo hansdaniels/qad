@@ -283,7 +283,7 @@ test('a plate turns to the other flange direction on its cell side and keeps its
   assert.deepEqual([...new Set(turned.realization.plateMounts.map((m) => m.tubeId))].sort(byText), ['t2', 't4']);
 });
 
-test('plates are drawn as one slab with cut-out corners; the hole panel has a 3 × 3 grid of holes', () => {
+test('plates are drawn as one slab with rounded corner notches; the hole panel has a 3 × 3 grid of holes', () => {
   const display = (id) => {
     const type = quadroPartCatalog.partTypes.find((t) => t.id === id);
     return { type, shapes: quadroDisplayGeometry.shapes(type.geometry.display) };
@@ -299,7 +299,12 @@ test('plates are drawn as one slab with cut-out corners; the hole panel has a 3 
     const ys = slab.outline.map((p) => p.y);
     assert.equal(Math.max(...xs), boxes[1].halfExtents.x);
     assert.equal(Math.max(...ys), boxes[0].halfExtents.y);
-    assert.equal(slab.outline.length, 12);
+    // Quarter-circle notches around the four junctions, 25.12 from their centres.
+    assert.equal(slab.outline.length, 36);
+    const [hx, hy] = type.cellMm.map((c) => c / 2);
+    for (const p of slab.outline.filter((p) => Math.abs(p.x) > hx - 25.2 && Math.abs(p.y) > hy - 25.2)) {
+      assert.ok(Math.abs(Math.hypot(hx - Math.abs(p.x), hy - Math.abs(p.y)) - 25.12) < 1e-6);
+    }
     assert.equal(slab.bottomZ + slab.thicknessMm / 2, boxes[0].center.z);
     assert.deepEqual(rest, boxes.slice(2));
   }
@@ -312,6 +317,4 @@ test('plates are drawn as one slab with cut-out corners; the hole panel has a 3 
   );
   const [hx, hy] = perforated.type.cellMm.map((c) => c / 2 - 25.12);
   for (const h of holes) assert.ok(Math.abs(h.x) + h.radiusMm < hx && Math.abs(h.y) + h.radiusMm < hy);
-  // Tubes and connectors keep their collision shapes as their looks.
-  assert.equal(quadroDisplayGeometry.shapes({ key: 'tube-35cm' }), undefined);
 });
