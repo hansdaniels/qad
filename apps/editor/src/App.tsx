@@ -10,6 +10,7 @@ import {
   bendDirections,
   obliqueDirections,
   billOfMaterials,
+  compareConstructions,
   findHeadTraps,
   insertPlate,
   insertSlide,
@@ -34,6 +35,7 @@ import {
   type AttachOptions,
   type AttachPoint,
   type ColourId,
+  type ConstructionSnapshot,
   type Diagnostic,
   type EditCommand,
   type EditPreview,
@@ -50,7 +52,8 @@ import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
 import { DOCKS, useDock, type Dock } from './dock';
 import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
-import { ModelScene, useOpenEnds, useParts } from './ModelScene';
+import { ModelScene, useOpenEnds, useParts, type Mark } from './ModelScene';
+import { CHANGE_COLOURS, Rebuild } from './Rebuild';
 import { MoveGizmo } from './MoveGizmo';
 import { Palette, type PaletteChoice } from './Palette';
 import { PlateSpots } from './PlateSpots';
@@ -125,7 +128,12 @@ export function App() {
   const [turn, setTurn] = useState(0);
   const [range, setRange] = useState<ColourRange>('both');
   const [assortment, setAssortment] = useState<Assortment>('common');
-  const [view, setView] = useState<'build' | 'bill'>('build');
+  const [view, setView] = useState<'build' | 'bill' | 'rebuild'>('build');
+  // Another model file to compare with, e.g. the state before a rebuild.
+  const [reference, setReference] = useState<{ readonly name: string; readonly snapshot: ConstructionSnapshot }>();
+  const [referenceBefore, setReferenceBefore] = useState(true);
+  const [onlyChanges, setOnlyChanges] = useState(true);
+  const referenceInput = useRef<HTMLInputElement>(null);
   const [camera, setCamera] = useState<ViewId>('perspective');
   const { dock, choose: chooseDock, bottom } = useDock();
   const [fit, setFit] = useState(0);
@@ -147,7 +155,12 @@ export function App() {
   const spots = useMemo(
     () =>
       choice?.kind === 'plate'
-        ? plateSpots(snapshot, quadroPartCatalog).filter((s) => s.familyId === choice.familyId)
+        ? plateSpots(snapshot, quadroPartCatalog).filter(
+            // Level places have their plate normal up or down, upright ones across.
+            (s) =>
+              s.familyId === choice.familyId &&
+              Math.abs(math.rotate(s.worldPose.orientation, math.vec(0, 0, 1)).z) < 0.5 === (choice.upright ?? false),
+          )
         : [],
     [choice, snapshot],
   );
@@ -161,6 +174,26 @@ export function App() {
   );
   const current = parts.find((p) => p.part.id === selected);
   const bill = useMemo(() => billOfMaterials(snapshot, quadroArticleCatalog, quadroPartCatalog), [snapshot]);
+  const comparison = useMemo(() => {
+    if (!reference) return undefined;
+    const [before, after] = referenceBefore ? [reference.snapshot, snapshot] : [snapshot, reference.snapshot];
+    return compareConstructions(before, after, quadroPartCatalog, quadroArticleCatalog);
+  }, [reference, referenceBefore, snapshot]);
+  // In the rebuild view the current model's parts get the contour of their change,
+  // and the other file's parts missing here show see-through at their place.
+  const rebuild = useMemo(() => {
+    if (view !== 'rebuild' || !comparison || !reference) return undefined;
+    const marks = new Map<PartId, Mark>();
+    const others = new Map<PartId, Mark>();
+    for (const change of comparison.changes) {
+      const [here, there] = referenceBefore ? [change.after, change.before] : [change.before, change.after];
+      const outline = change.kind === 'kept' ? undefined : CHANGE_COLOURS[change.kind];
+      if (here) marks.set(here.partId, outline ? { outline } : onlyChanges ? { opacity: 0.2 } : {});
+      if (!here && there) others.set(there.partId, { outline: outline!, opacity: 0.35 });
+      if (change.kind === 'moved' && there) others.set(there.partId, { opacity: 0.2 });
+    }
+    return { marks, others: { snapshot: reference.snapshot, marks: others } };
+  }, [view, comparison, reference, referenceBefore, onlyChanges]);
   const traps = useMemo(() => findHeadTraps(snapshot, quadroPartCatalog), [snapshot]);
 
   // Preview of attaching the chosen tube at the arm under the pointer. A curved tube
@@ -423,6 +456,12 @@ export function App() {
   const openFile = () => {
     if (discardOk()) fileInput.current?.click();
   };
+  const readReference = async (file: File) => {
+    const json = await file.text();
+    const opened = isPlan(json) ? openPlan(json) : openModel(json);
+    if (opened.ok) setReference({ name: file.name, snapshot: opened.value.snapshot });
+    else setNotice({ title: `${file.name} ließ sich nicht öffnen:`, diagnostics: opened.diagnostics });
+  };
   const readFile = async (file: File) => {
     const json = await file.text();
     const plan = isPlan(json);
@@ -474,6 +513,9 @@ export function App() {
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();
+      } else if (!mod && event.key.toLowerCase() === 'l' && choice?.kind === 'plate') {
+        setPlateHover(undefined);
+        setChoice({ ...choice, upright: !(choice.upright ?? false) });
       } else if (!mod && (event.key === '+' || event.key === '-')) {
         zoomBy(event.key === '+' ? 1 : -1);
       } else if (event.key === 'Escape' && assembly) {
@@ -598,6 +640,8 @@ export function App() {
             snapshot={snapshot}
             selected={selected}
             highlighted={assembly ? moved : highlighted}
+            marks={rebuild?.marks}
+            others={rebuild?.others}
             onSelect={setSelected}
             candidate={
               movePlan
@@ -706,6 +750,17 @@ export function App() {
               Speichern
             </button>
             <input
+              ref={referenceInput}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) void readReference(file);
+              }}
+            />
+            <input
               ref={fileInput}
               type="file"
               accept=".json,application/json"
@@ -727,6 +782,7 @@ export function App() {
             [
               ['build', 'Bauen'],
               ['bill', 'Stückliste'],
+              ['rebuild', 'Umbau'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -753,6 +809,30 @@ export function App() {
         </div>
         {view === 'bill' ? (
           <BillOfMaterials lines={bill} onHighlight={(ids) => setHighlighted(new Set(ids))} onExport={exportBill} />
+        ) : view === 'rebuild' ? (
+          reference && comparison ? (
+            <Rebuild
+              comparison={comparison}
+              reference={reference.name}
+              referenceBefore={referenceBefore}
+              onlyChanges={onlyChanges}
+              onOnlyChanges={setOnlyChanges}
+              onSwap={() => setReferenceBefore(!referenceBefore)}
+              onOpen={() => referenceInput.current?.click()}
+              onClose={() => setReference(undefined)}
+              onHighlight={(ids) => setHighlighted(new Set(ids))}
+            />
+          ) : (
+            <section style={{ fontSize: 14 }}>
+              <p>
+                Vergleicht das aktuelle Modell mit einer zweiten Modelldatei, etwa dem Stand vor einem Umbau: was
+                abgebaut, getauscht, versetzt und angebaut wird, und was an Teilen dazu nötig ist.
+              </p>
+              <button type="button" onClick={() => referenceInput.current?.click()}>
+                Vergleichen mit …
+              </button>
+            </section>
+          )
         ) : (
           <>
             {/* Rows wrap only where the sidebar is too narrow for them. */}

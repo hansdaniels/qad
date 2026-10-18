@@ -73,8 +73,42 @@ interface ModelSceneProps {
   readonly onGhostClick?: (() => void) | undefined;
   /** Pointer entering or leaving a ghost. */
   readonly onGhostHover?: ((inside: boolean) => void) | undefined;
+  /** How parts of the snapshot are marked, e.g. by what a rebuild does to them. */
+  readonly marks?: ReadonlyMap<PartId, Mark> | undefined;
+  /** Parts of another state drawn as well, e.g. those a rebuild removes; never pickable. */
+  readonly others?: { readonly snapshot: ConstructionSnapshot; readonly marks: ReadonlyMap<PartId, Mark> } | undefined;
   /** Further content in model coordinates, e.g. virtual arms. */
   readonly children?: ReactNode;
+}
+
+/** Contour colour and see-through of a part, keeping its own colour. */
+export interface Mark {
+  readonly outline?: string;
+  readonly opacity?: number;
+}
+
+/** The marked parts of another state, e.g. those gone after a rebuild. */
+function OtherParts({ snapshot, marks }: { snapshot: ConstructionSnapshot; marks: ReadonlyMap<PartId, Mark> }) {
+  const parts = useParts(snapshot);
+  return (
+    <>
+      {parts.map(({ part, pose, shapes, article }) => {
+        const mark = marks.get(part.id);
+        return pose && mark ? (
+          <PartMesh
+            key={`other:${part.id}`}
+            name={`other:${part.id}`}
+            pose={pose}
+            shapes={shapes}
+            colour={displayColour(article?.article.colour)}
+            selected={false}
+            outline={mark.outline}
+            opacity={mark.opacity ?? 0.35}
+          />
+        ) : null;
+      })}
+    </>
+  );
 }
 
 /** Parts of the candidate that are new, retyped or moved compared with the snapshot. */
@@ -125,7 +159,8 @@ export function builtBox(scene: Object3D): Box3 {
   if (!model) return box;
   model.updateWorldMatrix(true, true);
   for (const child of model.children) {
-    if (child.name && !/^(ghost:|virtual-arms$|plate-spots$|slide-spots$)/.test(child.name)) box.expandByObject(child);
+    if (child.name && !/^(ghost:|other:|virtual-arms$|plate-spots$|slide-spots$)/.test(child.name))
+      box.expandByObject(child);
   }
   return box;
 }
@@ -139,6 +174,8 @@ export function ModelScene({
   candidate,
   onGhostClick,
   onGhostHover,
+  marks,
+  others,
   children,
 }: ModelSceneProps) {
   const parts = useParts(snapshot);
@@ -155,6 +192,8 @@ export function ModelScene({
             shapes={shapes}
             colour={displayColour(article?.article.colour)}
             selected={part.id === selected || (highlighted?.has(part.id) ?? false)}
+            outline={marks?.get(part.id)?.outline}
+            {...(marks?.get(part.id)?.opacity === undefined ? {} : { opacity: marks.get(part.id)!.opacity! })}
             onSelect={() => onSelect(part.id)}
           />
         ) : null,
@@ -171,6 +210,7 @@ export function ModelScene({
           <meshStandardMaterial color="#6b7480" />
         </mesh>
       ))}
+      {others ? <OtherParts snapshot={others.snapshot} marks={others.marks} /> : null}
       {candidate ? (
         <GhostParts snapshot={snapshot} candidate={candidate} onClick={onGhostClick} onHover={onGhostHover} />
       ) : null}

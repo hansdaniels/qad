@@ -150,3 +150,28 @@ test('a hole panel is drawn as one extruded slab with its holes', async () => {
   // The two flanges are boxes as before.
   expect(geometries.filter((g) => g instanceof BoxGeometry)).toHaveLength(2);
 });
+
+test('for a rebuild, parts of the other state are drawn see-through and marked parts get a contour', async () => {
+  const { snapshot } = demoModel();
+  const renderer = await ReactThreeTestRenderer.create(
+    <ModelScene
+      snapshot={snapshot}
+      selected={undefined}
+      onSelect={() => {}}
+      marks={new Map([['tube:t1/body', { outline: '#2e9e44' }]])}
+      others={{ snapshot, marks: new Map([['tube:t2/body', { outline: '#d32f2f', opacity: 0.35 }]]) }}
+    />,
+  );
+  const other = renderer.scene.findByProps({ name: 'other:tube:t2/body' });
+  const materials = other.allChildren.flatMap((c) =>
+    c.instance instanceof Mesh && !Array.isArray(c.instance.material) ? [c.instance.material] : [],
+  );
+  expect(materials.some((m) => m.transparent && m.opacity === 0.35)).toBe(true);
+  // drei Outlines adds a second mesh per shape for the contour.
+  const meshes = (name: string) => {
+    let count = 0;
+    renderer.scene.findByProps({ name }).instance.traverse((o: unknown) => void (o instanceof Mesh && count++));
+    return count;
+  };
+  expect(meshes('tube:t1/body')).toBeGreaterThan(meshes('tube:t3/body'));
+});

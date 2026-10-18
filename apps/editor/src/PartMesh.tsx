@@ -1,4 +1,5 @@
-import type { ThreeEvent } from '@react-three/fiber';
+import { useThree, type ThreeEvent } from '@react-three/fiber';
+import { Outlines } from '@react-three/drei';
 import { useMemo } from 'react';
 import { ExtrudeGeometry, Path, Quaternion, Shape as Outline, Vector2, Vector3 } from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
@@ -11,19 +12,30 @@ interface Look {
   readonly selected: boolean;
   /** Preview of a pending edit: translucent and not pickable. */
   readonly ghost?: boolean;
+  /** Below 1 the part is see-through, e.g. one that is gone after a rebuild. */
+  readonly opacity?: number;
+  /** Contour colour marking a change; the part keeps its own colour. */
+  readonly outline?: string | undefined;
 }
 
-function Material({ colour, selected, ghost }: Look) {
+function Material({ colour, selected, ghost, opacity }: Look) {
+  const alpha = opacity ?? (ghost ? 0.45 : 1);
   return (
     <meshStandardMaterial
       color={colour}
       emissive={selected ? '#ffb000' : '#000000'}
       emissiveIntensity={selected ? 0.6 : 0}
-      transparent={ghost === true}
-      opacity={ghost ? 0.45 : 1}
-      depthWrite={!ghost}
+      transparent={alpha < 1}
+      opacity={alpha}
+      depthWrite={alpha === 1}
     />
   );
+}
+
+/** Contour around a mesh, wide enough to see between neighbouring parts (drei Outlines, in device pixels). */
+function Contour({ colour }: { colour: string | undefined }) {
+  const dpr = useThree((state) => state.viewport.dpr);
+  return colour ? <Outlines thickness={5 * dpr} color={colour} /> : null;
 }
 
 /** One display primitive in part coordinates. Capsules are drawn as flat-ended tubes. */
@@ -41,6 +53,7 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
         >
           <cylinderGeometry args={[shape.radiusMm, shape.radiusMm, axis.length() + 2 * shape.radiusMm, 32]} />
           <Material {...look} />
+          <Contour colour={look.outline} />
         </mesh>
       );
     }
@@ -49,6 +62,7 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
         <mesh position={[shape.center.x, shape.center.y, shape.center.z]}>
           <boxGeometry args={[2 * shape.halfExtents.x, 2 * shape.halfExtents.y, 2 * shape.halfExtents.z]} />
           <Material {...look} />
+          <Contour colour={look.outline} />
         </mesh>
       );
     case 'convex':
@@ -69,6 +83,7 @@ function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
   return (
     <mesh geometry={geometry} position={[0, 0, slab.bottomZ]}>
       <Material {...look} />
+      <Contour colour={look.outline} />
     </mesh>
   );
 }
@@ -78,6 +93,7 @@ function ConvexMesh({ points, look }: { points: readonly { x: number; y: number;
   return (
     <mesh geometry={geometry}>
       <Material {...look} />
+      <Contour colour={look.outline} />
     </mesh>
   );
 }
@@ -93,7 +109,18 @@ interface PartMeshProps extends Look {
 }
 
 /** A realised part at its world pose, drawn from its display shapes. */
-export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect, onHover }: PartMeshProps) {
+export function PartMesh({
+  name,
+  pose,
+  shapes,
+  colour,
+  selected,
+  ghost,
+  opacity,
+  outline,
+  onSelect,
+  onHover,
+}: PartMeshProps) {
   const { position, orientation } = pose;
   return (
     <group
@@ -111,7 +138,17 @@ export function PartMesh({ name, pose, shapes, colour, selected, ghost, onSelect
       }}
     >
       {shapes.map((shape, i) => (
-        <Shape key={i} shape={shape} look={{ colour, selected, ...(ghost ? { ghost } : {}) }} />
+        <Shape
+          key={i}
+          shape={shape}
+          look={{
+            colour,
+            selected,
+            outline,
+            ...(ghost ? { ghost } : {}),
+            ...(opacity === undefined ? {} : { opacity }),
+          }}
+        />
       ))}
     </group>
   );

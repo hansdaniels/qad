@@ -1,4 +1,10 @@
-import { quadroArticleCatalog, quadroPartCatalog, type ColourId, type FamilyId } from '@qad/model-core';
+import {
+  quadroArticleCatalog,
+  quadroPartCatalog,
+  type ColourId,
+  type FamilyId,
+  type PlateArticle,
+} from '@qad/model-core';
 import { inAssortment, type Assortment } from './assortment';
 import { fitColour, familyColours, type ColourRange } from './colours';
 
@@ -6,6 +12,8 @@ export interface PaletteChoice {
   readonly kind: 'tube' | 'plate' | 'slide';
   readonly familyId: FamilyId;
   readonly colour: ColourId;
+  /** Plates only: offer upright places (walls) instead of level ones (floors, steps). */
+  readonly upright?: boolean;
 }
 
 /**
@@ -18,7 +26,8 @@ const TUBES = quadroArticleCatalog.entries
   .sort((a, b) => Number(b.familyId === FIRST) - Number(a.familyId === FIRST));
 /** Plates the geometry catalog can place. */
 const PLATES = quadroArticleCatalog.entries.filter(
-  (e) => e.category === 'plate' && quadroPartCatalog.partTypes.some((t) => t.kind === 'plate' && t.id === e.id),
+  (e): e is PlateArticle =>
+    e.category === 'plate' && quadroPartCatalog.partTypes.some((t) => t.kind === 'plate' && t.id === e.id),
 );
 /** Slides the geometry catalog can hang. */
 const SLIDES = quadroArticleCatalog.entries.filter(
@@ -36,7 +45,8 @@ const CURVED = new Set(TUBES.filter((t) => t.category === 'tube' && t.shape === 
 const HINTS = {
   tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, Esc legt es ab.',
   curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
-  plate: 'Fläche zwischen vier Rohren anklicken; R dreht die Flansche, Esc legt die Platte ab.',
+  plate:
+    'Fläche zwischen vier Rohren anklicken; L wechselt zwischen waagerecht und senkrecht, R dreht die Flansche, Esc legt die Platte ab.',
   slide:
     'Feld vor einem 35-cm-Querrohr anklicken. Ein Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr; der Auslauf kommt an dessen untere Kante. Esc legt das Teil ab.',
 };
@@ -48,11 +58,26 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
     const fallback = quadroArticleCatalog.defaultColours[kind] ?? 'red';
     // Keep a chosen colour when switching between parts of the same kind.
     const colour = choice?.kind === kind ? choice.colour : fallback;
+    // The hole panel must not be stood on, so it starts upright; other plates keep the last choice.
+    const upright =
+      PLATES.find((p) => p.familyId === familyId)?.plate === 'perforated' ||
+      (choice?.kind === 'plate' && choice.upright === true);
     return (
       <button
         key={familyId}
         type="button"
-        onClick={() => onChoose(active ? undefined : { kind, familyId, colour: fitColour(familyId, colour, range) })}
+        onClick={() =>
+          onChoose(
+            active
+              ? undefined
+              : {
+                  kind,
+                  familyId,
+                  colour: fitColour(familyId, colour, range),
+                  ...(kind === 'plate' ? { upright } : {}),
+                },
+          )
+        }
         style={{
           textAlign: 'left',
           padding: '6px 8px',
@@ -81,6 +106,34 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
       <div className="choices">
         {SLIDES.filter((s) => inAssortment(s.familyId, assortment)).map((s) => entry('slide', s.familyId, s.name))}
       </div>
+      {choice?.kind === 'plate' ? (
+        <div role="radiogroup" aria-label="Lage der Platte" style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+          {(
+            [
+              [false, 'Waagerecht'],
+              [true, 'Senkrecht'],
+            ] as const
+          ).map(([upright, label]) => (
+            <button
+              key={label}
+              type="button"
+              role="radio"
+              aria-checked={(choice.upright ?? false) === upright}
+              title="Nur Plätze in dieser Lage anbieten (Taste L wechselt)"
+              onClick={() => onChoose({ ...choice, upright })}
+              style={{
+                padding: '4px 10px',
+                border: (choice.upright ?? false) === upright ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
+                borderRadius: 4,
+                background: (choice.upright ?? false) === upright ? '#e8f0fb' : '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {choice ? (
         <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
           Farbe{' '}
