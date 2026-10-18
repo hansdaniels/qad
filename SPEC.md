@@ -333,6 +333,12 @@ Generische freie Objekttransformationen dürfen fachliche Bedingungen nicht umge
 
 Ein ganzes Bauteil (eine zusammenhängende Baugruppe) wird über den Knopf „Verschieben“ an einem gewählten Teil bewegt. Ein Griff mit drei Pfeilen (`TransformControls` aus drei) verschiebt es auf dem Boden und hebt oder senkt es, nie unter den Boden; es rastet im 40-cm-Raster ein und zusätzlich überall dort, wo ein freier Arm des Bauteils einem freien Arm eines anderen gegenübersteht und genau ein gerades Standardrohr dazwischen passt (`connectionSnaps`); der Editor nennt dann das Rohr. Ein Klick auf eine Pfeilspitze schiebt bis zum nächsten Halt in dieser Richtung, dem nächsten Rasterfeld oder einer näheren Anschlussstelle. Pfeiltasten verschieben um ein Rasterfeld, Bild auf und Bild ab heben und senken um eines, R und der Drehknopf drehen um 90° um die Hochachse durch einen Verbindungspunkt nahe der Mitte. `moveAssembly` setzt dafür nur den Anker neu; Teile, IDs und Beziehungen bleiben erhalten (Abnahmeszenario 8). Eine Lage, die mit anderen Teilen kollidiert, wird nicht übernommen.
 
+### 13.4a Umbau vergleichen
+
+Der Reiter „Umbau“ vergleicht das aktuelle Modell mit einer zweiten Modelldatei oder einem Bauplan, die nur zum Ansehen geladen wird; die Richtung (welche Datei vorher, welche nachher ist) lässt sich tauschen, und die Vergleichsdatei lässt sich jederzeit neu laden, auch mitten im Umbau. `compareConstructions` gleicht nach dem Ort ab, nicht nach IDs, damit auch getrennt entstandene Dateien vergleichbar sind: gleiches Teil am gleichen Ort bleibt, eine andere Teilart desselben Typs am gleichen Ort wird getauscht (etwa eine Kupplung mit mehr Armen oder ein Rohr mit anderer Bohrung), ein Teil mit derselben ID an anderem Ort wird versetzt, alles Übrige wird ab- oder angebaut. Dazu kommt die Differenz der Stücklisten.
+
+In der 3D-Ansicht behalten alle Teile ihre eigene Farbe; Änderungen tragen eine Kontur (drei `Outlines`): grün angebaut, orange getauscht, blau versetzt, rot abgebaut. Teile der anderen Datei, die im aktuellen Modell fehlen, erscheinen durchscheinend an ihrem Ort, die alte Lage versetzter Teile blass. Auf Wunsch werden unveränderte Teile durchscheinend.
+
 ### 13.5 Technische Referenzen
 
 - [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer)
