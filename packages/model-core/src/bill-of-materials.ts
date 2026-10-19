@@ -141,11 +141,12 @@ export function billOfMaterials(
     const type = types.get(slide.typeId);
     for (let i = 0; i < 2; i++) addScrew(conical, undefined);
     if (type?.kind !== 'slide' || !type.lowerEnd) continue;
-    addScrew(plateScrews, 'black');
+    const { plate, joint } = type.lowerEnd.screws;
+    for (let i = 0; i < plate; i++) addScrew(plateScrews, 'black');
     const pose = poses.get(slide.id);
-    const end = pose && transformPoint(pose, type.lowerEnd);
+    const end = pose && transformPoint(pose, type.lowerEnd.point);
     if (end && hung.some((h) => h.slide.id !== slide.id && length(sub(h.at, end)) <= 1)) {
-      addScrew(slideScrews, undefined);
+      for (let i = 0; i < joint; i++) addScrew(slideScrews, undefined);
       for (let i = 0; i < 2; i++) addScrew(counterparts, undefined);
     }
   }

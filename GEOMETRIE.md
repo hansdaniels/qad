@@ -165,24 +165,40 @@ Befestigungspunkte zeichnet das Programm als Schraubköpfe:
 | Teil         | Befestigungspunkte (x, y, z)                                                                         |
 | ------------ | ---------------------------------------------------------------------------------------------------- |
 | Bogenrutsche | (±228; 140; 0) seitlich, (±140; 0; −29) unten, (600; −660; 371) und (600; −660; 829) am anderen Ende |
-| Auslauf      | Fläche über ±225 in x, Rahmenbezug noch nicht ausgewertet                                            |
+| Auslauf      | Fläche über ±225 in x; liegt auf Rohren bei z = 0 und z = 400                                        |
 
 Die gerade Rutsche des Programms (alt 10015) ließ sich nicht emulieren und ist
-ohnehin der Vorgänger der heutigen Modularrutsche. Wie die Rutschenrahmen am Raster
-liegen, ist noch auszuwerten.
+ohnehin der Vorgänger der heutigen Modularrutsche.
+
+Bogenrutsche und Auslauf übernimmt das Modell als Flächen (`quadro-slide-surfaces.ts`),
+gedreht in den Rahmen der Rutsche: Ursprung auf der Achse des Rohrs, an dem sie
+hängt, x vom Rohr weg, y quer, z nach oben (Programm: x quer, y oben, z vom Rohr
+weg; rechtshändig wie OpenGL). Die Gewichte gelten für euklidische Punkte; so
+legt sich der Haken am Einstieg um das Rohr.
+
+| Teil         | Ergebnis                                                                                                                                                                                                                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bogenrutsche | U-Profil 400 breit innen, Wände 190 hoch. Hakt über das Aufhängerohr, dreht beim Hinunterrutschen um 90° nach links und liegt 800 tiefer, 600 weiter und 600 links auf einem Rohr quer zum Aufhängerohr auf (Boden 30 über dessen Achse). Passt zu Abb. 3 und 4 in Sicherheitsanweisung 1.21 und zum Turm aus zwei Etagen |
+| Auslauf      | Hakt über sein Rohr (Boden 26 über der Achse) und liegt 400 weiter auf einem parallelen Rohr auf; 453 lang                                                                                                                                                                                                                |
+
+Die Bogenrutsche ist ein Teil mit fester Drehrichtung. Die Sicherheitsanweisung
+(1.21) baut ihren Unterbau mit Sonderlängen (25, 20, 10, 15 cm) und einem
+135°-Rohr; im Modell genügt ein 35-cm-Rohr an der Auflagestelle. Schrauben: zwei
+Plattenschrauben oben, zwei konische an den Seiten, zwei Rutschenschrauben am
+Auslauf, wie im Programm gezeichnet und im Bogenrutschen-Schraubenset des
+Herstellers.
 
 Für die Modularrutsche gilt vorläufig (`SLIDE` in `quadro-geometry.ts`):
 
-| Größe                           | Wert                                                                                    | Quelle                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| Gefälle und Länge eines Körpers | 800 mm tiefer, 1200 mm weiter, jeweils zwischen den Achsen der beiden Querrohre         | Auskunft                                |
-| Aufhängung                      | Mitte eines 35-cm-Querrohrs, Körper zwischen den Pfosten an dessen Enden                | Sicherheitsanweisung 1.20 und 1.24      |
-| Gleitfläche                     | 45 mm über der Linie der Rohrachsen, 340 mm breit, 10 mm dick, 35 mm vor jedem Querrohr | geschätzt                               |
-| Seitenwände (nur Darstellung)   | 110 mm hoch                                                                             | geschätzt                               |
-| Auslauf                         | waagerecht, 450 mm über das untere Querrohr hinaus                                      | geschätzt; Gesamtlänge laut Shop 165 cm |
+| Größe                           | Wert                                                                                    | Quelle                             |
+| ------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------- |
+| Gefälle und Länge eines Körpers | 800 mm tiefer, 1200 mm weiter, jeweils zwischen den Achsen der beiden Querrohre         | Auskunft                           |
+| Aufhängung                      | Mitte eines 35-cm-Querrohrs, Körper zwischen den Pfosten an dessen Enden                | Sicherheitsanweisung 1.20 und 1.24 |
+| Gleitfläche                     | 45 mm über der Linie der Rohrachsen, 340 mm breit, 10 mm dick, 35 mm vor jedem Querrohr | geschätzt                          |
+| Seitenwände (nur Darstellung)   | 110 mm hoch                                                                             | geschätzt                          |
 
-Nachzumessen sind Breite, Höhe der Gleitfläche über den Querrohren und die Länge
-des Auslaufs.
+Nachzumessen sind Breite und Höhe der Gleitfläche über den Querrohren. Der Auslauf
+hat inzwischen die Form aus dem Programm (siehe oben).
 
 ## 8. Nicht im Programm
 

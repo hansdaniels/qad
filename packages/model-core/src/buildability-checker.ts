@@ -1382,8 +1382,8 @@ function checkSlides(ctx: Context): void {
       );
     }
     if (!type.lowerEnd) continue;
-    const end = transformPoint(pose, type.lowerEnd);
-    const across = rotate(pose.orientation, vec(0, 1, 0));
+    const end = transformPoint(pose, type.lowerEnd.point);
+    const across = rotate(pose.orientation, type.lowerEnd.tubeAxis);
     const rests = middles.some(
       ({ part: p, frame }) =>
         p.id !== tube?.id &&
@@ -1395,7 +1395,7 @@ function checkSlides(ctx: Context): void {
         ctx,
         stage,
         'incompatible-attachment',
-        `${type.name} liegt unten auf keinem Rohr auf; dort braucht es ein Querrohr wie oben.`,
+        `${type.name} liegt unten auf keinem Rohr auf; dort braucht es ein ${type.tubeLengthMm / 10}-cm-Rohr.`,
         [subject],
         { x: round(end.x), y: round(end.y), z: round(end.z) },
       );

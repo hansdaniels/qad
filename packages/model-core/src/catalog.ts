@@ -57,7 +57,25 @@ export interface FoldShape {
   readonly b: Vector3;
 }
 
-export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | FoldShape;
+/**
+ * Rational B-spline surface, e.g. a moulded slide: points[i][j] with weight w,
+ * i along knotsU, j along knotsV; points are Euclidean, not multiplied by w.
+ */
+export interface NurbsShape {
+  readonly kind: 'nurbs';
+  readonly degreeU: number;
+  readonly degreeV: number;
+  readonly knotsU: readonly number[];
+  readonly knotsV: readonly number[];
+  readonly points: readonly (readonly {
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+    readonly w: number;
+  }[])[];
+}
+
+export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | FoldShape | NurbsShape;
 
 export interface DisplayGeometryProvider {
   /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */
@@ -122,9 +140,18 @@ export type PlateEdge = '-x' | '+x';
  */
 export interface SlideType extends PartTypeBase {
   readonly kind: 'slide';
-  readonly shape: 'body' | 'runout';
-  /** Body only: the axis of the tube its lower end rests on, in its own frame. */
-  readonly lowerEnd?: Vector3;
+  readonly shape: 'body' | 'curved' | 'runout';
+  /** Bodies only: where the lower end rests and how the slide goes on from there, in its own frame. */
+  readonly lowerEnd?: {
+    /** Middle of the tube it rests on. */
+    readonly point: Vector3;
+    /** Axis of that tube: along y for a straight body, along x for one that turns. */
+    readonly tubeAxis: Vector3;
+    /** Direction the next slide or the runout hangs on that tube. */
+    readonly onward: Vector3;
+    /** Plate screws at the top and slide screws where it rests on the next one. */
+    readonly screws: { readonly plate: number; readonly joint: number };
+  };
   /** Length of the tube it hangs on: the slide fits between the posts at its ends. */
   readonly tubeLengthMm: number;
 }

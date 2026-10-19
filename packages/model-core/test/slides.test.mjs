@@ -11,6 +11,7 @@ import {
   quadroArticleCatalog,
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
+  quadroDisplayGeometry,
   quadroPartCatalog,
   removeTube,
   slideSpots,
@@ -160,4 +161,74 @@ test('a slide needs a horizontal tube across its direction', () => {
   assert.equal(result.status, 'invalid');
   assert.match(result.diagnostics[0].message, /waagerechtes Rohr quer zur Richtung \+y/);
   assert.ok(post);
+});
+
+/** The same tower with a frame on the ground for the curved slide: its rest across, 60 cm ahead and to the left, and the runout's end. */
+const CURVED_TOWER = [
+  ...ring(0),
+  ...posts(0, 40),
+  ...ring(40),
+  ...posts(40, 80),
+  ...ring(80),
+  tube('40/40/0', '+x', '80/40/0'),
+  tube('80/40/0', '+y', '80/80/0'),
+  tube('80/80/0', '+x', '120/80/0'),
+  tube('80/80/0', '+y', '80/120/0'),
+  tube('120/80/0', '+y', '120/120/0'),
+  tube('80/120/0', '+x', '120/120/0'),
+];
+
+test('a curved slide turns left by 90° to rest on a tube across, where the runout goes on to the left', () => {
+  const plan = {
+    format: 'qad-bauplan',
+    version: 1,
+    start: '0/0/0',
+    steps: [
+      ...CURVED_TOWER,
+      { kind: 'slide', part: 'curved-slide-body', tube: ['40/0/80', '40/40/80'], toward: '+x', colour: 'green' },
+      { kind: 'slide', part: 'slide-runout', tube: ['80/80/0', '120/80/0'], toward: '+y', colour: 'yellow' },
+    ],
+  };
+  const result = importPlan(JSON.stringify(plan), quadroPartCatalog, quadroArticleCatalog, options);
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  const core = result.value;
+  const report = check(core);
+  assert.equal(report.verdict, 'buildable', JSON.stringify(report.findings.map((f) => f.diagnostic.message)));
+  const types = core.snapshot.realization.parts.filter((p) => p.origin.intent.kind === 'slide').map((p) => p.typeId);
+  assert.deepEqual(types, ['curved-slide-body', 'slide-runout']);
+
+  // Per the manufacturer's screw set: two conical screws each, two plate screws, two slide screws, two counterparts.
+  const bill = billOfMaterials(core.snapshot, quadroArticleCatalog, quadroPartCatalog);
+  const count = (name) => bill.filter((l) => l.name === name).reduce((n, l) => n + l.quantity, 0);
+  assert.equal(count('Bogenrutschen-Körper'), 1);
+  assert.equal(count('Konische Rutschenschraube'), 4);
+  assert.equal(count('Rutschenschraube'), 2);
+  assert.equal(count('Rutschenschraube Gegenstück'), 2);
+
+  // Without the tube across, the curved body has nothing to rest on.
+  const across = core.snapshot.design.tubes.find(
+    (t) => t.a.junctionId === tubeEnd(core, 800, 800) && t.b.junctionId === tubeEnd(core, 1200, 800),
+  );
+  const unsupported = core.preview(removeTube(core.snapshot, across.id));
+  assert.equal(unsupported.status, 'invalid');
+});
+
+const tubeEnd = (core, x, y) =>
+  core.snapshot.realization.intentPoses.find(
+    (p) =>
+      p.intent.kind === 'junction' &&
+      Math.round(p.worldPose.position.x) === x &&
+      Math.round(p.worldPose.position.y) === y &&
+      Math.round(p.worldPose.position.z) === 0,
+  ).intent.id;
+
+test('curved slide and runout are drawn as the moulded surfaces of the design program', () => {
+  for (const id of ['curved-slide-body', 'slide-runout']) {
+    const type = quadroPartCatalog.partTypes.find((t) => t.id === id);
+    const [surface, ...more] = quadroDisplayGeometry.shapes(type.geometry.display);
+    assert.equal(surface.kind, 'nurbs');
+    assert.equal(more.length, 0);
+    assert.equal(surface.points.length + surface.degreeU + 1, surface.knotsU.length);
+    assert.equal(surface.points[0].length + surface.degreeV + 1, surface.knotsV.length);
+  }
 });

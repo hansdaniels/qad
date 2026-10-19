@@ -96,6 +96,7 @@ meist zwei Bodenschienen aus 35er-Rohren bis zum unteren Querrohr.
 | `part`               | Teil                   |
 | -------------------- | ---------------------- |
 | `modular-slide-body` | Modularrutschen-Körper |
+| `curved-slide-body`  | Bogenrutschen-Körper   |
 | `slide-runout`       | Rutschenauslauf        |
 
 Auf Fotos erkennt man die Modularrutsche so:

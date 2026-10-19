@@ -442,9 +442,11 @@ function buildSlide(
   );
   if (!spot) {
     const type = catalog.partTypes.find((t) => t.kind === 'slide' && t.familyId === step.part);
-    return type?.kind === 'slide' && type.lowerEnd
-      ? `Am Rohr ${step.tube.join('–')} kann kein Rutschenkörper nach ${step.toward} hängen. Er braucht ein waagerechtes 35-cm-Rohr, und ${Math.round(type.lowerEnd.x / 10)} cm weiter und ${Math.round(-type.lowerEnd.z / 10)} cm tiefer ein gleich liegendes Rohr, auf dem er unten aufliegt.`
-      : `Am Rohr ${step.tube.join('–')} kann kein Auslauf nach ${step.toward} hängen; er gehört an das Rohr, auf dem ein Rutschenkörper unten aufliegt, in dessen Richtung.`;
+    const end = type?.kind === 'slide' ? type.lowerEnd : undefined;
+    const cm = (mm: number) => Math.round(mm / 10);
+    return end
+      ? `Am Rohr ${step.tube.join('–')} kann kein Rutschenkörper nach ${step.toward} hängen. Er braucht ein waagerechtes 35-cm-Rohr, und ${cm(end.point.x)} cm weiter${end.point.y ? `, ${cm(end.point.y)} cm links` : ''} und ${cm(-end.point.z)} cm tiefer ein ${end.tubeAxis.y ? 'gleich liegendes' : 'quer liegendes'} Rohr, auf dem er unten aufliegt.`
+      : `Am Rohr ${step.tube.join('–')} kann kein Auslauf nach ${step.toward} hängen; er gehört an das Rohr, auf dem ein Rutschenkörper unten aufliegt, in die Richtung, in die er die Rutsche verlässt.`;
   }
   const command = insertSlide(snapshot, spot, colour);
   const preview = core.preview(command);

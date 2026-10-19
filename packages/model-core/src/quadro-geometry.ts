@@ -7,6 +7,7 @@ import type {
   DisplayGeometryProvider,
   DisplayShape,
   PartCatalog,
+  NurbsShape,
   PartType,
   PlateEdge,
   PlateType,
@@ -24,7 +25,9 @@ import type {
   TubeDrilling,
 } from './article-catalog.js';
 import { add, qaxisAngle, qmul, rotate, scale, vec } from './math.js';
+import { nurbsPoint, nurbsRange } from './nurbs.js';
 import { quadroArticleCatalog } from './quadro-articles.js';
+import { CURVED_SLIDE_SURFACE, RUNOUT_SURFACE } from './quadro-slide-surfaces.js';
 
 /**
  * Provisional QUADRO geometry from the 2006 design program (GEOMETRIE.md).
@@ -58,9 +61,16 @@ const NOTCH_STEPS = 8;
 /**
  * Modular slide body: hangs on a 35 cm tube and drops two storeys over three
  * grid cells to a parallel tube (client's account). Surface lift above the tube
- * axes, width inside the posts and the runout length are estimates.
+ * axes and width inside the posts are estimates.
  */
-const SLIDE = { run: 1200, drop: 800, lift: 45, halfWidth: 170, thickness: 10, wall: 110, end: 35, runout: 450 };
+const SLIDE = { run: 1200, drop: 800, lift: 45, halfWidth: 170, thickness: 10, wall: 110, end: 35 };
+/**
+ * Curved slide body (GEOMETRIE.md, section 7): it turns left by 90° and rests on
+ * a tube across its own, 600 ahead, 600 to the left and 800 down, where the runout
+ * hangs on. The program draws two plate screws at the top and two slide screws at
+ * that end, as in the manufacturer's screw set for it.
+ */
+const CURVED = { lowerEnd: vec(600, 600, -800) };
 
 const X = vec(1, 0, 0);
 const Y = vec(0, 1, 0);
@@ -288,7 +298,7 @@ function partTypes(): PartType[] {
     else if (entry.category === 'tube' && entry.shape === 'bent') types.push(curvedTube(entry));
     else if (entry.category === 'plate' && (entry.plate === 'solid' || entry.plate === 'perforated')) {
       types.push(...plateTypes(entry));
-    } else if (entry.category === 'slide' && entry.slide !== 'curved-body') types.push(slideType(entry));
+    } else if (entry.category === 'slide') types.push(slideType(entry));
   }
   return types;
 }
@@ -362,18 +372,47 @@ export const quadroConnectionEvaluators: Readonly<Record<string, ConnectionEvalu
 
 /** Slide body or runout; its hang site has +Z along the tube it hangs on. */
 function slideType(article: SlideArticle): SlideType {
-  const body = article.slide === 'modular-body';
+  const shape = article.slide === 'modular-body' ? 'body' : article.slide === 'curved-body' ? 'curved' : 'runout';
+  const lowerEnd =
+    shape === 'body'
+      ? { point: vec(SLIDE.run, 0, -SLIDE.drop), tubeAxis: Y, onward: X, screws: { plate: 1, joint: 1 } }
+      : shape === 'curved'
+        ? { point: CURVED.lowerEnd, tubeAxis: X, onward: Y, screws: { plate: 2, joint: 2 } }
+        : undefined;
   return {
     kind: 'slide',
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: body ? 'quadro-slide-body' : 'quadro-slide-runout' } },
+    geometry: { display: { key: article.id }, collision: { key: `quadro-slide-${shape}` } },
     sites: [site('hang', 'hang', { position: vec(0, 0, 0), orientation: Z_TO['+y'] }, SLIDE_HANG)],
-    shape: body ? 'body' : 'runout',
+    shape,
     tubeLengthMm: 350,
-    ...(body ? { lowerEnd: vec(SLIDE.run, 0, -SLIDE.drop) } : {}),
+    ...(lowerEnd ? { lowerEnd } : {}),
   };
+}
+
+/**
+ * Collision shapes of a moulded slide: hulls between rows of surface points
+ * along u, from where it leaves the tube it hooks over to where it meets the next
+ * one, so the hooks themselves do not count against those tubes.
+ */
+function surfaceHulls(surface: NurbsShape, from: number, to: number, steps: number): CollisionShape[] {
+  const [v0, v1] = nurbsRange(surface.knotsV, surface.degreeV);
+  const row = (u: number) => Array.from({ length: 17 }, (_, j) => nurbsPoint(surface, u, v0 + ((v1 - v0) * j) / 16));
+  const rows = Array.from({ length: steps + 1 }, (_, i) => row(from + ((to - from) * i) / steps));
+  return rows.slice(1).map((r, i) => ({ kind: 'convex', points: [...rows[i]!, ...r] }));
+}
+
+const slideHulls = new Map<string, CollisionShape[]>();
+/** Hulls of the curved body and the runout, computed once. */
+function mouldedShapes(key: 'curved' | 'runout'): CollisionShape[] {
+  if (!slideHulls.has(key))
+    slideHulls.set(
+      key,
+      key === 'curved' ? surfaceHulls(CURVED_SLIDE_SURFACE, 1, 3, 12) : surfaceHulls(RUNOUT_SURFACE, 1.08, 1.92, 4),
+    );
+  return slideHulls.get(key)!;
 }
 
 /** Box from x0 to x1 along a surface line rising by slope per mm, across y0..y1, z0..z1 above the line. */
@@ -392,10 +431,10 @@ function slantedBox(
   return { kind: 'convex', points };
 }
 
-/** Sliding surface of a body or runout; walls are added for display only. */
-function slideShapes(body: boolean, walls: boolean): CollisionShape[] {
+/** Sliding surface of the modular body; walls are added for display only. */
+function slideShapes(walls: boolean): CollisionShape[] {
   const { end, halfWidth: w, thickness: t, wall } = SLIDE;
-  const [x1, slope] = body ? [SLIDE.run - end, -SLIDE.drop / SLIDE.run] : [SLIDE.runout, 0];
+  const [x1, slope] = [SLIDE.run - end, -SLIDE.drop / SLIDE.run];
   const surface = slantedBox(end, x1, slope, -w, w, -t / 2, t / 2);
   if (!walls) return [surface];
   return [surface, ...[-1, 1].map((side) => slantedBox(end, x1, slope, side * w, side * (w - 8), t / 2, wall))];
@@ -484,8 +523,9 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         ...plateTabs(x, y, edges),
       ];
     }
-    if (ref.key === 'quadro-slide-body') return slideShapes(true, false);
-    if (ref.key === 'quadro-slide-runout') return slideShapes(false, false);
+    if (ref.key === 'quadro-slide-body') return slideShapes(false);
+    if (ref.key === 'quadro-slide-curved') return mouldedShapes('curved');
+    if (ref.key === 'quadro-slide-runout') return mouldedShapes('runout');
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
     if (tube) {
       const length = Number(tube[1]);
@@ -644,7 +684,10 @@ function displayShapes(key: string): readonly DisplayShape[] | undefined {
   if (own) return own;
   const type = quadroPartCatalog.partTypes.find((t) => t.id === key);
   const article = quadroArticleCatalog.entries.find((e) => e.id === (type?.entryId ?? key));
-  if (article?.category === 'slide') return slideShapes(article.slide === 'modular-body', true);
+  if (article?.category === 'slide')
+    return article.slide === 'modular-body'
+      ? slideShapes(true)
+      : [article.slide === 'curved-body' ? CURVED_SLIDE_SURFACE : RUNOUT_SURFACE];
   if (article?.category !== 'plate' || type?.kind !== 'plate') return undefined;
   const [x, y] = type.cellMm;
   const edges = type.folded?.edges ?? [];

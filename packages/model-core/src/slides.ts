@@ -70,9 +70,10 @@ function hangers(snapshot: ConstructionSnapshot, catalog: PartCatalog, lengthMm:
 }
 
 /**
- * Where slides of each type can hang. A body needs a parallel tube to rest its
- * lower end on; a runout hangs where a body's lower end rests, running on in the
- * same direction. A tube side already carrying a slide is left out.
+ * Where slides of each type can hang. A body needs a tube to rest its lower end
+ * on, parallel to the one it hangs on or, for the curved body, across it; a runout
+ * hangs where a body's lower end rests, running on the way the body leaves it. A
+ * tube side already carrying a slide is left out.
  */
 export function slideSpots(snapshot: ConstructionSnapshot, catalog: PartCatalog, toleranceMm = 1): SlideSpot[] {
   const slideTypes = catalog.partTypes.filter((t): t is SlideType => t.kind === 'slide');
@@ -84,7 +85,7 @@ export function slideSpots(snapshot: ConstructionSnapshot, catalog: PartCatalog,
     const type = types.get(part.typeId);
     const pose = poses.get(part.id);
     return type?.kind === 'slide' && type.lowerEnd && pose
-      ? [{ end: transformPoint(pose, type.lowerEnd), toward: rotate(pose.orientation, X) }]
+      ? [{ end: transformPoint(pose, type.lowerEnd.point), toward: rotate(pose.orientation, type.lowerEnd.onward) }]
       : [];
   });
   const spots: SlideSpot[] = [];
@@ -98,12 +99,13 @@ export function slideSpots(snapshot: ConstructionSnapshot, catalog: PartCatalog,
         if (taken.has(`${tube.tubeId}|${direction}`)) continue;
         const worldPose: Pose = { position: tube.middle, orientation: upright(toward, tube.up) };
         if (type.lowerEnd) {
-          const end = transformPoint(worldPose, type.lowerEnd);
+          const end = transformPoint(worldPose, type.lowerEnd.point);
+          const axis = rotate(worldPose.orientation, type.lowerEnd.tubeAxis);
           const rests = tubes.some(
             (t) =>
               t.tubeId !== tube.tubeId &&
               length(sub(t.middle, end)) <= toleranceMm &&
-              Math.abs(dot(t.axis, tube.axis)) > 1 - 1e-6,
+              Math.abs(dot(t.axis, axis)) > 1 - 1e-6,
           );
           if (!rests) continue;
         } else {
