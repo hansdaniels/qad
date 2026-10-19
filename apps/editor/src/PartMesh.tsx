@@ -3,6 +3,7 @@ import { Outlines } from '@react-three/drei';
 import { useMemo } from 'react';
 import {
   BufferGeometry,
+  Color,
   DoubleSide,
   ExtrudeGeometry,
   FrontSide,
@@ -18,7 +19,7 @@ import { NURBSSurface } from 'three/examples/jsm/curves/NURBSSurface.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry.js';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { DisplayShape, FoldShape, NurbsShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
+import type { DisplayShape, FoldShape, MarkShape, NurbsShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
 
 const UP = new Vector3(0, 1, 0);
 /** Bend marks: a signal colour no part comes in, drawn thick. */
@@ -93,6 +94,8 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
       return <NurbsMesh surface={shape} look={look} />;
     case 'fold':
       return <FoldMesh fold={shape} ghost={look.ghost ?? false} />;
+    case 'mark':
+      return <MarkMesh mark={shape} look={look} />;
     case 'arc':
       return (
         <mesh position={[shape.center.x, shape.center.y, shape.center.z]} rotation={[0, 0, shape.startRad]}>
@@ -149,6 +152,25 @@ function FoldMesh({ fold, ghost }: { fold: FoldShape; ghost: boolean }) {
     >
       <cylinderGeometry args={[FOLD.radiusMm, FOLD.radiusMm, axis.length(), 16]} />
       <meshBasicMaterial color={FOLD.colour} transparent={ghost} opacity={ghost ? 0.45 : 1} />
+    </mesh>
+  );
+}
+
+/** Marks stand out dark on light parts and light on dark ones. */
+const MARK = { radiusMm: 4, dark: '#1d1d1d', light: '#f2f2f2' };
+
+/** A marked line as a thin rod half sunk into the face, so it never flickers against it. */
+function MarkMesh({ mark, look }: { mark: MarkShape; look: Look }) {
+  const a = new Vector3(mark.a.x, mark.a.y, mark.a.z);
+  const axis = new Vector3(mark.b.x, mark.b.y, mark.b.z).sub(a);
+  const hsl = new Color(look.colour).getHSL({ h: 0, s: 0, l: 0 });
+  return (
+    <mesh
+      position={a.clone().addScaledVector(axis, 0.5)}
+      quaternion={new Quaternion().setFromUnitVectors(UP, axis.clone().normalize())}
+    >
+      <cylinderGeometry args={[MARK.radiusMm, MARK.radiusMm, axis.length(), 12]} />
+      <Material {...look} colour={hsl.l > 0.45 ? MARK.dark : MARK.light} />
     </mesh>
   );
 }
