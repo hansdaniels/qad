@@ -59,15 +59,17 @@ export function billOfMaterials(
     });
   };
   const entries = new Map(catalog.entries.map((e) => [e.id, e]));
+  const types = new Map(partCatalog.partTypes.map((t) => [t.id, t]));
 
   for (const part of snapshot.realization.parts) {
-    const entry = entries.get(part.typeId);
-    const resolved = resolveArticle(catalog, part.typeId, requestedColour(snapshot, part));
+    const entryId = types.get(part.typeId)?.entryId ?? part.typeId;
+    const entry = entries.get(entryId);
+    const resolved = resolveArticle(catalog, entryId, requestedColour(snapshot, part));
     add(
       {
-        key: resolved?.article.articleNumber ?? part.typeId,
+        key: resolved?.article.articleNumber ?? entryId,
         category: entry?.category,
-        name: entry?.name ?? part.typeId,
+        name: entry?.name ?? entryId,
         articleNumber: resolved?.article.articleNumber,
         colour: resolved?.article.colour,
         ...(entry ? {} : { note: 'Nicht im Artikelkatalog.' }),
@@ -96,7 +98,6 @@ export function billOfMaterials(
   const [tubeScrews, plateScrews] = [fastener('tube-screw'), fastener('plate-screw')];
   const parts = new Map(snapshot.realization.parts.map((p) => [p.id, p]));
   // Tube ends whose hole holds a plate screw, as part ID and end site.
-  const types = new Map(partCatalog.partTypes.map((t) => [t.id, t]));
   const plated = new Set<string>();
   for (const mount of snapshot.realization.plateMounts) {
     addScrew(plateScrews, 'black');

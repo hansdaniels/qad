@@ -57,6 +57,12 @@ export interface TubeIntent {
 
 export interface JunctionIntent {
   readonly id: JunctionId;
+  /**
+   * Frame relative to the grid of its assembly, where it differs: at the free end
+   * of an oblique tube the connector tilts with the tube. Tubes attached there
+   * pass it on to their new junctions.
+   */
+  readonly tilt?: Quaternion;
   // Membership is derived from TubeEndpoint references, never stored twice.
 }
 

@@ -8,6 +8,7 @@ import type {
   DisplayShape,
   PartCatalog,
   PartType,
+  PlateEdge,
   PlateType,
   SlideType,
   TubeHole,
@@ -29,7 +30,7 @@ import { quadroArticleCatalog } from './quadro-articles.js';
  * Provisional QUADRO geometry from the 2006 design program (GEOMETRIE.md).
  * Not measured on parts. Tube holes and plate flanges follow the information in
  * GEOMETRIE.md, section 5; the drilling of special tubes is a hypothesis.
- * Part type IDs equal the article catalog IDs.
+ * Part type IDs equal the article catalog IDs, except for half plate variants (entryId).
  */
 
 const ARM_SHOULDER = 25;
@@ -170,25 +171,58 @@ function drilledHoles(drilling: TubeDrilling, length: number): { sites: Attachme
  * the tube axes, the plate above. Flanges run along x on the tubes at y = ±y/2 and
  * hold two screws each, 50 from the junction centres (GEOMETRIE.md, section 5).
  * Mount sites sit on those tube axes, +Z towards the tube.
+ *
+ * Half plates have their flanges on the long or on the short sides (client's
+ * account). With flanges on the short sides, the tab at a flange end can be bent
+ * by 90° where a level plate meets the upright half plate (HERSTELLERREGELN 1);
+ * those variants share the article and the mounts.
  */
-function plateType(article: PlateArticle): PlateType | undefined {
-  if (!article.tubeGridCm) return undefined;
+function plateTypes(article: PlateArticle): PlateType[] {
+  if (!article.tubeGridCm) return [];
   const [x, y] = article.tubeGridCm.map((cm) => cm * 10 + 2 * ARM_SHOULDER) as [number, number];
+  const flat = plateType(article, article.id, [x, y], []);
+  if (x === y) return [flat];
+  const across = plateType(article, `${article.id}/short`, [y, x], []);
+  const bent: (readonly PlateEdge[])[] = [['-x'], ['+x'], ['-x', '+x']];
+  return [
+    flat,
+    across,
+    ...bent.map((edges) => ({
+      ...plateType(article, `${across.id}/fold${edges.join('')}`, [y, x], edges),
+      folded: { base: across.id, edges },
+    })),
+  ];
+}
+
+function plateType(
+  article: PlateArticle,
+  id: string,
+  [x, y]: readonly [number, number],
+  edges: readonly PlateEdge[],
+): PlateType {
   const reach = x / 2 - ARM_SHOULDER - HOLE_FROM_END;
   const sites: AttachmentSite[] = [];
   for (const sy of [1, -1]) {
     for (const sx of [1, -1]) {
-      const id = `mount${sx > 0 ? '+' : '-'}x${sy > 0 ? '+' : '-'}y`;
+      const siteId = `mount${sx > 0 ? '+' : '-'}x${sy > 0 ? '+' : '-'}y`;
       const toward = qaxisAngle(X, sy > 0 ? -Math.PI / 2 : Math.PI / 2);
-      sites.push(site(id, 'mount', { position: vec(sx * reach, (sy * y) / 2, 0), orientation: toward }, PLATE_MOUNT));
+      sites.push(
+        site(siteId, 'mount', { position: vec(sx * reach, (sy * y) / 2, 0), orientation: toward }, PLATE_MOUNT),
+      );
     }
   }
+  const across = x < y ? ', Flansche an den kurzen Seiten' : '';
+  const bent = edges.length === 0 ? '' : edges.length === 1 ? ', eine Lasche geknickt' : ', beide Laschen geknickt';
   return {
     kind: 'plate',
-    id: article.id,
+    id,
     familyId: article.familyId,
-    name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: `quadro-plate-${x}x${y}` } },
+    name: `${article.name}${across}${bent}`,
+    ...(id === article.id ? {} : { entryId: article.id }),
+    geometry: {
+      display: { key: id },
+      collision: { key: `quadro-plate-${x}x${y}${edges.length > 0 ? `-fold${edges.join('')}` : ''}` },
+    },
     sites,
     cellMm: [x, y],
     requiredMounts: sites.map((s) => s.id),
@@ -253,8 +287,7 @@ function partTypes(): PartType[] {
     else if (entry.category === 'tube' && entry.shape === 'straight') types.push(straightTube(entry));
     else if (entry.category === 'tube' && entry.shape === 'bent') types.push(curvedTube(entry));
     else if (entry.category === 'plate' && (entry.plate === 'solid' || entry.plate === 'perforated')) {
-      const plate = plateType(entry);
-      if (plate) types.push(plate);
+      types.push(...plateTypes(entry));
     } else if (entry.category === 'slide' && entry.slide !== 'curved-body') types.push(slideType(entry));
   }
   return types;
@@ -430,17 +463,25 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         { kind: 'convex', points: cylinderPoints(from, SPIGOT_SHOULDER, TUBE_RADIUS) },
       ];
     }
-    const plate = /^quadro-plate-(\d+)x(\d+)$/.exec(ref.key);
+    const plate = /^quadro-plate-(\d+)x(\d+)(?:-fold((?:[-+]x)+))?$/.exec(ref.key);
     if (plate) {
       const [x, y] = [Number(plate[1]), Number(plate[2])];
+      const edges = (plate[3]?.match(/[-+]x/g) ?? []) as PlateEdge[];
       const { lift, thickness } = PLATE;
+      const [lo, hi] = plateEnds(x, edges);
       // Corners are cut out around the junctions, so upright tubes fit (GEOMETRIE.md,
       // section 5); two crossing boxes cover the rest.
       const z = lift + thickness / 2;
+      const box = (from: number, to: number, halfY: number): CollisionShape => ({
+        kind: 'box',
+        center: vec((from + to) / 2, 0, z),
+        halfExtents: vec((to - from) / 2, halfY, thickness / 2),
+      });
       return [
-        { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2 - lift, y / 2, thickness / 2) },
-        { kind: 'box', center: vec(0, 0, z), halfExtents: vec(x / 2, y / 2 - lift, thickness / 2) },
+        box(Math.max(lo, -x / 2 + lift), Math.min(hi, x / 2 - lift), y / 2),
+        box(lo, hi, y / 2 - lift),
         ...plateFlanges(x, y),
+        ...plateTabs(x, y, edges),
       ];
     }
     if (ref.key === 'quadro-slide-body') return slideShapes(true, false);
@@ -466,6 +507,51 @@ function plateFlanges(x: number, y: number): CollisionShape[] {
     center: vec(0, side * (y / 2 - lift - thickness / 2), (lift - flangeDepth) / 2),
     halfExtents: vec(x / 2 - lift - thickness, thickness / 2, (lift + flangeDepth) / 2),
   }));
+}
+
+/**
+ * Tab at a flange end, bent by 90° inwards: how far it reaches from the flange.
+ * Read off the manufacturer's safety instructions (1.4), not measured.
+ */
+const TAB_LENGTH = 20;
+
+/**
+ * Plate x where the slab ends. At a bent edge the plate stands on the level plate
+ * below, so it ends where the flanges end, on that plate's top.
+ */
+function plateEnds(x: number, edges: readonly PlateEdge[]): [number, number] {
+  const cut = PLATE.lift + PLATE.thickness;
+  return [edges.includes('-x') ? -x / 2 + cut : -x / 2, edges.includes('+x') ? x / 2 - cut : x / 2];
+}
+
+/** Bent tabs at the flange ends of the given edges: flat on the level plate, pointing inwards. */
+function plateTabs(x: number, y: number, edges: readonly PlateEdge[]): CollisionShape[] {
+  const { lift, flangeDepth, thickness } = PLATE;
+  return edges.flatMap((edge) => {
+    const sx = edge === '-x' ? -1 : 1;
+    return [1, -1].map((sy) => ({
+      kind: 'box' as const,
+      center: vec(
+        sx * (x / 2 - lift - (3 * thickness) / 2),
+        sy * (y / 2 - lift - thickness - TAB_LENGTH / 2),
+        (lift - flangeDepth) / 2,
+      ),
+      halfExtents: vec(thickness / 2, TAB_LENGTH / 2, (lift + flangeDepth) / 2),
+    }));
+  });
+}
+
+/**
+ * Mark of a bent edge: a line across the whole plate along its straight end, on
+ * the face side, so the bend shows from where one looks at the plate.
+ */
+function plateFolds(x: number, y: number, edges: readonly PlateEdge[]): DisplayShape[] {
+  const { lift, thickness } = PLATE;
+  const [lo, hi] = plateEnds(x, edges);
+  return edges.map((edge) => {
+    const fx = edge === '-x' ? lo : hi;
+    return { kind: 'fold' as const, a: vec(fx, -y / 2, lift + thickness), b: vec(fx, y / 2, lift + thickness) };
+  });
 }
 
 /**
@@ -556,17 +642,18 @@ const displayCache = new Map<string, readonly DisplayShape[] | undefined>();
 function displayShapes(key: string): readonly DisplayShape[] | undefined {
   const own = tubeOrConnectorShapes(key);
   if (own) return own;
-  const article = quadroArticleCatalog.entries.find((e) => e.id === key);
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === key);
+  const article = quadroArticleCatalog.entries.find((e) => e.id === (type?.entryId ?? key));
   if (article?.category === 'slide') return slideShapes(article.slide === 'modular-body', true);
-  if (article?.category !== 'plate') return undefined;
-  const type = quadroPartCatalog.partTypes.find((t) => t.id === article.id);
-  if (type?.kind !== 'plate') return undefined;
+  if (article?.category !== 'plate' || type?.kind !== 'plate') return undefined;
   const [x, y] = type.cellMm;
+  const edges = type.folded?.edges ?? [];
   const { lift, thickness } = PLATE;
   const [hx, hy] = [x / 2, y / 2];
+  const [lo, hi] = plateEnds(x, edges);
   // Counter-clockwise; each corner is a quarter-circle notch around the junction,
   // turning clockwise about it from the edge arriving there (at angle start) to
-  // the edge leaving it.
+  // the edge leaving it. A bent edge ends straight, short of the notches.
   const corners = [
     { x: hx, y: -hy, start: Math.PI },
     { x: hx, y: hy, start: -Math.PI / 2 },
@@ -574,10 +661,12 @@ function displayShapes(key: string): readonly DisplayShape[] | undefined {
     { x: -hx, y: -hy, start: Math.PI / 2 },
   ];
   const outline = corners.flatMap(({ x: cx, y: cy, start }) =>
-    Array.from({ length: NOTCH_STEPS + 1 }, (_, k) => {
-      const t = start - (Math.PI / 2) * (k / NOTCH_STEPS);
-      return { x: cx + lift * Math.cos(t), y: cy + lift * Math.sin(t) };
-    }),
+    (cx > 0 ? hi < hx : lo > -hx)
+      ? [{ x: cx > 0 ? hi : lo, y: cy }]
+      : Array.from({ length: NOTCH_STEPS + 1 }, (_, k) => {
+          const t = start - (Math.PI / 2) * (k / NOTCH_STEPS);
+          return { x: cx + lift * Math.cos(t), y: cy + lift * Math.sin(t) };
+        }),
   );
   const { grid, pitch, diameter } = PERFORATION;
   const steps = Array.from({ length: grid }, (_, i) => (i - (grid - 1) / 2) * pitch);
@@ -586,5 +675,5 @@ function displayShapes(key: string): readonly DisplayShape[] | undefined {
       ? steps.flatMap((cy) => steps.map((cx) => ({ x: cx, y: cy, radiusMm: diameter / 2 })))
       : [];
   const slab: DisplayShape = { kind: 'slab', outline, holes, bottomZ: lift, thicknessMm: thickness };
-  return [slab, ...plateFlanges(x, y)];
+  return [slab, ...plateFlanges(x, y), ...plateTabs(x, y, edges), ...plateFolds(x, y, edges)];
 }

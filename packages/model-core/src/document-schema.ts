@@ -74,7 +74,7 @@ const design = z.strictObject({
   id,
   catalog: z.strictObject({ id, version: id }),
   tubes: z.array(tube),
-  junctions: z.array(z.strictObject({ id })),
+  junctions: z.array(z.strictObject({ id, tilt: quaternion.exactOptional() })),
   plates: z.array(plate),
   // Files from before slides have none; the only other documented default.
   slides: z.array(slide).default(() => []),

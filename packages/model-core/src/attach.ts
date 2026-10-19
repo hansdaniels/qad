@@ -2,15 +2,18 @@ import type { GridDirection } from './article-catalog.js';
 import type { PartCatalog, TubeType } from './catalog.js';
 import type { DesignOperation, EditCommand } from './commands.js';
 import type { ConstructionSnapshot } from './core.js';
-import type { ConstructionDesign } from './design.js';
+import type { ConstructionDesign, JunctionIntent } from './design.js';
 import type { ColourId, FamilyId, JunctionId } from './ids.js';
 import type { Pose, Quaternion, Vector3 } from './geometry.js';
 import {
   AXIS_ROTATIONS,
   add,
   compose,
+  cross,
   dot,
   length,
+  qangle,
+  qaxisAngle,
   qconj,
   qmul,
   rotate,
@@ -163,8 +166,9 @@ export function attachTube(
     (t): t is TubeType => t.kind === 'tube' && t.familyId === tube.familyId && t.standardVariant,
   );
   if (type?.shape === 'bent') return attachCurvedTube(snapshot, at, tube, type, catalog, bend, toleranceMm, tubeId);
-  if (oblique) return attachObliqueTube(snapshot, at, tube, oblique, tubeId);
-  const existing = farEndJunction(snapshot, at, tube.familyId, catalog, toleranceMm);
+  if (oblique) return attachObliqueTube(snapshot, at, tube, oblique, tubeId, catalog, toleranceMm);
+  const far = farEndJunction(snapshot, at, tube.familyId, catalog, toleranceMm);
+  const existing = far?.junctionId;
   const junctionId =
     existing ??
     nextId(
@@ -174,7 +178,9 @@ export function attachTube(
   return {
     baseRevision: snapshot.revision,
     operations: [
-      ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
+      ...(existing
+        ? []
+        : [{ kind: 'add-junction', junction: newJunction(snapshot, junctionId, at.junctionId) } as const]),
       ...(existing ? joinAssemblies(design, at.junctionId, existing) : []),
       {
         kind: 'add-tube',
@@ -182,13 +188,24 @@ export function attachTube(
           id: tubeId,
           familyId: tube.familyId,
           a: { junctionId: at.junctionId, orientation: towardDirection(at.direction), roll: { mode: 'free' } },
-          b: { junctionId, orientation: towardDirection(opposite(at.direction)), roll: { mode: 'free' } },
+          b: { junctionId, orientation: towardDirection(far?.arm ?? opposite(at.direction)), roll: { mode: 'free' } },
           variant: { mode: 'automatic' },
           appearance: { colour: tube.colour },
         },
       },
     ],
   };
+}
+
+/** Tilt of a junction against its assembly grid; identity where it has none. */
+function tiltOf(snapshot: ConstructionSnapshot, junctionId: JunctionId): Quaternion {
+  return snapshot.design.junctions.find((j) => j.id === junctionId)?.tilt ?? { x: 0, y: 0, z: 0, w: 1 };
+}
+
+/** A new junction at the far end of an axial or curved tube: in the frame of the one it starts from. */
+function newJunction(snapshot: ConstructionSnapshot, id: JunctionId, from: JunctionId): JunctionIntent {
+  const tilt = snapshot.design.junctions.find((j) => j.id === from)?.tilt;
+  return tilt ? { id, tilt } : { id };
 }
 
 /** The perpendicular directions an oblique tube on an angle adapter can lean to. */
@@ -210,7 +227,9 @@ function zOnto(v: Vector3): Quaternion {
 
 /**
  * A straight tube on an angle adapter on the arm at direction: it leaves at 135°
- * to the arm, leaning towards lean, and ends at a new junction.
+ * to the arm, leaning towards lean, and ends at a new junction. Its far end sits
+ * straight on an arm of a connector tilted by 45° with it, as at the ridge of a
+ * pitched roof; the axis across the lean stays as it is.
  */
 function attachObliqueTube(
   snapshot: ConstructionSnapshot,
@@ -218,31 +237,95 @@ function attachObliqueTube(
   tube: { readonly familyId: FamilyId; readonly colour: ColourId },
   lean: GridDirection,
   tubeId: string,
+  catalog: PartCatalog,
+  toleranceMm: number,
 ): EditCommand {
+  const { design } = snapshot;
   const [arm, side] = [unit(at.direction), unit(lean)];
   if (Math.abs(dot(arm, side)) > 1e-9) return { baseRevision: snapshot.revision, operations: [] };
   const d = scale(add(scale(arm, -1), side), Math.SQRT1_2);
-  const junctionId = nextId(
-    'j',
-    snapshot.design.junctions.map((j) => j.id),
-  );
+  // Turning arm by -45° towards -side gives -d: the new junction's arm at direction points back along the tube.
+  const tilt = qaxisAngle(cross(arm, side), -Math.PI / 4);
+  const intoB = zOnto(scale(d, -1));
+  // Where the far end meets a connector already there, e.g. the other roof slope at
+  // the ridge, it goes into that one, as long as its arms point the same ways.
+  const poses = snapshot.realization.intentPoses.filter((p) => p.intent.kind === 'junction');
+  const start = poses.find((p) => p.intent.id === at.junctionId)?.worldPose;
+  const target = start && obliqueFarEnd(catalog, tube.familyId, start, arm, side, d);
+  const existing =
+    start &&
+    target &&
+    poses.find((p) => {
+      if (p.intent.id === at.junctionId || length(sub(p.worldPose.position, target)) > toleranceMm) return false;
+      const relative = qmul(qconj(qmul(start.orientation, tilt)), p.worldPose.orientation);
+      return AXIS_ROTATIONS.some((r) => qangle(qmul(qconj(r), relative)) <= 1e-6);
+    });
+  const junctionId =
+    existing?.intent.id ??
+    nextId(
+      'j',
+      design.junctions.map((j) => j.id),
+    );
   return {
     baseRevision: snapshot.revision,
     operations: [
-      { kind: 'add-junction', junction: { id: junctionId } },
+      ...(existing
+        ? joinAssemblies(design, at.junctionId, junctionId)
+        : [
+            {
+              kind: 'add-junction',
+              junction: { id: junctionId, tilt: qmul(tiltOf(snapshot, at.junctionId), tilt) },
+            } as const,
+          ]),
       {
         kind: 'add-tube',
         tube: {
           id: tubeId,
           familyId: tube.familyId,
           a: { junctionId: at.junctionId, orientation: zOnto(d), roll: { mode: 'free' }, adapterArm: at.direction },
-          b: { junctionId, orientation: zOnto(scale(d, -1)), roll: { mode: 'free' } },
+          b: {
+            junctionId,
+            orientation: existing
+              ? qmul(qconj(existing.worldPose.orientation), qmul(start!.orientation, intoB))
+              : qmul(qconj(tilt), intoB),
+            roll: { mode: 'free' },
+          },
           variant: { mode: 'automatic' },
           appearance: { colour: tube.colour },
         },
       },
     ],
   };
+}
+
+/**
+ * World position of the far junction of an oblique tube: the angle adapter's
+ * virtual centre lies one arm length behind its spigot shoulder (GEOMETRIE.md,
+ * section 3), and the tube adds its length plus an arm length at each end.
+ */
+function obliqueFarEnd(
+  catalog: PartCatalog,
+  familyId: FamilyId,
+  start: Pose,
+  arm: Vector3,
+  side: Vector3,
+  d: Vector3,
+): Vector3 | undefined {
+  const spigot = catalog.partTypes.find((t) => t.kind === 'adapter')?.sites.find((s) => s.role === 'socket');
+  const socket = catalog.partTypes
+    .flatMap((t) => (t.kind === 'connector' ? t.sites : []))
+    .find((s) => s.role === 'socket');
+  const type = catalog.partTypes.find(
+    (t): t is TubeType => t.kind === 'tube' && t.familyId === familyId && t.standardVariant,
+  );
+  const ends = type && [type.ends.a, type.ends.b].map((id) => type.sites.find((s) => s.id === id)?.frame.position);
+  if (!spigot || !socket || !ends?.[0] || !ends[1]) return undefined;
+  const armOffset = length(socket.frame.position);
+  // Adapter frame: x along the arm from its shoulder, y towards the lean.
+  const centre = sub(spigot.frame.position, scale(rotate(spigot.frame.orientation, Z), armOffset));
+  const virtual = add(scale(arm, armOffset + centre.x), add(scale(side, centre.y), scale(cross(arm, side), centre.z)));
+  const far = add(virtual, scale(d, length(sub(ends[1], ends[0])) + 2 * armOffset));
+  return add(start.position, rotate(start.orientation, far));
 }
 
 /**
@@ -293,7 +376,9 @@ function attachCurvedTube(
   return {
     baseRevision: snapshot.revision,
     operations: [
-      ...(existing ? [] : [{ kind: 'add-junction', junction: { id: junctionId } } as const]),
+      ...(existing
+        ? []
+        : [{ kind: 'add-junction', junction: newJunction(snapshot, junctionId, at.junctionId) } as const]),
       ...(existing ? joinAssemblies(design, at.junctionId, existing.intent.id) : []),
       {
         kind: 'add-tube',
@@ -340,9 +425,9 @@ function joinAssemblies(design: ConstructionDesign, from: JunctionId, to: Juncti
 }
 
 /**
- * Existing junction where the far end of a straight tube of the family lands:
- * centre distance is the tube length between its end faces plus one arm length
- * at each end.
+ * Existing junction where the far end of a straight tube of the family lands,
+ * with the arm there that takes it: centre distance is the tube length between
+ * its end faces plus one arm length at each end.
  */
 function farEndJunction(
   snapshot: ConstructionSnapshot,
@@ -350,7 +435,7 @@ function farEndJunction(
   familyId: FamilyId,
   catalog: PartCatalog,
   toleranceMm: number,
-): JunctionId | undefined {
+): { readonly junctionId: JunctionId; readonly arm: GridDirection } | undefined {
   const type = catalog.partTypes.find((t) => t.kind === 'tube' && t.familyId === familyId && t.standardVariant);
   if (type?.kind !== 'tube' || type.shape !== 'straight') return undefined;
   const ends = [type.ends.a, type.ends.b].map((id) => type.sites.find((s) => s.id === id)?.frame.position);
@@ -364,8 +449,18 @@ function farEndJunction(
   if (!start) return undefined;
   const direction = rotate(qmul(start.orientation, towardDirection(at.direction)), Z);
   const target = add(start.position, scale(direction, pitch));
-  return poses.find((p) => p.intent.id !== at.junctionId && length(sub(p.worldPose.position, target)) <= toleranceMm)
-    ?.intent.id;
+  // The arms there must point along the grid of the start: its frame may differ
+  // by quarter turns, e.g. at the ridge of two roof trusses built mirrored. End b
+  // is then given in that frame.
+  for (const p of poses) {
+    if (p.intent.id === at.junctionId || length(sub(p.worldPose.position, target)) > toleranceMm) continue;
+    const back = rotate(qconj(p.worldPose.orientation), scale(direction, -1));
+    const arm = DIRECTIONS.find(([, u]) => dot(u, back) > 1 - 1e-6)?.[0];
+    const relative = qmul(qconj(start.orientation), p.worldPose.orientation);
+    if (arm && AXIS_ROTATIONS.some((r) => qangle(qmul(qconj(r), relative)) <= 1e-6))
+      return { junctionId: p.intent.id, arm };
+  }
+  return undefined;
 }
 
 /**

@@ -1,3 +1,4 @@
+import type { PartCatalog } from './catalog.js';
 import type { ColourId, FamilyId, PartTypeId } from './ids.js';
 
 /**
@@ -154,6 +155,11 @@ export interface ArticleResolution {
   readonly article: Article;
   /** A colour was requested but is not offered for this type. */
   readonly substituted: boolean;
+}
+
+/** Article catalog entry of a part type: its own ID unless it is a variant of an entry, e.g. a bent half plate. */
+export function articleEntryId(parts: PartCatalog, typeId: PartTypeId): string {
+  return parts.partTypes.find((t) => t.id === typeId)?.entryId ?? typeId;
 }
 
 /**

@@ -339,7 +339,7 @@ function buildPlate(
   catalog: PartCatalog,
   articles: ArticleCatalog,
 ): string | undefined {
-  const families = catalog.partTypes.flatMap((t) => (t.kind === 'plate' ? [t.familyId] : []));
+  const families = [...new Set(catalog.partTypes.flatMap((t) => (t.kind === 'plate' ? [t.familyId] : [])))];
   if (!families.includes(step.part)) return `Unbekannte Platte „${step.part}“; möglich sind ${families.join(', ')}.`;
   const corners = new Set<JunctionId>();
   for (const corner of step.corners) {

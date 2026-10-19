@@ -92,6 +92,18 @@ test('a plate screwed to both tubes closes the opening', () => {
   assert.deepEqual(traps(core), []);
 });
 
+test('a half plate screwed to the short tubes closes the opening as well, like a stair riser', () => {
+  const core = build([['j1', '+z', 'tube-35cm'], ['j2', '+z', 'tube-35cm'], ...frame('j3', 4)]);
+  const [trap] = traps(core);
+  const spot = plateSpots(core.snapshot, quadroPartCatalog).find(
+    (s) => s.familyId === 'panel-40-20cm' && !trap.tubes.some((t) => s.flangeTubes.includes(t)),
+  );
+  assert.equal(spot.typeId, 'panel-40-20cm/short');
+  const result = core.execute(insertPlate(core.snapshot, spot, 'blue'));
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  assert.deepEqual(traps(core), []);
+});
+
 test('a 35 × 35 frame up high leaves too wide a gap for a head trap', () => {
   const square = [
     ['j3', '+x', 'tube-35cm'],

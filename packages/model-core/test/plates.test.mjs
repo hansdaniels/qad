@@ -5,8 +5,10 @@ import {
   attachTube,
   billOfMaterials,
   checkBuildability,
+  compareConstructions,
   encodeConstruction,
   openConstruction,
+  removePlate,
   removeTube,
   turnPlate,
   createModelCore,
@@ -47,11 +49,11 @@ function build(steps) {
     options,
   );
   const core = created.value;
-  for (const [junctionId, direction] of steps) {
+  for (const [junctionId, direction, familyId = 'tube-35cm'] of steps) {
     const command = attachTube(
       core.snapshot,
       { junctionId, direction },
-      { familyId: 'tube-35cm', colour: 'red' },
+      { familyId, colour: 'red' },
       quadroPartCatalog,
     );
     const result = core.execute(command);
@@ -317,4 +319,98 @@ test('plates are drawn as one slab with rounded corner notches; the hole panel h
   );
   const [hx, hy] = perforated.type.cellMm.map((c) => c / 2 - 25.12);
   for (const h of holes) assert.ok(Math.abs(h.x) + h.radiusMm < hx && Math.abs(h.y) + h.radiusMm < hy);
+});
+
+/** Stair step: a 35 cm square on the floor, 15 cm posts on its edge t1 and a tube across them. */
+const step = [...square, ['j1', '+z', 'tube-15cm'], ['j2', '+z', 'tube-15cm'], ['j5', '+x']];
+const HALF = 'panel-40-20cm';
+
+test('a half plate offers its flanges on the long or the short sides of the same cell side', () => {
+  const core = build(step);
+  const riser = plateSpots(core.snapshot, quadroPartCatalog).filter(
+    (s) => s.familyId === HALF && s.cellKey.endsWith('0+0'),
+  );
+  assert.deepEqual(
+    riser.map((s) => [s.typeId, ...s.flangeTubes]).sort((a, b) => byText(a[0], b[0])),
+    [
+      [HALF, 't1', 't7'],
+      [`${HALF}/short`, 't5', 't6'],
+    ],
+  );
+  assert.equal(new Set(riser.map((s) => s.cellKey)).size, 1);
+});
+
+test('an upright half plate on the side of a level plate bends its tabs there and stands on it', () => {
+  const core = build(step);
+  const floor = spotsOf(core).find((s) => s.cellKey.includes('j1+j2+j3+j4') && top(s));
+  execute(core, insertPlate(core.snapshot, floor, 'blue'));
+  const riser = (side) =>
+    plateSpots(core.snapshot, quadroPartCatalog).filter((s) => s.familyId === HALF && s.cellKey.endsWith(side));
+  // With the flanges along the floor's edge tube, the half plate runs into the floor either way.
+  for (const spot of [...riser('0+0'), ...riser('0-0')].filter((s) => s.typeId === HALF)) {
+    assert.equal(core.preview(insertPlate(core.snapshot, spot, 'yellow')).status, 'invalid');
+  }
+  // On the posts it fits on both sides; facing the floor, its lower tabs are bent.
+  const outside = core.preview(
+    insertPlate(
+      core.snapshot,
+      riser('0-0').find((s) => s.typeId !== HALF),
+      'yellow',
+    ),
+  );
+  assert.equal(outside.status, 'valid');
+  const s = execute(
+    core,
+    insertPlate(
+      core.snapshot,
+      riser('0+0').find((s) => s.typeId !== HALF),
+      'yellow',
+    ),
+  );
+  const plate = (id) => s.realization.parts.find((p) => p.origin.intent.id === id);
+  assert.equal(plate('p2').typeId, `${HALF}/short/fold-x`);
+  // The same article: one yellow half plate on the parts list, and still the same part when compared.
+  const lines = billOfMaterials(s, quadroArticleCatalog, quadroPartCatalog).map((l) => [l.name, l.colour, l.quantity]);
+  assert.ok(
+    lines.some(([name, colour, quantity]) => name === 'Platte 40 × 20 cm' && colour === 'yellow' && quantity === 1),
+  );
+  const flat = {
+    ...s,
+    realization: {
+      ...s.realization,
+      parts: s.realization.parts.map((p) => (p.id === plate('p2').id ? { ...p, typeId: `${HALF}/short` } : p)),
+    },
+  };
+  const changes = compareConstructions(flat, s, quadroPartCatalog, quadroArticleCatalog).changes;
+  assert.ok(changes.every((c) => c.kind === 'kept'));
+  // Taking the floor away unbends them.
+  const without = execute(core, removePlate(s, 'p1'));
+  assert.equal(without.realization.parts.find((p) => p.origin.intent.id === 'p2').typeId, `${HALF}/short`);
+});
+
+test('a bent half plate ends straight above the level plate and marks the bent edge across its face', () => {
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === `${HALF}/short/fold-x`);
+  assert.deepEqual(type.folded, { base: `${HALF}/short`, edges: ['-x'] });
+  assert.equal(type.entryId, HALF);
+  assert.deepEqual(type.cellMm, [200, 400]);
+  const [slab, ...rest] = quadroDisplayGeometry.shapes(type.geometry.display);
+  const xs = slab.outline.map((p) => p.x);
+  // Bent edge: straight at the flange ends, a plate thickness above the level plate's underside.
+  assert.ok(Math.abs(Math.min(...xs) - (-100 + 28.12)) < 1e-9);
+  assert.equal(slab.outline.filter((p) => p.x === Math.min(...xs)).length, 2);
+  assert.equal(Math.max(...xs), 100);
+  const folds = rest.filter((s) => s.kind === 'fold');
+  // One line across the plate on its face, along the bent edge.
+  assert.equal(folds.length, 1);
+  const [fold] = folds;
+  assert.ok(Math.abs(fold.a.x - (-100 + 28.12)) < 1e-9 && fold.b.x === fold.a.x);
+  assert.deepEqual([fold.a.y, fold.b.y], [-200, 200]);
+  assert.ok(Math.abs(fold.a.z - 28.12) < 1e-9);
+  // Collision: the same boxes, two flanges and two tabs.
+  const boxes = quadroCollisionGeometry.shapes(type.geometry.collision);
+  assert.equal(boxes.length, 6);
+  assert.deepEqual(
+    rest.filter((s) => s.kind === 'box'),
+    boxes.slice(2),
+  );
 });

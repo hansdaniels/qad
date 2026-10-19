@@ -37,7 +37,8 @@ interface Side {
 
 /**
  * Cells of four straight tubes forming a rectangle that matches a plate type,
- * on both sides of the cell and for each flange direction the type allows.
+ * on both sides of the cell and for each flange direction the type allows; a
+ * half plate also with its flanges on the short sides.
  * A side already holding a plate is left out, except the side of plate except.
  */
 export function plateSpots(
@@ -48,7 +49,8 @@ export function plateSpots(
 ): PlateSpot[] {
   const { design, realization } = snapshot;
   const types = new Map(catalog.partTypes.map((t) => [t.id, t]));
-  const plateTypes = catalog.partTypes.filter((t): t is PlateType => t.kind === 'plate');
+  // Bent variants follow from the neighbours; the solver picks them.
+  const plateTypes = catalog.partTypes.filter((t): t is PlateType => t.kind === 'plate' && !t.folded);
   const junctionPose = new Map(
     realization.intentPoses.flatMap((p) => (p.intent.kind === 'junction' ? [[p.intent.id, p.worldPose] as const] : [])),
   );
@@ -132,7 +134,8 @@ export function plateSpots(
               const worldPose = compose(frame, pose);
               const mounts = mountsOf(type, worldPose, flanges, design.tubes, tubeBody, tubePose, types, toleranceMm);
               if (!mounts) continue;
-              const cellKey = `${cellId}|${type.id}|${normalKey(normal)}`;
+              // Per family: a half plate's flanges on the long or the short sides are alternatives like flange directions.
+              const cellKey = `${cellId}|${type.familyId}|${normalKey(normal)}`;
               spots.push({
                 key: `${cellKey}|${flanges[0]}`,
                 cellKey,
@@ -238,7 +241,7 @@ export function turnPlate(snapshot: ConstructionSnapshot, plateId: PlateId, cata
   return plateSpots(snapshot, catalog, 1, plateId)
     .filter(
       (s) =>
-        s.typeId === body.typeId &&
+        s.familyId === plate.familyId &&
         length(sub(s.worldPose.position, pose.position)) <= 1 &&
         dot(rotate(s.worldPose.orientation, Z), normal) > 0.5 &&
         !s.flangeTubes.every((t) => tubes.has(t)),

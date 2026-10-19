@@ -111,6 +111,21 @@ Rohrachsen, Platte oberhalb.
 | Dicke        | vorläufig 3 für Platte und Flansche, nicht gemessen                                                                                                    |
 
 Damit entsprechen die Shopnamen (40 × 40, 40 × 20, 30 × 30 cm) dem Außenmaß.
+
+Die Halbplatte 40 × 20 gibt es im Modell in zwei Lagen: Flansche an den langen
+Seiten (Zelle 400 × 200) oder an den kurzen (Zelle 200 × 400, Auskunft). In der
+zweiten Lage kann an jedem Flanschende eine Lasche um 90° geknickt sein
+(Anleitung des Herstellers, 1.4). Dann steht die Platte auf der waagerechten
+Platte darunter:
+
+| Element      | Wert                                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| Plattenkante | endet an der geknickten Seite gerade, 28,12 von der Rohrachse (Oberseite der waagerechten Platte)           |
+| Lasche       | 20 lang, flach auf der waagerechten Platte, vom Flansch nach innen; Tiefe wie der Flansch (z = −22 … 25,12) |
+| Markierung   | Strich quer über die ganze Platte an der geraden Kante, auf der Sichtseite (nur Darstellung)                |
+
+Die Lasche ist aus der Abbildung der Anleitung geschätzt, nicht gemessen. Die
+Laschen im ungeknickten Zustand stellt das Modell nicht dar.
 Bohrungen und Plattenschrauben stellt das Programm nicht dar. Die Bohrungen sind
 Auskunft des Auftraggebers: Seit 1979 sind die Teile funktional gleich, jede Platte
 hat zwei Flansche mit je zwei Schrauben. Die Plattenschrauben sitzen an denselben

@@ -50,7 +50,14 @@ export interface ArcShape {
   readonly endRad: number;
 }
 
-export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape;
+/** A line from a to b that marks a bend, e.g. the edge of a half plate with bent tabs: drawn in a signal colour. */
+export interface FoldShape {
+  readonly kind: 'fold';
+  readonly a: Vector3;
+  readonly b: Vector3;
+}
+
+export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | FoldShape;
 
 export interface DisplayGeometryProvider {
   /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */
@@ -67,6 +74,8 @@ export interface PartTypeBase {
   readonly familyId: FamilyId;
   readonly name: string;
   readonly articleNumber?: string;
+  /** Article catalog entry, where it differs from the ID, e.g. for a half plate with a bent tab. */
+  readonly entryId?: string;
   readonly geometry: PartGeometry;
   readonly sites: readonly AttachmentSite[];
 }
@@ -96,7 +105,16 @@ export interface PlateType extends PartTypeBase {
   readonly cellMm: readonly [number, number];
   /** Every required mounting site must be realised. */
   readonly requiredMounts: readonly SiteId[];
+  /**
+   * Variant of the flat type base whose flange tabs are bent by 90° at the given
+   * cell edges, where a level plate meets this upright one (HERSTELLERREGELN 1).
+   * The solver picks it; the design names only the family.
+   */
+  readonly folded?: { readonly base: PartTypeId; readonly edges: readonly PlateEdge[] };
 }
+
+/** Cell edge of a plate across its flanges: at the low or high end of plate x. */
+export type PlateEdge = '-x' | '+x';
 
 /**
  * Slide body or runout: hangs on the middle of a tube with its origin on the

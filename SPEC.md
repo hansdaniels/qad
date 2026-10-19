@@ -167,6 +167,8 @@ Der Benutzer kann eine Variante fixieren. Dann ist sie eine Bedingung der Lösun
 
 Winkelkupplungen können zwischen einer gewöhnlichen Kupplung und einem schrägen Rohr sitzen. Sie sind eigenständige Bauteile mit mehreren lokalen Anschlusslagen. Winkel und räumlicher Versatz stammen aus dem Katalog.
 
+Am freien Ende eines schrägen Rohrs, das der Editor anbaut, steckt das Rohr direkt in einer gewöhnlichen Kupplung, die um 45° mitgekippt ist, wie am First oder an der oberen Dachkante eines Pultdachs. Der Verbindungspunkt speichert diese Neigung gegenüber dem Raster seiner Baugruppe (`tilt`); Rohre, die dort weiter angebaut werden, geben sie an ihre neuen Verbindungspunkte weiter. Trifft das Schrägrohr dort auf eine vorhandene Kupplung, deren Arme in dieselben Richtungen zeigen, steckt es in ihr; so treffen sich zwei von den Traufen angebaute Dachschrägen in einer Kupplung am First. So entstehen gekippte Rahmen, die als Ring schließen und Platten tragen. Ein Rohrende verbindet sich nur mit einem vorhandenen Verbindungspunkt, dessen Arme in dieselben Richtungen zeigen; um Vierteldrehungen verdreht darf er sein, etwa am First zweier spiegelbildlich gebauter Dachbinder.
+
 ### 7.2 Bogenrohre
 
 Ein Bogenrohr ist ein einzelnes Rohr mit einer ID und eigenen Endanschlüssen. Es kann geometrisch einer Folge aus zwei geraden Rohren und einer Ecke ähneln, bleibt jedoch ein Teil in Auswahl, Bestand und Stückliste.
@@ -185,9 +187,11 @@ Ohne entsprechende Befestigungsanforderung ist die Bohrungsausrichtung fachlich 
 
 Die vom Benutzer gewünschte Plattenbefestigung wird getrennt von der aktuell gewählten konkreten Bohrung gespeichert. Beim automatischen Variantenwechsel wird die Zuordnung neu berechnet. Eine ausdrücklich fixierte Befestigung bleibt eine Bedingung.
 
+Wie bei den Rohrbohrungen wählt der Löser auch die Ausführung einer Platte: die Lage der Flansche, die zu den Befestigungen passt (die Halbplatte 40 × 20 hat Flansche an den langen oder an den kurzen Seiten), und geknickte Laschen. Eine senkrechte Halbplatte, an deren Kante auf ihrer Seite eine waagerechte Platte anschließt, bekommt dort geknickte Laschen und steht auf dieser Platte ([HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 1). Das ergibt Setzstufen an Treppen. Die Varianten sind derselbe Artikel; Stückliste und Umbau-Vergleich zählen sie als eine Platte. Der Editor markiert die geknickte Kante mit einem Strich in einer Signalfarbe quer über die Sichtseite der Platte.
+
 ### 7.4 Kopffallen
 
-`findHeadTraps` meldet mögliche Kopffallen nach der Regel des Designprogramms des Herstellers ([HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 3): zwei gerade, parallele Rohre mit 151 bis 299 mm Achsabstand, die sich um mehr als 149 mm überlappen, mit einer Ecke der Öffnung ab 599 mm Höhe. Ecken sind die Enden der Überlappung auf beiden Rohrachsen. Als Boden gilt der tiefste Punkt des Modells, also die Unterseite der tiefsten Kupplung oder Rohroberfläche; wo das Programm den Boden ansetzt, ist nicht belegt. Eine Platte, die an beiden Rohren verschraubt ist, schließt die Öffnung. Bogenrohre bilden keine Seite einer Kopffalle.
+`findHeadTraps` meldet mögliche Kopffallen nach der Regel des Designprogramms des Herstellers ([HERSTELLERREGELN.md](./HERSTELLERREGELN.md), Abschnitt 3): zwei gerade, parallele Rohre mit 151 bis 299 mm Achsabstand, die sich um mehr als 149 mm überlappen, mit einer Ecke der Öffnung ab 599 mm Höhe. Ecken sind die Enden der Überlappung auf beiden Rohrachsen. Als Boden gilt der tiefste Punkt des Modells, also die Unterseite der tiefsten Kupplung oder Rohroberfläche; wo das Programm den Boden ansetzt, ist nicht belegt. Eine Platte in der Zelle zwischen beiden Rohren schließt die Öffnung, auch wenn ihre Flansche an den anderen beiden Rohren sitzen, wie bei einer Setzstufe aus einer Halbplatte. Bogenrohre bilden keine Seite einer Kopffalle.
 
 Die Meldung ist ein Hinweis, kein Befund der Baubarkeit: Das Modell bleibt baubar und speicherbar. Der Editor zeigt neben dem Revisionszähler ein Warnzeichen mit der Anzahl; ein Klick öffnet die Liste über der Seitenleiste, und beim Überfahren eines Eintrags werden die beiden Rohre hervorgehoben.
 

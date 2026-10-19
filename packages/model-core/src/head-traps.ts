@@ -2,7 +2,7 @@ import type { PartCatalog } from './catalog.js';
 import type { ConstructionSnapshot } from './core.js';
 import type { Vector3 } from './geometry.js';
 import type { PartId, TubeId } from './ids.js';
-import { dot, length, scale, sub, transformPoint, vec } from './math.js';
+import { add, dot, length, qconj, rotate, scale, sub, transformPoint, vec } from './math.js';
 
 /** Two parallel tubes whose gap could trap a child's head (HERSTELLERREGELN.md, section 3). */
 export interface HeadTrap {
@@ -29,7 +29,7 @@ interface Axis {
  * Possible head traps after the rule of the manufacturer's design program: two
  * straight tubes, parallel, 151 to 299 mm between their axes, overlapping by more
  * than 149 mm along them, with a corner of the opening at 599 mm or higher, and
- * no plate screwed to both. Corners are the ends of the overlap on both axes;
+ * no plate in the cell between them. Corners are the ends of the overlap on both axes;
  * heights count from the model's lowest point, taken as the floor. Not a
  * buildability finding: the model stays buildable.
  */
@@ -57,10 +57,26 @@ export function findHeadTraps(snapshot: ConstructionSnapshot, catalog: PartCatal
       for (const site of type.sites) floor = Math.min(floor, transformPoint(pose, site.frame.position).z - TUBE_RADIUS);
     }
   }
+  // A plate closes the openings between opposite edges of its cell, whichever
+  // pair carries its flanges: a half plate may be screwed to the posts.
   const closed = new Set(
-    snapshot.design.plates.flatMap((plate) => {
-      const tubes = [...new Set(plate.mounts.map((m) => m.tubeId))].sort();
-      return tubes.flatMap((x, i) => tubes.slice(i + 1).map((y) => `${x}|${y}`));
+    snapshot.realization.parts.flatMap((part) => {
+      const type = types.get(part.typeId);
+      const pose = poses.get(part.id);
+      if (type?.kind !== 'plate' || !pose) return [];
+      const [hx, hy] = [type.cellMm[0] / 2, type.cellMm[1] / 2];
+      const edges = axes
+        .filter(({ a, b }) => {
+          const m = rotate(qconj(pose.orientation), sub(scale(add(a, b), 0.5), pose.position));
+          return (
+            Math.abs(m.z) <= 1 &&
+            ((Math.abs(Math.abs(m.x) - hx) <= 1 && Math.abs(m.y) < hy) ||
+              (Math.abs(Math.abs(m.y) - hy) <= 1 && Math.abs(m.x) < hx))
+          );
+        })
+        .map((axis) => axis.tubeId)
+        .sort(compare);
+      return edges.flatMap((x, i) => edges.slice(i + 1).map((y) => `${x}|${y}`));
     }),
   );
 

@@ -177,6 +177,7 @@ export function solveRealization(
 
 class Solver {
   private readonly types: Map<string, PartType>;
+  private readonly tilts: Map<JunctionId, Quaternion>;
   private readonly ends = new Map<JunctionId, EndRef[]>();
   private readonly junctionPoses = new Map<JunctionId, Pose>();
   private readonly connectors = new Map<JunctionId, ConnectorChoice>();
@@ -201,6 +202,7 @@ class Solver {
     previous?: Realization,
   ) {
     this.types = new Map(catalog.partTypes.map((t) => [t.id, t]));
+    this.tilts = new Map(design.junctions.flatMap((j) => (j.tilt ? [[j.id, j.tilt] as const] : [])));
     if (previous) this.earlier = index(previous);
     const junctions = new Set(design.junctions.map((j) => j.id));
     for (const tube of design.tubes) {
@@ -431,6 +433,9 @@ class Solver {
     }
     const anchor = anchors[0]!;
     const queue: JunctionId[] = [];
+    // Frames differ only by the tilt of a junction against the assembly grid.
+    const across = (orientation: Quaternion, from: JunctionId, to: JunctionId) =>
+      qmul(qmul(orientation, qconj(this.tilt(from))), this.tilt(to));
     if (anchor.target.kind === 'junction') {
       this.placeJunction(anchor.target.id, anchor.worldPose);
       queue.push(anchor.target.id);
@@ -439,7 +444,7 @@ class Solver {
       const orientation = this.junctionOrientationFromTube(tube, anchor.worldPose);
       this.tubePoses.set(tube.id, anchor.worldPose);
       for (const end of ['a', 'b'] as const) {
-        this.arrive(tube, end, orientation);
+        this.arrive(tube, end, across(orientation, tube.a.junctionId, tube[end].junctionId));
         queue.push(tube[end].junctionId);
       }
     }
@@ -451,11 +456,11 @@ class Solver {
           this.arrive(e.tube, e.end, frame.orientation);
           continue;
         }
-        this.leave(e, frame);
         const otherEnd = e.end === 'a' ? 'b' : 'a';
         const otherJunction = e.tube[otherEnd].junctionId;
+        this.leave(e, frame, across(frame.orientation, junctionId, otherJunction));
         const known = this.junctionPoses.has(otherJunction);
-        this.arrive(e.tube, otherEnd, frame.orientation);
+        this.arrive(e.tube, otherEnd, across(frame.orientation, junctionId, otherJunction));
         if (!known) queue.push(otherJunction);
       }
     }
@@ -472,13 +477,19 @@ class Solver {
   }
 
   /** Places a tube from a placed junction, choosing connection parameters. */
-  private leave(e: EndRef, junction: Pose): void {
+  /** Tilt of a junction against its assembly grid. */
+  private tilt(junctionId: JunctionId): Quaternion {
+    return this.tilts.get(junctionId) ?? { x: 0, y: 0, z: 0, w: 1 };
+  }
+
+  /** Places a tube from a placed junction; far is the frame orientation of the junction at its other end. */
+  private leave(e: EndRef, junction: Pose, far: Quaternion): void {
     const type = this.tubeTypes.get(e.tube.id)!;
     const endSite = endSiteOf(type, e.end);
     const endpoint = e.tube[e.end];
     const expectedEnd = this.expectedEndFrame(junction.orientation, endpoint);
     const otherEnd = e.end === 'a' ? 'b' : 'a';
-    const otherDirection = rotate(qmul(junction.orientation, e.tube[otherEnd].orientation), Z);
+    const otherDirection = rotate(qmul(far, e.tube[otherEnd].orientation), Z);
     const candidates = this.tubeCandidates(e, junction, type);
     const fitting = candidates.filter(({ pose }) => {
       const actualEnd = compose(pose, {
@@ -714,7 +725,6 @@ class Solver {
   private placePlates(): void {
     const byTube = new Map<TubeId, { plate: PlateIntent; mount: PlateMountIntent; frame: Pose }[]>();
     for (const plate of [...this.design.plates].sort((a, b) => compare(a.id, b.id))) {
-      const type = this.choosePlateType(plate);
       const junction = this.junctionPoses.get(plate.placement.junctionId);
       if (!junction) {
         conflict(
@@ -724,6 +734,7 @@ class Solver {
         );
       }
       const pose = compose(junction, plate.placement.pose);
+      const type = this.choosePlateType(plate, pose);
       this.plateTypes.set(plate.id, type);
       this.platePoses.set(plate.id, pose);
       for (const siteId of type.requiredMounts) {
@@ -751,22 +762,33 @@ class Solver {
         byTube.set(tube.id, [...(byTube.get(tube.id) ?? []), { plate, mount, frame: compose(pose, site.frame) }]);
       }
     }
+    this.bendTabs();
     for (const [tubeId, mounts] of [...byTube].sort(([a], [b]) => compare(a, b))) this.fitHoles(tubeId, mounts);
   }
 
-  private choosePlateType(plate: PlateIntent): PlateType {
+  /**
+   * The fixed type, or else a flat type of the family whose mounts lie on the
+   * named tubes: a half plate has its flanges on the long or on the short sides.
+   * Bent tabs follow from the neighbours (bendTabs).
+   */
+  private choosePlateType(plate: PlateIntent, pose: Pose): PlateType {
     const family = this.catalog.partTypes.filter(
       (t): t is PlateType => t.kind === 'plate' && t.familyId === plate.familyId,
     );
     const variant = plate.variant;
-    const previousType = this.previousPart({ kind: 'plate', id: plate.id }, 'body')?.typeId;
-    const preferred = variant.mode === 'fixed' ? variant.typeId : (variant.preferredTypeId ?? previousType);
+    // A bent variant chosen before stands for its flat type.
+    const previous =
+      variant.mode === 'fixed'
+        ? undefined
+        : (variant.preferredTypeId ?? this.previousPart({ kind: 'plate', id: plate.id }, 'body')?.typeId);
+    const preferred = family.find((t) => t.id === previous)?.folded?.base ?? previous;
+    const flat = family
+      .filter((t) => !t.folded)
+      .sort((a, b) => Number(b.id === preferred) - Number(a.id === preferred) || compare(a.id, b.id));
     const chosen =
       variant.mode === 'fixed'
         ? family.find((t) => t.id === variant.typeId)
-        : ([...family].sort(
-            (a, b) => Number(b.id === preferred) - Number(a.id === preferred) || compare(a.id, b.id),
-          )[0] as PlateType | undefined);
+        : (flat.find((t) => this.mountsOnTubes(plate, t, pose)) ?? flat[0]);
     if (!chosen) {
       conflict(
         variant.mode === 'fixed' ? 'fixed-variant-conflict' : 'no-realization',
@@ -775,6 +797,65 @@ class Solver {
       );
     }
     return chosen;
+  }
+
+  /** Whether every mount of the plate, as a plate of this type, lies on its tube at its station. */
+  private mountsOnTubes(plate: PlateIntent, type: PlateType, pose: Pose): boolean {
+    const tol = this.options.tolerance.distanceMm;
+    return plate.mounts.every((mount) => {
+      const site = type.sites.find((s) => s.id === mount.plateSiteId);
+      const tubeType = this.tubeTypes.get(mount.tubeId);
+      const tubePose = this.tubePoses.get(mount.tubeId);
+      if (!site || !tubeType || !tubePose) return false;
+      const offset = sub(
+        compose(pose, site.frame).position,
+        compose(tubePose, endSiteOf(tubeType, 'a').frame).position,
+      );
+      const station = dot(offset, rotate(tubePose.orientation, X));
+      const lateral = length(sub(offset, scale(rotate(tubePose.orientation, X), station)));
+      return lateral <= tol && Math.abs(station - mount.stationMm) <= tol;
+    });
+  }
+
+  /**
+   * An upright plate with bendable tabs whose cell edge carries a level plate on
+   * its face side gets the tabs at that edge bent by 90° (HERSTELLERREGELN 1). It
+   * then stands on the level plate instead of running into it.
+   */
+  private bendTabs(): void {
+    const tol = this.options.tolerance.distanceMm;
+    const level = (pose: Pose) => Math.abs(rotate(pose.orientation, Z).z) > 0.5;
+    for (const plate of this.design.plates) {
+      const type = this.plateTypes.get(plate.id)!;
+      const pose = this.platePoses.get(plate.id)!;
+      const variants = this.catalog.partTypes.filter(
+        (t): t is PlateType => t.kind === 'plate' && t.folded?.base === type.id,
+      );
+      if (plate.variant.mode === 'fixed' || variants.length === 0 || level(pose)) continue;
+      const normal = rotate(pose.orientation, Z);
+      const edges = (['-x', '+x'] as const).filter((edge) => {
+        const sx = edge === '-x' ? -1 : 1;
+        const at = add(pose.position, rotate(pose.orientation, vec((sx * type.cellMm[0]) / 2, 0, 0)));
+        const inwards = rotate(pose.orientation, vec(-sx, 0, 0));
+        return [...this.plateTypes].some(([otherId, other]) => {
+          const o = this.platePoses.get(otherId)!;
+          if (otherId === plate.id || !level(o) || dot(rotate(o.orientation, Z), inwards) < 1 - 1e-6) return false;
+          if (dot(sub(o.position, at), normal) <= tol) return false;
+          // The edge runs along the tube under one side of the level plate.
+          const local = rotate(qconj(o.orientation), sub(at, o.position));
+          const [hx, hy] = [other.cellMm[0] / 2, other.cellMm[1] / 2];
+          return (
+            Math.abs(local.z) <= tol &&
+            ((Math.abs(Math.abs(local.x) - hx) <= tol && Math.abs(local.y) < hy) ||
+              (Math.abs(Math.abs(local.y) - hy) <= tol && Math.abs(local.x) < hx))
+          );
+        });
+      });
+      const bent = variants.find(
+        (v) => v.folded!.edges.length === edges.length && edges.every((e) => v.folded!.edges.includes(e)),
+      );
+      if (bent) this.plateTypes.set(plate.id, bent);
+    }
   }
 
   private fitHoles(tubeId: TubeId, mounts: readonly { plate: PlateIntent; mount: PlateMountIntent; frame: Pose }[]) {

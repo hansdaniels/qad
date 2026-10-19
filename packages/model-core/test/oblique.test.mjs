@@ -4,9 +4,12 @@ import {
   DEFAULT_TOLERANCE,
   attachTube,
   createModelCore,
+  attachPoints,
   encodeConstruction,
+  insertPlate,
   obliqueDirections,
   openConstruction,
+  plateSpots,
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
   quadroPartCatalog,
@@ -160,4 +163,116 @@ test('a straight tube that carries more at its far end does not turn', () => {
     ),
   );
   assert.deepEqual(turnTube(core.snapshot, 't1', quadroPartCatalog), []);
+});
+
+/** Executes an attachment and returns the junction at the new tube's far end. */
+const attach = (core, junctionId, direction, more = {}) => {
+  const result = core.execute(
+    attachTube(
+      core.snapshot,
+      { junctionId, direction },
+      { familyId: 'tube-35cm', colour: 'green' },
+      quadroPartCatalog,
+      more,
+    ),
+  );
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  return core.snapshot.design.tubes.at(-1).b.junctionId;
+};
+const rounded = (v) => [v.x, v.y, v.z].map((n) => Math.round(n) + 0);
+
+test('the free end of an oblique tube takes a connector tilted with it, so tubes go on straight there', () => {
+  const core = corner();
+  // On the arm along -x, leaning up: the tube rises towards +x, as a roof from a post.
+  const top = attach(core, 'j1', '-x', { oblique: '+z' });
+  const arms = attachPoints(core.snapshot, quadroPartCatalog).filter((p) => p.junctionId === top);
+  const out = arms.map((p) => rounded(rotate(p.worldPose.orientation, vec(0, 0, 100))));
+  // Across the lean the arms stay level; the others turn by 45° with the tube, which takes one of them.
+  assert.deepEqual(
+    out.sort((a, b) => a.join().localeCompare(b.join())),
+    [
+      [-71, 0, 71],
+      [0, -100, 0],
+      [0, 100, 0],
+      [71, 0, -71],
+      [71, 0, 71],
+    ].sort((a, b) => a.join().localeCompare(b.join())),
+  );
+  for (const p of arms) {
+    const preview = core.preview(
+      attachTube(core.snapshot, p, { familyId: 'tube-35cm', colour: 'green' }, quadroPartCatalog),
+    );
+    assert.equal(preview.status, 'valid', p.direction);
+  }
+  // A ridge: the second slope goes straight down at 45°, without a second angle adapter.
+  const down = arms.find((p) => rotate(p.worldPose.orientation, vec(0, 0, 1)).z < -0.5);
+  attach(core, top, down.direction);
+  const adapters = core.snapshot.realization.parts.filter((p) => p.origin.role.startsWith('angle-adapter'));
+  assert.equal(adapters.length, 1);
+});
+
+test('a tilted frame closes as a ring, takes a plate and keeps its tilt in the file', () => {
+  const core = corner();
+  const a = attach(core, 'j1', '-x', { oblique: '+z' });
+  const b = attach(core, a, '+y');
+  const c = attach(core, b, '+x');
+  const d = attach(core, c, '-y');
+  attach(core, d, '-x');
+  assert.equal(core.snapshot.design.tubes.at(-1).b.junctionId, a);
+  const spot = plateSpots(core.snapshot, quadroPartCatalog).find((s) => s.familyId === 'panel-40-40cm');
+  const result = core.execute(insertPlate(core.snapshot, spot, 'red'));
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  // The plate lies in the roof plane, at 45°.
+  assert.ok(Math.abs(Math.abs(rotate(spot.worldPose.orientation, vec(0, 0, 1)).z) - Math.SQRT1_2) < 1e-9);
+  const reopened = openConstruction(encodeConstruction(core.snapshot), quadroPartCatalog, options);
+  assert.equal(reopened.ok, true);
+  assert.deepEqual(reopened.value.snapshot.design.junctions, core.snapshot.design.junctions);
+});
+
+test('a ridge joins two roof trusses built mirrored, whose tilted connectors differ by a quarter turn', () => {
+  const core = corner();
+  // Truss 1 rises from j1 towards +x; truss 2, 40 cm along y, from x = 400 towards -x.
+  const apex1 = attach(core, 'j1', '-x', { oblique: '+z' });
+  const foot = attach(core, 'j2', '+x');
+  const apex2 = attach(core, foot, '+x', { oblique: '+z' });
+  const pose = (j) => core.snapshot.realization.intentPoses.find((p) => p.intent.id === j).worldPose;
+  assert.deepEqual(rounded(pose(apex2).position), [200, 400, 308]);
+  const ridge = attachPoints(core.snapshot, quadroPartCatalog).find(
+    (p) => p.junctionId === apex1 && rotate(p.worldPose.orientation, vec(0, 0, 1)).y > 0.9,
+  );
+  const command = attachTube(core.snapshot, ridge, { familyId: 'tube-35cm', colour: 'green' }, quadroPartCatalog);
+  assert.equal(command.operations.find((op) => op.kind === 'add-tube').tube.b.junctionId, apex2);
+  const result = core.execute(command);
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  // Still only the two angle adapters at the feet.
+  assert.equal(core.snapshot.realization.parts.filter((p) => p.origin.role.startsWith('angle-adapter')).length, 2);
+});
+
+test('two roof slopes from both eaves meet in one connector at the ridge', () => {
+  const core = corner();
+  const foot = attach(core, 'j1', '+x');
+  const apex = attach(core, 'j1', '-x', { oblique: '+z' });
+  const command = attachTube(
+    core.snapshot,
+    { junctionId: foot, direction: '+x' },
+    { familyId: 'tube-35cm', colour: 'green' },
+    quadroPartCatalog,
+    { oblique: '+z' },
+  );
+  const added = command.operations.find((op) => op.kind === 'add-tube').tube;
+  assert.equal(added.b.junctionId, apex);
+  assert.ok(!command.operations.some((op) => op.kind === 'add-junction'));
+  const result = core.execute(command);
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  // One connector at the ridge with both slopes at right angles; the ridge goes on straight from it.
+  const at = (j) =>
+    core.snapshot.realization.parts.filter((p) => p.origin.intent.kind === 'junction' && p.origin.intent.id === j);
+  assert.deepEqual(
+    at(apex).map((p) => p.origin.role),
+    ['connector'],
+  );
+  const ridge = attachPoints(core.snapshot, quadroPartCatalog).find(
+    (p) => p.junctionId === apex && rotate(p.worldPose.orientation, vec(0, 0, 1)).y > 0.9,
+  );
+  attach(core, apex, ridge.direction);
 });

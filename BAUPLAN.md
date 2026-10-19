@@ -212,7 +212,13 @@ nicht aneinander.
 
 Die Flansche sind die umgebogenen Ränder, mit denen die Platte an zwei der vier
 Rohre geschraubt ist. Ohne `flanges` wählt der Editor die Lage, die mit
-Standardrohren auskommt.
+Standardrohren auskommt. Die Halbplatte 40 × 20 kann ihre Flansche an den langen
+oder an den kurzen Seiten haben.
+
+Setzstufen einer Treppe sind Halbplatten an den Pfosten unter der Stufenkante.
+Liegt die Halbplatte auf der Seite einer waagerechten Platte, die an ihrer
+Unterkante anschließt, knickt der Editor dort die Laschen ihrer Flansche um 90°
+(Anleitung des Herstellers, 1.4); im Bauplan ist dafür nichts anzugeben.
 
 ### Rutschenschritt
 
@@ -381,11 +387,8 @@ Meldung beginnt mit der Schrittnummer, gezählt ab 1. Häufige Fälle:
 
 - Nur Rohre, Bogenrohre, schräge Rohre auf Winkelkupplungen, die Platten und die
   Modularrutsche aus Abschnitt 2. Kupplungen, Schrauben und Bohrungsvarianten bestimmt der Editor.
-- Platten nur in Rahmen aus vier geraden Rohren, nicht an Bogenrohren; keine
-  geknickten Platten.
+- Platten nur in Rahmen aus vier geraden Rohren, nicht an Bogenrohren.
 - Am freien Ende eines schrägen Rohrs lässt sich nichts anbauen.
-- Setzstufen einer Treppe neben einer Stufenplatte gehen nicht: Dafür müssten
-  Platten geknickt werden. Man lässt sie weg und vermerkt sie in `notes`.
 - Der Bauplan wird beim Öffnen in ein Modell übersetzt; gespeichert wird danach
   im Modellformat, unter dem Namen des Bauplans mit „-modell“ angehängt. Die
   Schritte selbst bleiben nicht erhalten.

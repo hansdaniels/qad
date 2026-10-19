@@ -37,7 +37,7 @@ export interface Comparison {
 
 /**
  * Compares two states of a model by what stands where, so the two may come from
- * separate files: the same type at the same place is kept, another type of the
+ * separate files: the same article at the same place is kept, another type of the
  * same kind at the same place is swapped, e.g. a connector with more arms.
  * Parts found in both under the same ID but elsewhere moved, e.g. with a moved
  * assembly; everything else is added or removed.
@@ -57,6 +57,8 @@ export function compareConstructions(
     });
   };
   const place = (state: PartState) => placeKey(state, types.get(state.typeId));
+  // A bent half plate is still the same article.
+  const entry = (state: PartState) => types.get(state.typeId)?.entryId ?? state.typeId;
   const old = states(before);
   const now = states(after);
   const changes: PartChange[] = [];
@@ -67,20 +69,20 @@ export function compareConstructions(
   const unmatched: PartState[] = [];
   for (const s of now) {
     const candidates = byPlace.get(place(s)) ?? [];
-    const same = candidates.findIndex((c) => c.typeId === s.typeId);
+    const same = candidates.findIndex((c) => entry(c) === entry(s));
     const index = same >= 0 ? same : candidates.length > 0 ? 0 : -1;
     if (index < 0) {
       unmatched.push(s);
       continue;
     }
     const [match] = candidates.splice(index, 1);
-    changes.push({ kind: match!.typeId === s.typeId ? 'kept' : 'swapped', before: match!, after: s });
+    changes.push({ kind: entry(match!) === entry(s) ? 'kept' : 'swapped', before: match!, after: s });
   }
   // The same part elsewhere: moved.
   const left = new Map([...byPlace.values()].flat().map((s) => [s.partId, s]));
   for (const s of unmatched) {
     const match = left.get(s.partId);
-    if (match && match.typeId === s.typeId) {
+    if (match && entry(match) === entry(s)) {
       left.delete(s.partId);
       changes.push({ kind: 'moved', before: match, after: s });
     } else changes.push({ kind: 'added', after: s });
