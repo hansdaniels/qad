@@ -27,7 +27,7 @@ import type {
 import { add, qaxisAngle, qmul, rotate, scale, vec } from './math.js';
 import { nurbsPoint, nurbsRange } from './nurbs.js';
 import { quadroArticleCatalog } from './quadro-articles.js';
-import { CURVED_SLIDE_SURFACE, RUNOUT_SURFACE } from './quadro-slide-surfaces.js';
+import { CURVED_SLIDE_SURFACE, MODULAR_SLIDE_SURFACE, RUNOUT_SURFACE } from './quadro-slide-surfaces.js';
 
 /**
  * Provisional QUADRO geometry from the 2006 design program (GEOMETRIE.md).
@@ -60,10 +60,10 @@ const PERFORATION = { grid: 3, pitch: 107, diameter: 57 };
 const NOTCH_STEPS = 8;
 /**
  * Modular slide body: hangs on a 35 cm tube and drops two storeys over three
- * grid cells to a parallel tube (client's account). Surface lift above the tube
- * axes and width inside the posts are estimates.
+ * grid cells to a parallel tube (client's account); its surface is estimated
+ * from the runout's profile (quadro-slide-surfaces.ts).
  */
-const SLIDE = { run: 1200, drop: 800, lift: 45, halfWidth: 170, thickness: 10, wall: 110, end: 35 };
+const SLIDE = { run: 1200, drop: 800 };
 /**
  * Curved slide body (GEOMETRIE.md, section 7): it turns left by 90° and rests on
  * a tube across its own, 600 ahead, 600 to the left and 800 down, where the runout
@@ -406,38 +406,18 @@ function surfaceHulls(surface: NurbsShape, from: number, to: number, steps: numb
 
 const slideHulls = new Map<string, CollisionShape[]>();
 /** Hulls of the curved body and the runout, computed once. */
-function mouldedShapes(key: 'curved' | 'runout'): CollisionShape[] {
+function mouldedShapes(key: 'body' | 'curved' | 'runout'): CollisionShape[] {
   if (!slideHulls.has(key))
     slideHulls.set(
       key,
-      key === 'curved' ? surfaceHulls(CURVED_SLIDE_SURFACE, 1, 3, 12) : surfaceHulls(RUNOUT_SURFACE, 1.08, 1.92, 4),
+      key === 'body'
+        ? // From 30 in front of the tube on, as with the curved body: the walls reach round the posts there.
+          surfaceHulls(MODULAR_SLIDE_SURFACE, 1.15, 5, 16)
+        : key === 'curved'
+          ? surfaceHulls(CURVED_SLIDE_SURFACE, 1, 3, 12)
+          : surfaceHulls(RUNOUT_SURFACE, 1.08, 1.92, 4),
     );
   return slideHulls.get(key)!;
-}
-
-/** Box from x0 to x1 along a surface line rising by slope per mm, across y0..y1, z0..z1 above the line. */
-function slantedBox(
-  x0: number,
-  x1: number,
-  slope: number,
-  y0: number,
-  y1: number,
-  z0: number,
-  z1: number,
-): CollisionShape {
-  const points: Vector3[] = [];
-  for (const x of [x0, x1])
-    for (const y of [y0, y1]) for (const z of [z0, z1]) points.push(vec(x, y, SLIDE.lift + slope * x + z));
-  return { kind: 'convex', points };
-}
-
-/** Sliding surface of the modular body; walls are added for display only. */
-function slideShapes(walls: boolean): CollisionShape[] {
-  const { end, halfWidth: w, thickness: t, wall } = SLIDE;
-  const [x1, slope] = [SLIDE.run - end, -SLIDE.drop / SLIDE.run];
-  const surface = slantedBox(end, x1, slope, -w, w, -t / 2, t / 2);
-  if (!walls) return [surface];
-  return [surface, ...[-1, 1].map((side) => slantedBox(end, x1, slope, side * w, side * (w - 8), t / 2, wall))];
 }
 
 function arcCapsules(): CollisionShape[] {
@@ -523,7 +503,7 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         ...plateTabs(x, y, edges),
       ];
     }
-    if (ref.key === 'quadro-slide-body') return slideShapes(false);
+    if (ref.key === 'quadro-slide-body') return mouldedShapes('body');
     if (ref.key === 'quadro-slide-curved') return mouldedShapes('curved');
     if (ref.key === 'quadro-slide-runout') return mouldedShapes('runout');
     const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
@@ -685,9 +665,13 @@ function displayShapes(key: string): readonly DisplayShape[] | undefined {
   const type = quadroPartCatalog.partTypes.find((t) => t.id === key);
   const article = quadroArticleCatalog.entries.find((e) => e.id === (type?.entryId ?? key));
   if (article?.category === 'slide')
-    return article.slide === 'modular-body'
-      ? slideShapes(true)
-      : [article.slide === 'curved-body' ? CURVED_SLIDE_SURFACE : RUNOUT_SURFACE];
+    return [
+      article.slide === 'modular-body'
+        ? MODULAR_SLIDE_SURFACE
+        : article.slide === 'curved-body'
+          ? CURVED_SLIDE_SURFACE
+          : RUNOUT_SURFACE,
+    ];
   if (article?.category !== 'plate' || type?.kind !== 'plate') return undefined;
   const [x, y] = type.cellMm;
   const edges = type.folded?.edges ?? [];

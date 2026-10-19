@@ -188,16 +188,16 @@ Plattenschrauben oben, zwei konische an den Seiten, zwei Rutschenschrauben am
 Auslauf, wie im Programm gezeichnet und im Bogenrutschen-Schraubenset des
 Herstellers.
 
-Für die Modularrutsche gilt vorläufig (`SLIDE` in `quadro-geometry.ts`):
+Für die Modularrutsche gilt vorläufig (`SLIDE` in `quadro-geometry.ts`, Fläche in `quadro-slide-surfaces.ts`):
 
-| Größe                           | Wert                                                                                    | Quelle                             |
-| ------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------- |
-| Gefälle und Länge eines Körpers | 800 mm tiefer, 1200 mm weiter, jeweils zwischen den Achsen der beiden Querrohre         | Auskunft                           |
-| Aufhängung                      | Mitte eines 35-cm-Querrohrs, Körper zwischen den Pfosten an dessen Enden                | Sicherheitsanweisung 1.20 und 1.24 |
-| Gleitfläche                     | 45 mm über der Linie der Rohrachsen, 340 mm breit, 10 mm dick, 35 mm vor jedem Querrohr | geschätzt                          |
-| Seitenwände (nur Darstellung)   | 110 mm hoch                                                                             | geschätzt                          |
+| Größe                           | Wert                                                                                                                                                                                                                                         | Quelle                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Gefälle und Länge eines Körpers | 800 mm tiefer, 1200 mm weiter, jeweils zwischen den Achsen der beiden Querrohre                                                                                                                                                              | Auskunft                                  |
+| Aufhängung                      | Mitte eines 35-cm-Querrohrs, Körper zwischen den Pfosten an dessen Enden                                                                                                                                                                     | Sicherheitsanweisung 1.20 und 1.24        |
+| Form                            | Profil des Auslaufs (innen 400 breit, Wände 145 hoch über dem Boden); hakt über das obere Querrohr wie der Auslauf, Boden flach bis 150, gerades Gefälle bis 1050, flach 30 über dem unteren Querrohr, Rand liegt auf dem Boden des Auslaufs | nachgebildet aus Auslauf und Bogenrutsche |
+| Kollision                       | Hüllen entlang der Fläche ab 44 vor dem oberen Querrohr bis zum Auslauf                                                                                                                                                                      | wie bei der Bogenrutsche                  |
 
-Nachzumessen sind Breite und Höhe der Gleitfläche über den Querrohren. Der Auslauf
+Nachzumessen sind Breite, Wandhöhe und Verlauf der Gleitfläche. Der Auslauf
 hat inzwischen die Form aus dem Programm (siehe oben).
 
 ## 8. Nicht im Programm

@@ -11,8 +11,7 @@ const grid = (rows: readonly (readonly Weighted[])[]) => rows.map((row) => row.m
  * from the tube, y across, z up. Weights as in the program, with Euclidean points.
  */
 
-/** Curved slide body: hooks over its tube, turns left by 90° and drops 800 to rest on a tube across at (600, 600, -800). */
-export const CURVED_SLIDE_SURFACE: NurbsShape = {
+const CURVED_AS_DRAWN: NurbsShape = {
   kind: 'nurbs',
   degreeU: 2,
   degreeV: 2,
@@ -182,6 +181,16 @@ export const CURVED_SLIDE_SURFACE: NurbsShape = {
   ]),
 };
 
+/**
+ * Curved slide body: hooks over its tube, turns left by 90° and drops 800 to rest
+ * on a tube across at (600, 600, -800). Its end lies on the runout: lifted by 3
+ * there, so the two surfaces do not coincide.
+ */
+export const CURVED_SLIDE_SURFACE: NurbsShape = {
+  ...CURVED_AS_DRAWN,
+  points: CURVED_AS_DRAWN.points.map((row, i) => (i < 6 ? row : row.map((p) => ({ ...p, z: p.z + 3 })))),
+};
+
 /** Runout: hooks over its tube and rests on a parallel tube 400 further. */
 export const RUNOUT_SURFACE: NurbsShape = {
   kind: 'nurbs',
@@ -312,3 +321,54 @@ export const RUNOUT_SURFACE: NurbsShape = {
     ],
   ]),
 };
+
+/**
+ * Modular slide body, not in the design program: the runout's profile, hooked
+ * over its tube like the runout, then a straight slope with rounded ends down to
+ * the runout on the tube it rests on, 1200 ahead and 800 down (client's account),
+ * its lip lying on the runout's floor. Floor line through the rounded corners at
+ * 150 and 1050 ahead; walls stay upright. Shape between the ends estimated.
+ * It lies on and around what it meets, so no two surfaces coincide: walls 3
+ * outside the runout's, at the lower end 6, and that end 3 above the floor below.
+ */
+export const MODULAR_SLIDE_SURFACE: NurbsShape = (() => {
+  const [back, hook, flat] = RUNOUT_SURFACE.points as [
+    NurbsShape['points'][number],
+    NurbsShape['points'][number],
+    NurbsShape['points'][number],
+  ];
+  // Floor height of the runout's profile; each row is that profile, moved.
+  const floor = flat[8]!.z;
+  type Row = NurbsShape['points'][number];
+  // Walls and rims out by the given amount; the floor stays.
+  const widen = (points: Row, by: number): Row =>
+    points.map((p) => (Math.abs(p.y) >= 199 ? { ...p, y: p.y + Math.sign(p.y) * by } : p));
+  const row = (x: number, z: number, by = 3) =>
+    widen(
+      flat.map((p) => ({ ...p, x, z: p.z - floor + z })),
+      by,
+    );
+  // Down to 30 above the lower tube's axis, where the curved body ends as well.
+  const low = -770;
+  const slope = (x: number) => floor + ((low - floor) / (1050 - 150)) * (x - 150);
+  return {
+    kind: 'nurbs',
+    degreeU: 2,
+    degreeV: RUNOUT_SURFACE.degreeV,
+    // Double knots put the floor exactly on top of both tubes.
+    knotsU: [0, 0, 0, 1, 1, 2, 3, 4, 5, 5, 6, 6, 6],
+    knotsV: RUNOUT_SURFACE.knotsV,
+    points: [
+      widen(back, 3),
+      widen(hook, 3),
+      widen(flat, 3),
+      row(150, floor),
+      row(350, slope(350)),
+      row(850, slope(850)),
+      row(1050, low),
+      row(1200, low, 6),
+      row(1205, -800 + floor + 4, 6),
+      row(1211, -800 + floor + 3, 6),
+    ],
+  };
+})();

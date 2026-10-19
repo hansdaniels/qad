@@ -222,8 +222,8 @@ const tubeEnd = (core, x, y) =>
       Math.round(p.worldPose.position.z) === 0,
   ).intent.id;
 
-test('curved slide and runout are drawn as the moulded surfaces of the design program', () => {
-  for (const id of ['curved-slide-body', 'slide-runout']) {
+test('slides are drawn as moulded surfaces: curved body and runout from the design program, the modular body after them', () => {
+  for (const id of ['modular-slide-body', 'curved-slide-body', 'slide-runout']) {
     const type = quadroPartCatalog.partTypes.find((t) => t.id === id);
     const [surface, ...more] = quadroDisplayGeometry.shapes(type.geometry.display);
     assert.equal(surface.kind, 'nurbs');
