@@ -224,6 +224,10 @@ aller Arme; gegenüberliegende Arme ergeben einen durchgehenden Zylinder. Bogenr
 zwischen zwei hohlen geraden Enden. Die Winkelkupplung besteht aus geschlossener
 Hülse und Körper als Zylinder. Platten haben an den Ecken viertelkreisförmige Aussparungen
 mit 25 mm Radius um den Kupplungsmittelpunkt; für Kollisionen bleiben sie eckig.
+Auf der Oberseite jeder Platte zeigt je ein Strich über jedem Flansch, von
+Schraube zu Schraube und 15 mm innen neben dem Flansch, wie die Platte
+verschraubt ist; die echten Platten tragen solche Markierungen (Sicherheitsanweisung
+1.3). Der Editor zeichnet sie dunkel auf hellen und hell auf dunklen Platten.
 
 ## 9. Offen
 

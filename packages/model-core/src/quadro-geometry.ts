@@ -562,6 +562,26 @@ function plateTabs(x: number, y: number, edges: readonly PlateEdge[]): Collision
 }
 
 /**
+ * Lines on the top face along both flanges, between the screws, like the marks
+ * on the real plates (manufacturer's safety instructions 1.3): they show which
+ * way a plate is screwed.
+ */
+function plateMarks(x: number, y: number): DisplayShape[] {
+  const { lift, thickness } = PLATE;
+  const reach = x / 2 - ARM_SHOULDER - HOLE_FROM_END;
+  // Over the strip just inside the flange.
+  const across = y / 2 - lift - thickness - MARK_INSET;
+  return [1, -1].map((side) => ({
+    kind: 'mark' as const,
+    a: vec(-reach, side * across, lift + thickness),
+    b: vec(reach, side * across, lift + thickness),
+  }));
+}
+
+/** Distance of the flange marks from the inner face of the flange. */
+const MARK_INSET = 15;
+
+/**
  * Mark of a bent edge: a line across the whole plate along its straight end, on
  * the face side, so the bend shows from where one looks at the plate.
  */
@@ -702,5 +722,5 @@ function displayShapes(key: string): readonly DisplayShape[] | undefined {
       ? steps.flatMap((cy) => steps.map((cx) => ({ x: cx, y: cy, radiusMm: diameter / 2 })))
       : [];
   const slab: DisplayShape = { kind: 'slab', outline, holes, bottomZ: lift, thicknessMm: thickness };
-  return [slab, ...plateFlanges(x, y), ...plateTabs(x, y, edges), ...plateFolds(x, y, edges)];
+  return [slab, ...plateFlanges(x, y), ...plateTabs(x, y, edges), ...plateMarks(x, y), ...plateFolds(x, y, edges)];
 }

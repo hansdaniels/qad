@@ -308,7 +308,20 @@ test('plates are drawn as one slab with rounded corner notches; the hole panel h
       assert.ok(Math.abs(Math.hypot(hx - Math.abs(p.x), hy - Math.abs(p.y)) - 25.12) < 1e-6);
     }
     assert.equal(slab.bottomZ + slab.thicknessMm / 2, boxes[0].center.z);
-    assert.deepEqual(rest, boxes.slice(2));
+    assert.deepEqual(
+      rest.filter((r) => r.kind === 'box'),
+      boxes.slice(2),
+    );
+    // Marks on the top face along both flanges, from screw to screw, clear of the hole panel's holes.
+    const marks = rest.filter((r) => r.kind === 'mark');
+    assert.equal(marks.length, 2);
+    for (const m of marks) {
+      assert.deepEqual([m.a.x, m.b.x], [-150, 150]);
+      assert.equal(m.a.y, m.b.y);
+      assert.ok(Math.abs(m.a.z - slab.bottomZ - slab.thicknessMm) < 1e-9);
+      assert.ok(slab.holes.every((h) => Math.abs(m.a.y) - Math.abs(h.y) > h.radiusMm));
+    }
+    assert.ok(Math.abs(marks[0].a.y + marks[1].a.y) < 1e-9);
   }
   assert.equal(solid.shapes[0].holes.length, 0);
   const holes = perforated.shapes[0].holes;

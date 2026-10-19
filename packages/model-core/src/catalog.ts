@@ -75,7 +75,17 @@ export interface NurbsShape {
   }[])[];
 }
 
-export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | FoldShape | NurbsShape;
+/**
+ * A line marked on the part from a to b, e.g. along a plate's flanges: drawn in a
+ * colour that stands out against the part's own.
+ */
+export interface MarkShape {
+  readonly kind: 'mark';
+  readonly a: Vector3;
+  readonly b: Vector3;
+}
+
+export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | FoldShape | NurbsShape | MarkShape;
 
 export interface DisplayGeometryProvider {
   /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */
