@@ -20,6 +20,7 @@ import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js'
 import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry.js';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { DisplayShape, FoldShape, MarkShape, NurbsShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
+import type { Shrink } from './explode';
 
 const UP = new Vector3(0, 1, 0);
 /** Bend marks: a signal colour no part comes in, drawn thick. */
@@ -34,6 +35,8 @@ interface Look {
   readonly opacity?: number;
   /** Contour colour marking a change; the part keeps its own colour. */
   readonly outline?: string | undefined;
+  /** Contour thickness on the part in mm, thinner as one zooms out; otherwise fixed on screen. */
+  readonly outlineMm?: number | undefined;
 }
 
 function Material({ colour, selected, ghost, opacity, twoSided }: Look & { twoSided?: boolean }) {
@@ -51,10 +54,15 @@ function Material({ colour, selected, ghost, opacity, twoSided }: Look & { twoSi
   );
 }
 
-/** Contour around a mesh, wide enough to see between neighbouring parts (drei Outlines, in device pixels). */
-function Contour({ colour }: { colour: string | undefined }) {
+/**
+ * Contour around a mesh (drei Outlines): by default wide enough on screen to see
+ * between neighbouring parts, in device pixels; with mm, that thick on the part.
+ * Outlines takes screenspace to mean the latter.
+ */
+function Contour({ colour, mm }: { colour: string | undefined; mm?: number | undefined }) {
   const dpr = useThree((state) => state.viewport.dpr);
-  return colour ? <Outlines thickness={5 * dpr} color={colour} /> : null;
+  if (!colour) return null;
+  return mm ? <Outlines screenspace thickness={mm} color={colour} /> : <Outlines thickness={5 * dpr} color={colour} />;
 }
 
 /** One display primitive in part coordinates. Capsules are drawn as flat-ended tubes. */
@@ -72,7 +80,7 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
         >
           <cylinderGeometry args={[shape.radiusMm, shape.radiusMm, axis.length() + 2 * shape.radiusMm, 32]} />
           <Material {...look} />
-          <Contour colour={look.outline} />
+          <Contour colour={look.outline} mm={look.outlineMm} />
         </mesh>
       );
     }
@@ -81,7 +89,7 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
         <mesh position={[shape.center.x, shape.center.y, shape.center.z]}>
           <boxGeometry args={[2 * shape.halfExtents.x, 2 * shape.halfExtents.y, 2 * shape.halfExtents.z]} />
           <Material {...look} />
-          <Contour colour={look.outline} />
+          <Contour colour={look.outline} mm={look.outlineMm} />
         </mesh>
       );
     case 'convex':
@@ -101,7 +109,7 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
         <mesh position={[shape.center.x, shape.center.y, shape.center.z]} rotation={[0, 0, shape.startRad]}>
           <torusGeometry args={[shape.radiusMm, shape.tubeRadiusMm, 24, 32, shape.endRad - shape.startRad]} />
           <Material {...look} />
-          <Contour colour={look.outline} />
+          <Contour colour={look.outline} mm={look.outlineMm} />
         </mesh>
       );
   }
@@ -136,7 +144,7 @@ function PipeMesh({ pipe, look }: { pipe: PipeShape; look: Look }) {
   return (
     <mesh geometry={geometry} position={a} quaternion={new Quaternion().setFromUnitVectors(UP, direction)}>
       <Material {...look} twoSided={pipe.innerRadiusMm > 0} />
-      <Contour colour={look.outline} />
+      <Contour colour={look.outline} mm={look.outlineMm} />
     </mesh>
   );
 }
@@ -186,7 +194,7 @@ function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
   return (
     <mesh geometry={geometry} position={[0, 0, slab.bottomZ]}>
       <Material {...look} />
-      <Contour colour={look.outline} />
+      <Contour colour={look.outline} mm={look.outlineMm} />
     </mesh>
   );
 }
@@ -218,7 +226,7 @@ function NurbsMesh({ surface, look }: { surface: NurbsShape; look: Look }) {
   return (
     <mesh geometry={geometry}>
       <Material {...look} twoSided />
-      <Contour colour={look.outline} />
+      <Contour colour={look.outline} mm={look.outlineMm} />
     </mesh>
   );
 }
@@ -243,7 +251,7 @@ function ConvexMesh({ points, look }: { points: readonly { x: number; y: number;
   return (
     <mesh geometry={geometry}>
       <Material {...look} />
-      <Contour colour={look.outline} />
+      <Contour colour={look.outline} mm={look.outlineMm} />
     </mesh>
   );
 }
@@ -253,6 +261,8 @@ interface PartMeshProps extends Look {
   readonly name: string;
   readonly pose: Pose;
   readonly shapes: readonly DisplayShape[];
+  /** Exploded view: the part's own shapes scaled about a point in its frame. */
+  readonly shrink?: Shrink | undefined;
   readonly onSelect?: () => void;
   /** Pointer entering (true) or leaving (false) the part. */
   readonly onHover?: (inside: boolean) => void;
@@ -268,10 +278,22 @@ export function PartMesh({
   ghost,
   opacity,
   outline,
+  outlineMm,
+  shrink,
   onSelect,
   onHover,
 }: PartMeshProps) {
   const { position, orientation } = pose;
+  const look = {
+    colour,
+    selected,
+    outline,
+    outlineMm,
+    ...(ghost ? { ghost } : {}),
+    ...(opacity === undefined ? {} : { opacity }),
+  };
+  const own = shapes.map((shape, i) => <Shape key={i} shape={shape} look={look} />);
+  const o = shrink?.origin;
   return (
     <group
       name={name}
@@ -287,19 +309,13 @@ export function PartMesh({
         onSelect();
       }}
     >
-      {shapes.map((shape, i) => (
-        <Shape
-          key={i}
-          shape={shape}
-          look={{
-            colour,
-            selected,
-            outline,
-            ...(ghost ? { ghost } : {}),
-            ...(opacity === undefined ? {} : { opacity }),
-          }}
-        />
-      ))}
+      {shrink && o ? (
+        <group position={[o.x, o.y, o.z]} scale={[...shrink.scale]}>
+          <group position={[-o.x, -o.y, -o.z]}>{own}</group>
+        </group>
+      ) : (
+        own
+      )}
     </group>
   );
 }

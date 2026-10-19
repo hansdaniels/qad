@@ -1,6 +1,6 @@
 import { Grid } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { Expand, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   assemblyOf,
@@ -141,6 +141,8 @@ export function App() {
   const [camera, setCamera] = useState<ViewId>('perspective');
   const { dock, choose: chooseDock, bottom } = useDock();
   const [fit, setFit] = useState(0);
+  // Exploded view: tubes and plates smaller, connector arms showing.
+  const [exploded, setExploded] = useState(false);
   const [zoom, setZoom] = useState<{ readonly count: number; readonly direction: 1 | -1 }>({ count: 0, direction: 1 });
   const zoomBy = (direction: 1 | -1) => setZoom((z) => ({ count: z.count + 1, direction }));
   const [highlighted, setHighlighted] = useState<ReadonlySet<PartId>>(new Set());
@@ -524,6 +526,8 @@ export function App() {
       } else if (!mod && event.key.toLowerCase() === 'l' && choice?.kind === 'plate') {
         setPlateHover(undefined);
         setChoice({ ...choice, upright: !(choice.upright ?? false) });
+      } else if (!mod && event.key.toLowerCase() === 'e') {
+        setExploded((e) => !e);
       } else if (!mod && (event.key === '+' || event.key === '-')) {
         zoomBy(event.key === '+' ? 1 : -1);
       } else if (event.key === 'Escape' && assembly) {
@@ -606,6 +610,24 @@ export function App() {
               <Icon size={18} color="#333" aria-hidden />
             </button>
           ))}
+          <button
+            type="button"
+            title="Explosionsansicht: Rohre und Platten kleiner, Kupplungsarme sichtbar (E)"
+            aria-label="Explosionsansicht"
+            aria-pressed={exploded}
+            onClick={() => setExploded(!exploded)}
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              padding: '4px 8px',
+              border: exploded ? '2px solid #1f5fbf' : '1px solid #c8cdd3',
+              borderRadius: 4,
+              background: exploded ? '#e8f0fb' : '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            <Expand size={18} color="#333" aria-hidden />
+          </button>
         </div>
         {/* On the model rather than in the sidebar, so it costs the sidebar no row. */}
         <select
@@ -646,6 +668,7 @@ export function App() {
           />
           <ModelScene
             snapshot={snapshot}
+            exploded={exploded}
             selected={selected}
             highlighted={assembly ? moved : highlighted}
             marks={rebuild?.marks}

@@ -13,6 +13,7 @@ import {
   type PartId,
 } from '@qad/model-core';
 import { displayColour } from './colours';
+import { explodedOf, type Exploded } from './explode';
 import { PartMesh } from './PartMesh';
 
 const types = new Map(quadroPartCatalog.partTypes.map((t) => [t.id, t]));
@@ -46,7 +47,7 @@ export function useParts(snapshot: ConstructionSnapshot) {
           articleEntryId(quadroPartCatalog, part.typeId),
           requestedColour(snapshot, part),
         );
-        return { part, pose, shapes, article };
+        return { part, pose, shapes, article, type };
       }),
     [snapshot],
   );
@@ -82,6 +83,8 @@ interface ModelSceneProps {
   readonly marks?: ReadonlyMap<PartId, Mark> | undefined;
   /** Parts of another state drawn as well, e.g. those a rebuild removes; never pickable. */
   readonly others?: { readonly snapshot: ConstructionSnapshot; readonly marks: ReadonlyMap<PartId, Mark> } | undefined;
+  /** Exploded view: tubes and plates smaller, connector arms showing. */
+  readonly exploded?: boolean | undefined;
   /** Further content in model coordinates, e.g. virtual arms. */
   readonly children?: ReactNode;
 }
@@ -157,6 +160,17 @@ function GhostParts({
   );
 }
 
+/** Props of a part in the exploded view; a change's contour wins over the drawing's lines. */
+function drawn(exploded: Exploded | undefined, outline: string | undefined) {
+  if (!exploded) return {};
+  const { drawing, ...rest } = exploded;
+  if (!drawing) return rest;
+  // Drawing lines thin out as one zooms out; a change's contour stays as strong on screen as elsewhere.
+  return outline
+    ? { ...rest, colour: drawing.colour, outline }
+    : { ...rest, colour: drawing.colour, outline: drawing.outline, outlineMm: drawing.lineMm };
+}
+
 /** World box of the built model: parts, open ends and lone junctions, without previews or targets. */
 export function builtBox(scene: Object3D): Box3 {
   const box = new Box3();
@@ -181,6 +195,7 @@ export function ModelScene({
   onGhostHover,
   marks,
   others,
+  exploded,
   children,
 }: ModelSceneProps) {
   const parts = useParts(snapshot);
@@ -188,7 +203,7 @@ export function ModelScene({
   const lone = useLoneJunctions(snapshot);
   return (
     <group name="model" rotation={[-Math.PI / 2, 0, 0]}>
-      {parts.map(({ part, pose, shapes, article }) =>
+      {parts.map(({ part, pose, shapes, article, type }) =>
         pose ? (
           <PartMesh
             key={part.id}
@@ -199,6 +214,7 @@ export function ModelScene({
             selected={part.id === selected || (highlighted?.has(part.id) ?? false)}
             outline={marks?.get(part.id)?.outline}
             {...(marks?.get(part.id)?.opacity === undefined ? {} : { opacity: marks.get(part.id)!.opacity! })}
+            {...(exploded ? drawn(explodedOf(type, shapes), marks?.get(part.id)?.outline) : {})}
             onSelect={() => onSelect(part.id)}
           />
         ) : null,
