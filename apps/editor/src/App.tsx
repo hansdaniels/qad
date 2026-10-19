@@ -514,6 +514,10 @@ export function App() {
         setTurn(turn + 1);
       } else if (!mod && event.key.toLowerCase() === 'r' && !active && turns.length > 0) {
         turnSelected();
+      } else if (!mod && event.key === ' ' && active) {
+        // Builds what the preview shows, e.g. after turning it with R; a focused button must not fire as well.
+        event.preventDefault();
+        if (active.preview.status === 'valid') insert(active.command);
       } else if (event.key === 'Delete') {
         event.preventDefault();
         remove();

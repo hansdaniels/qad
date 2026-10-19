@@ -43,10 +43,10 @@ interface PaletteProps {
 
 const CURVED = new Set(TUBES.filter((t) => t.category === 'tube' && t.shape === 'bent').map((t) => t.familyId));
 const HINTS = {
-  tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, Esc legt es ab.',
-  curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
+  tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, die Leertaste baut es an, Esc legt es ab.',
+  curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, die Leertaste baut es an, Esc legt das Rohr ab.',
   plate:
-    'Fläche zwischen vier Rohren anklicken; L wechselt zwischen Boden und Wand, R dreht die Flansche, Esc legt die Platte ab.',
+    'Fläche zwischen vier Rohren anklicken; L wechselt zwischen Boden und Wand, R dreht die Flansche, die Leertaste baut sie an, Esc legt die Platte ab.',
   slide:
     'Feld vor einem 35-cm-Querrohr anklicken. Ein Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr; der Auslauf kommt an dessen untere Kante. Esc legt das Teil ab.',
 };
