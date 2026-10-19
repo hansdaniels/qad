@@ -2,7 +2,7 @@
   "name": "@qad/model-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Browser-independent domain contracts for the QUADRO modelling core",
+  "description": "Browser-independent domain contracts for the GBK modelling core",
   "files": [
     "dist"
   ],

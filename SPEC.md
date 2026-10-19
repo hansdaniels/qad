@@ -1,10 +1,10 @@
-# QUADRO-Modellierungsprogramm
+# GBK-Modellierungsprogramm
 
 Status: Entwurf auf Grundlage der bisherigen Fachentscheidungen, 15. Oktober 2026.
 
 ## 1. Ziel und Bedienprinzip
 
-Das Programm dient zum Entwerfen von QUADRO-Konstruktionen aus Rohren, Kupplungen und Platten. Es ist ein CAD-Editor mit festen Bauteilgeometrien und Einrastmöglichkeiten.
+Das Programm dient zum Entwerfen von Konstruktionen aus einem Großbaukasten (GBK) aus Rohren, Kupplungen und Platten. Es ist ein CAD-Editor mit festen Bauteilgeometrien und Einrastmöglichkeiten.
 
 Beim Zeichnen eines Rohrgerüsts muss der Benutzer keine normalen Kupplungen auswählen. Er setzt Rohre und bestimmt ihre Beziehungen zueinander. Das Programm ermittelt passende Kupplungen, nötige Zwischenstücke und geeignete Bohrungsvarianten automatisch.
 
@@ -271,7 +271,7 @@ Für flexible Elemente werden zunächst Befestigungen und benötigte Rahmenforme
 - Zulässige Stecküberlappungen und geeignete Kollisionsgeometrien.
 - Zentrale Längen- und Winkeltoleranzen.
 
-Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen. Kandidatenwerte aus dem QUADRO-Designprogramm des Herstellers stehen in [GEOMETRIE.md](./GEOMETRIE.md), Konstruktions- und Sicherheitsregeln des Herstellers in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md).
+Ungeprüfte Maße und Anschlussannahmen werden nicht als gesicherte Katalogdaten übernommen. Kandidatenwerte aus dem Designprogramm des Herstellers stehen in [GEOMETRIE.md](./GEOMETRIE.md), Konstruktions- und Sicherheitsregeln des Herstellers in [HERSTELLERREGELN.md](./HERSTELLERREGELN.md).
 
 ## 12. Quellen zur Teileübersicht
 
@@ -279,7 +279,7 @@ Die Shopseiten dienen zur Identifikation der Teilefamilien. Sie ersetzen keine v
 
 Die daraus abgeleiteten Teilefamilien und Artikel stehen im [Bauteilkatalog](./BAUTEILKATALOG.md).
 
-- [QUADRO-Teileübersicht](https://quadroshop.com/pages/parts)
+- [Teileübersicht](https://quadroshop.com/pages/parts)
 - [Kupplungen](https://quadroshop.com/collections/connectors)
 - [Rohre](https://quadroshop.com/collections/tubes)
 - [Platten](https://quadroshop.com/collections/panels)

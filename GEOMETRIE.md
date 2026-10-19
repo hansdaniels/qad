@@ -1,4 +1,4 @@
-# Geometriedaten aus dem QUADRO-Designprogramm
+# Geometriedaten aus dem Designprogramm des Herstellers
 
 Status: Kandidatenwerte, 15. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitt 11.
 Noch nicht am Teil nachgemessen. Als vorläufiger Geometriekatalog umgesetzt in
@@ -6,7 +6,7 @@ Noch nicht am Teil nachgemessen. Als vorläufiger Geometriekatalog umgesetzt in
 
 ## 1. Quelle und Methode
 
-Quelle ist das QUADRO-Designprogramm 1.3 (2006) des Herstellers,
+Quelle ist das Designprogramm 1.3 (2006) des Herstellers,
 `https://quadroworld.com/files/apps/QUADRO-Setup-Deutsch.zip`. Es enthält keine
 Geometriedateien; die Teile werden im Programmcode aus Konstanten erzeugt.
 

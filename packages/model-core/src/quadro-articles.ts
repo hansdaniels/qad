@@ -29,17 +29,15 @@ const a = (articleNumber: string, colour: QuadroColour): Article => ({ articleNu
 const black = (articleNumber: string): readonly Article[] => [a(articleNumber, 'black')];
 
 /**
- * Single parts from https://quadroshop.com/pages/parts, retrieved 2026-10-15.
+ * Single parts from https://quadroshop.com/pages/parts, retrieved 2026-10-15;
+ * a product page is https://quadroshop.com/products/ followed by the entry id.
+ * Sources stay in comments so that they do not end up in the build.
  * Left out: textiles and nets, pool and Aqua, wheels (deferred), the wooden
  * profile, the integrated slide, sets and bundles, keys. See BAUTEILKATALOG.md.
  */
 export const quadroArticleCatalog: ArticleCatalog = {
-  id: 'quadroshop-de',
+  id: 'shop-de',
   version: '2026-10-15',
-  source: {
-    overviewUrl: 'https://quadroshop.com/pages/parts',
-    productBaseUrl: 'https://quadroshop.com/products/',
-  },
   colours,
   defaultColours: { tube: 'red', connector: 'black', plate: 'blue' },
   entries: [

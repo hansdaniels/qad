@@ -16,7 +16,31 @@ export function encodeConstruction(snapshot: ConstructionSnapshot): string {
 export function openConstruction(json: string, catalog: PartCatalog, options: ModelCoreOptions): Result<ModelCore> {
   const parsed = parseConstructionDocument(json);
   if (!parsed.ok) return parsed;
-  return openModelCore(parsed.value.snapshot, catalog, options);
+  return openModelCore(renamed(parsed.value.snapshot, catalog), catalog, options);
+}
+
+/**
+ * Files from before the catalog's ids were renamed carry another prefix for the
+ * catalog and its connection types. Same version and the same id after the
+ * prefix mean the same thing.
+ */
+function renamed(snapshot: ConstructionSnapshot, catalog: PartCatalog): ConstructionSnapshot {
+  const stored = snapshot.design.catalog;
+  const unprefixed = (id: string) => id.slice(id.indexOf('-') + 1);
+  if (stored.id === catalog.ref.id || stored.version !== catalog.ref.version) return snapshot;
+  if (unprefixed(stored.id) !== unprefixed(catalog.ref.id)) return snapshot;
+  const current = new Map(catalog.connectionTypes.map((t) => [unprefixed(t.id), t.id]));
+  return {
+    ...snapshot,
+    design: { ...snapshot.design, catalog: catalog.ref },
+    realization: {
+      ...snapshot.realization,
+      connections: snapshot.realization.connections.map((c) => ({
+        ...c,
+        typeId: current.get(unprefixed(c.typeId)) ?? c.typeId,
+      })),
+    },
+  };
 }
 
 export const constructionCodec: ConstructionCodec = {

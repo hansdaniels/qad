@@ -2,7 +2,7 @@ import type { PartCatalog } from './catalog.js';
 import type { ColourId, FamilyId, PartTypeId } from './ids.js';
 
 /**
- * Orderable QUADRO parts as listed by the manufacturer's shop.
+ * Orderable GBK parts as listed by the manufacturer's shop.
  * Identifies part families and variants only; it carries no geometry and does
  * not replace PartCatalog. Numbers are designations from product names.
  */
@@ -10,11 +10,6 @@ export interface ArticleCatalog {
   readonly id: string;
   /** Retrieval date of the source data, ISO 8601. */
   readonly version: string;
-  readonly source: {
-    readonly overviewUrl: string;
-    /** Product page URL is productBaseUrl followed by the entry id. */
-    readonly productBaseUrl: string;
-  };
   readonly colours: readonly Colour[];
   /** Used when no colour is requested or the requested one is not offered. */
   readonly defaultColours: Readonly<Partial<Record<ArticleCategory, ColourId>>>;

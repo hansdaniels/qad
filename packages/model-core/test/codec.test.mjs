@@ -84,6 +84,16 @@ test('an opened model can be edited further', () => {
   assert.equal(opened.execute(command).ok, true);
 });
 
+test('a file from before the ids were renamed opens with the current ids', () => {
+  const saved = frame().snapshot;
+  const old = encodeConstruction(saved).replaceAll('"gbk-', '"quadro-');
+  assert.match(old, /"quadro-provisional"/);
+  assert.match(old, /"quadro-arm-tube"/);
+  const opened = openConstruction(old, quadroPartCatalog, options);
+  assert.equal(opened.ok, true, JSON.stringify(opened.diagnostics));
+  assert.deepEqual(opened.value.snapshot, JSON.parse(JSON.stringify(saved)));
+});
+
 test('a stored realization that does not fit its design is rejected', () => {
   const document = JSON.parse(encodeConstruction(frame().snapshot));
   document.snapshot.realization.poses[0].worldPose.position.z += 40;

@@ -1,8 +1,8 @@
-# Bauplan-Format für QUADRO-Modelle
+# Bauplan-Format für GBK-Modelle
 
 Status: Version 1, 16. Oktober 2026. Ergänzt [SPEC.md](./SPEC.md), Abschnitt 13.6.
 
-Ein Bauplan beschreibt einen bestehenden QUADRO-Bau als Folge von Bauschritten:
+Ein Bauplan beschreibt einen bestehenden GBK-Bau als Folge von Bauschritten:
 „von Punkt A ein 35-cm-Rohr nach rechts, das Ende heißt B“. Er ist dafür gedacht,
 dass ein Sprachmodell (LLM) ihn aus Fotos eines Baus schreibt. Der Editor öffnet
 ihn über „Öffnen …“ wie eine Modelldatei. Dabei baut er die Schritte mit denselben
@@ -20,7 +20,7 @@ Lagen und Drehungen enthält.
 Diesen Abschnitt und den Rest der Datei kann man einem LLM zusammen mit den
 Fotos geben.
 
-> Du bekommst ein oder mehrere Fotos eines Baus aus dem QUADRO-Baukasten.
+> Du bekommst ein oder mehrere Fotos eines Baus aus einem Großbaukasten.
 > Übertrage ihn in einen Bauplan nach dieser Beschreibung. Gib ausschließlich das
 > JSON-Dokument aus, ohne Erläuterungen davor oder danach. Was du nicht sicher
 > erkennen kannst, ergänze plausibel und vermerke es in `notes`. Teile, die das
@@ -28,7 +28,7 @@ Fotos geben.
 
 ## 2. Was auf den Fotos zu sehen ist
 
-QUADRO-Bauten bestehen aus farbigen Rohren mit 5 cm Durchmesser, die in schwarzen
+GBK-Bauten bestehen aus farbigen Rohren mit 5 cm Durchmesser, die in schwarzen
 Kupplungen stecken. Kupplungen gibt man im Bauplan nicht an; welche Kupplung an
 einem Punkt sitzt, folgt aus den Rohren, die dort enden. Ein **Punkt** ist der
 Mittelpunkt einer Kupplung, oder bei einem offenen Rohrende die Stelle, an der

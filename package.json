@@ -1,12 +1,13 @@
 {
   "name": "qad",
   "private": true,
-  "description": "QUADRO-Modellierungsprogramm: Modellkern und Editor",
+  "description": "GBK-Modellierungsprogramm: Modellkern und Editor",
   "type": "module",
   "scripts": {
     "check": "vp run -r check",
     "build": "vp run -r build",
-    "test": "vp run -r test"
+    "test": "vp run -r test",
+    "deploy": "sh scripts/deploy.sh"
   },
   "devDependencies": {
     "vite-plus": "catalog:"

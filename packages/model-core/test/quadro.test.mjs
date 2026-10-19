@@ -45,14 +45,14 @@ function model({ parts, links, junctions, tubes, anchor }) {
     const best = ROLLS.map((rollRad) => ({
       rollRad,
       angle: qangle(
-        qmul(qconj(quadroConnectionEvaluators['quadro-arm-tube']({ rollRad }).orientation), actual.orientation),
+        qmul(qconj(quadroConnectionEvaluators['gbk-arm-tube']({ rollRad }).orientation), actual.orientation),
       ),
     })).sort((x, y) => x.angle - y.angle)[0];
     return {
       id: `c${String(i).padStart(2, '0')}`,
       a: { partId: a, siteId: as },
       b: { partId: b, siteId: bs },
-      typeId: 'quadro-arm-tube',
+      typeId: 'gbk-arm-tube',
       parameters: { rollRad: best.rollRad },
     };
   });

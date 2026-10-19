@@ -332,12 +332,12 @@ setzt die Stufen 1 bis 4 um. Festlegungen, die über die Abschnitte oben hinausg
 | Kreuzung                   | Zwei gerade Rohre, deren Achsen sich innerhalb der Toleranz schneiden, ohne direkte Verbindung; Stationen ab Ende a.                                                                                                                                                                                                                                                                                                                                 |
 | Stufe 5                    | Umgesetzt. Die Passung der Plattenschrauben in den Rohrbohrungen prüft der Ringschluss (Stufe 2); Stufe 5 prüft Realisierung, Lage und Pflichtbefestigungen jeder Platte. Bohrungen der Sonderrohre sind Hypothese (HERSTELLERREGELN.md, Abschnitt 4).                                                                                                                                                                                               |
 | Hinweise                   | `remedies` bleiben vorerst leer.                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| QUADRO-Katalog             | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme.                                                                                                                                                                |
+| GBK-Katalog                | `quadroPartCatalog` ist vorläufig (GEOMETRIE.md). Ein Rohr sitzt mit der Stirnseite an der Armschulter; seine Drehung auf dem Arm ist ein Parameter in 90°-Schritten, bis geklärt ist, wie viele Schraubstellungen es gibt. Kollisionsformen sind Außenhüllen ohne eingesteckte Arme.                                                                                                                                                                |
 
 Die Abnahmetests aus Abschnitt 7 stehen in `packages/model-core/test/buildability.test.mjs` mit einem
 synthetischen Katalog (`packages/model-core/test/fixtures.mjs`); 6 bis 8 (Platten) stehen mit dem
-QUADRO-Katalog in `packages/model-core/test/plates.test.mjs`.
-`packages/model-core/test/quadro.test.mjs` prüft den vorläufigen QUADRO-Katalog: 35er-Rahmen, falsches
+GBK-Katalog in `packages/model-core/test/plates.test.mjs`.
+`packages/model-core/test/quadro.test.mjs` prüft den vorläufigen GBK-Katalog: 35er-Rahmen, falsches
 Rohr im Ring, Bogenrohr als Rahmeneck und Winkelkupplung mit schrägem Rohr.
 
 ## 9. Später: Hinweis auf zusätzliche Bohrungen

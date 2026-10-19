@@ -6,7 +6,7 @@ Die Typen stehen in [`packages/model-core/src/article-catalog.ts`](./packages/mo
 
 ## 1. Zweck und Abgrenzung
 
-Der Bauteilkatalog legt fest, **welche** QUADRO-Teile das Programm kennt: Familien,
+Der Bauteilkatalog legt fest, **welche** GBK-Teile das Programm kennt: Familien,
 Varianten, Artikelnummern und Farben. Er ist die Artikelebene, kein geometrischer
 Katalog. `PartCatalog` (`packages/model-core/src/catalog.ts`) braucht Anschlusslagen, Bohrungsmuster und
 Kollisionsgeometrie. Diese Daten liefert der Shop nicht (SPEC 11), deshalb enthält
@@ -56,7 +56,7 @@ Rohrfamilien haben genau eine Standardvariante (`drilling.kind === 'standard'`):
 | Integralrutsche, Acrylglas (Integralrutsche)                                                                                      | vorerst ignoriert                                                  |
 | Platten-, Lochplatten- und Halbplattensets, Rutschen-Komplettsets, Rutschenrahmen, Schraubensets                                  | Zusammenstellungen aus Einzelteilen, die bereits im Katalog stehen |
 | Schlüssel (Kunststoff, Edelstahl)                                                                                                 | Werkzeug, kein Bauteil                                             |
-| [QUADRO Pro](https://quadroshop.com/collections/quadro-pro), QUADROmini                                                           | Komplettmodelle bzw. eigenes System                                |
+| [Pro-Serie](https://quadroshop.com/collections/quadro-pro), Mini-System                                                           | Komplettmodelle bzw. eigenes System                                |
 
 Ein Test (`packages/model-core/test/article-catalog.test.mjs`) stellt sicher, dass diese Produkte nicht
 versehentlich wieder aufgenommen werden.

@@ -30,7 +30,7 @@ import { quadroArticleCatalog } from './quadro-articles.js';
 import { CURVED_SLIDE_SURFACE, MODULAR_SLIDE_SURFACE, RUNOUT_SURFACE } from './quadro-slide-surfaces.js';
 
 /**
- * Provisional QUADRO geometry from the 2006 design program (GEOMETRIE.md).
+ * Provisional GBK geometry from the 2006 design program (GEOMETRIE.md).
  * Not measured on parts. Tube holes and plate flanges follow the information in
  * GEOMETRIE.md, section 5; the drilling of special tubes is a hypothesis.
  * Part type IDs equal the article catalog IDs, except for half plate variants (entryId).
@@ -40,12 +40,12 @@ const ARM_SHOULDER = 25;
 const TUBE_RADIUS = 25;
 const ROLL_STEPS = [0, 0.5, 1, 1.5].map((f) => f * Math.PI);
 
-const ARM = 'quadro-arm';
-const TUBE_END = 'quadro-tube-end';
-const TUBE_HOLE = 'quadro-tube-hole';
-const PLATE_MOUNT = 'quadro-plate-mount';
-const TUBE_MIDDLE = 'quadro-tube-middle';
-const SLIDE_HANG = 'quadro-slide-hang';
+const ARM = 'gbk-arm';
+const TUBE_END = 'gbk-tube-end';
+const TUBE_HOLE = 'gbk-tube-hole';
+const PLATE_MOUNT = 'gbk-plate-mount';
+const TUBE_MIDDLE = 'gbk-tube-middle';
+const SLIDE_HANG = 'gbk-slide-hang';
 
 /** Hole centre from the tube end face (GEOMETRIE.md, section 5). */
 const HOLE_FROM_END = 25;
@@ -111,7 +111,7 @@ function connectorType(article: ConnectorArticle): AccessoryType {
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: 'quadro-connector-body' } },
+    geometry: { display: { key: article.id }, collision: { key: 'gbk-connector-body' } },
     sites: (article.armDirections ?? []).map((d) =>
       site(d, 'socket', { position: scale(UNIT[d], ARM_SHOULDER), orientation: Z_TO[d] }, ARM),
     ),
@@ -127,7 +127,7 @@ function straightTube(article: TubeArticle): TubeType {
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: `quadro-tube-${length}` } },
+    geometry: { display: { key: article.id }, collision: { key: `gbk-tube-${length}` } },
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(length, 0, 0), orientation: Z_TO['+x'] }, TUBE_END),
@@ -231,7 +231,7 @@ function plateType(
     ...(id === article.id ? {} : { entryId: article.id }),
     geometry: {
       display: { key: id },
-      collision: { key: `quadro-plate-${x}x${y}${edges.length > 0 ? `-fold${edges.join('')}` : ''}` },
+      collision: { key: `gbk-plate-${x}x${y}${edges.length > 0 ? `-fold${edges.join('')}` : ''}` },
     },
     sites,
     cellMm: [x, y],
@@ -248,7 +248,7 @@ function curvedTube(article: TubeArticle): TubeType {
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: 'quadro-curved-tube' } },
+    geometry: { display: { key: article.id }, collision: { key: 'gbk-curved-tube' } },
     sites: [
       site('a', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('b', 'tube-end', { position: vec(reach, reach, 0), orientation: Z_TO['+y'] }, TUBE_END),
@@ -281,7 +281,7 @@ function angleConnector(article: ConnectorArticle): AccessoryType {
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: 'quadro-angle-connector' } },
+    geometry: { display: { key: article.id }, collision: { key: 'gbk-angle-connector' } },
     sites: [
       site('sleeve', 'tube-end', { position: vec(0, 0, 0), orientation: Z_TO['-x'] }, TUBE_END),
       site('spigot', 'socket', { position: SPIGOT_SHOULDER, orientation: spigot }, ARM),
@@ -305,12 +305,12 @@ function partTypes(): PartType[] {
 
 /** Tube end on an arm: end face on the shoulder, turned in 90° steps (provisional). */
 const ARM_TUBE: ConnectionType = {
-  id: 'quadro-arm-tube',
+  id: 'gbk-arm-tube',
   aInterfaceId: ARM,
   bInterfaceId: TUBE_END,
   kinematics: {
     kind: 'parametric',
-    evaluatorKey: 'quadro-arm-tube',
+    evaluatorKey: 'gbk-arm-tube',
     parameters: [{ name: 'rollRad', unit: 'radian', domain: { kind: 'discrete', values: ROLL_STEPS } }],
   },
 };
@@ -320,12 +320,12 @@ const ARM_TUBE: ConnectionType = {
  * along the tube one way or the other.
  */
 const TUBE_PLATE: ConnectionType = {
-  id: 'quadro-tube-plate',
+  id: 'gbk-tube-plate',
   aInterfaceId: TUBE_HOLE,
   bInterfaceId: PLATE_MOUNT,
   kinematics: {
     kind: 'parametric',
-    evaluatorKey: 'quadro-tube-plate',
+    evaluatorKey: 'gbk-tube-plate',
     parameters: [{ name: 'turnRad', unit: 'radian', domain: { kind: 'discrete', values: [0, Math.PI] } }],
   },
 };
@@ -335,12 +335,12 @@ const TUBE_PLATE: ConnectionType = {
  * other, turned about the tube axis in 90° steps.
  */
 const TUBE_SLIDE: ConnectionType = {
-  id: 'quadro-tube-slide',
+  id: 'gbk-tube-slide',
   aInterfaceId: TUBE_MIDDLE,
   bInterfaceId: SLIDE_HANG,
   kinematics: {
     kind: 'parametric',
-    evaluatorKey: 'quadro-tube-slide',
+    evaluatorKey: 'gbk-tube-slide',
     parameters: [
       { name: 'turnRad', unit: 'radian', domain: { kind: 'discrete', values: ROLL_STEPS } },
       { name: 'flipRad', unit: 'radian', domain: { kind: 'discrete', values: [0, Math.PI] } },
@@ -349,22 +349,22 @@ const TUBE_SLIDE: ConnectionType = {
 };
 
 export const quadroPartCatalog: PartCatalog = {
-  ref: { id: 'quadro-provisional', version: '2006-1' },
+  ref: { id: 'gbk-provisional', version: '2006-1' },
   partTypes: partTypes(),
   connectionTypes: [ARM_TUBE, TUBE_PLATE, TUBE_SLIDE],
 };
 
 /** Site b faces site a (half turn about x), then turns by rollRad about its axis. */
 export const quadroConnectionEvaluators: Readonly<Record<string, ConnectionEvaluator>> = {
-  'quadro-arm-tube': (parameters) => ({
+  'gbk-arm-tube': (parameters) => ({
     position: vec(0, 0, 0),
     orientation: qmul(qaxisAngle(X, Math.PI), qaxisAngle(vec(0, 0, 1), parameters.rollRad ?? 0)),
   }),
-  'quadro-tube-plate': (parameters) => ({
+  'gbk-tube-plate': (parameters) => ({
     position: vec(0, 0, 0),
     orientation: qmul(qaxisAngle(X, Math.PI), qaxisAngle(vec(0, 0, 1), parameters.turnRad ?? 0)),
   }),
-  'quadro-tube-slide': (parameters) => ({
+  'gbk-tube-slide': (parameters) => ({
     position: vec(0, 0, 0),
     orientation: qmul(qaxisAngle(vec(0, 0, 1), parameters.turnRad ?? 0), qaxisAngle(Y, parameters.flipRad ?? 0)),
   }),
@@ -384,7 +384,7 @@ function slideType(article: SlideArticle): SlideType {
     id: article.id,
     familyId: article.familyId,
     name: article.name,
-    geometry: { display: { key: article.id }, collision: { key: `quadro-slide-${shape}` } },
+    geometry: { display: { key: article.id }, collision: { key: `gbk-slide-${shape}` } },
     sites: [site('hang', 'hang', { position: vec(0, 0, 0), orientation: Z_TO['+y'] }, SLIDE_HANG)],
     shape,
     tubeLengthMm: 350,
@@ -465,11 +465,11 @@ function cylinderPoints(a: Vector3, b: Vector3, radius: number): Vector3[] {
 /** Outer hulls only: inserted arms and spigots are not part of the collision shape. */
 export const quadroCollisionGeometry: CollisionGeometryProvider = {
   shapes(ref) {
-    if (ref.key === 'quadro-connector-body') {
+    if (ref.key === 'gbk-connector-body') {
       return [{ kind: 'box', center: vec(0, 0, 0), halfExtents: vec(ARM_SHOULDER, ARM_SHOULDER, ARM_SHOULDER) }];
     }
-    if (ref.key === 'quadro-curved-tube') return arcCapsules();
-    if (ref.key === 'quadro-angle-connector') {
+    if (ref.key === 'gbk-curved-tube') return arcCapsules();
+    if (ref.key === 'gbk-angle-connector') {
       // Body: cylinder Ø 50 along the spigot axis from the sleeve end (x = 70) to
       // the shoulder. Only 42 long, so a capsule would reach into the tube.
       const crossing = vec(ANGLE.crossing - ARM_SHOULDER, 0, 0);
@@ -482,7 +482,7 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         { kind: 'convex', points: cylinderPoints(from, SPIGOT_SHOULDER, TUBE_RADIUS) },
       ];
     }
-    const plate = /^quadro-plate-(\d+)x(\d+)(?:-fold((?:[-+]x)+))?$/.exec(ref.key);
+    const plate = /^gbk-plate-(\d+)x(\d+)(?:-fold((?:[-+]x)+))?$/.exec(ref.key);
     if (plate) {
       const [x, y] = [Number(plate[1]), Number(plate[2])];
       const edges = (plate[3]?.match(/[-+]x/g) ?? []) as PlateEdge[];
@@ -503,10 +503,10 @@ export const quadroCollisionGeometry: CollisionGeometryProvider = {
         ...plateTabs(x, y, edges),
       ];
     }
-    if (ref.key === 'quadro-slide-body') return mouldedShapes('body');
-    if (ref.key === 'quadro-slide-curved') return mouldedShapes('curved');
-    if (ref.key === 'quadro-slide-runout') return mouldedShapes('runout');
-    const tube = /^quadro-tube-(\d+)$/.exec(ref.key);
+    if (ref.key === 'gbk-slide-body') return mouldedShapes('body');
+    if (ref.key === 'gbk-slide-curved') return mouldedShapes('curved');
+    if (ref.key === 'gbk-slide-runout') return mouldedShapes('runout');
+    const tube = /^gbk-tube-(\d+)$/.exec(ref.key);
     if (tube) {
       const length = Number(tube[1]);
       return [

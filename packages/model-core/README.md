@@ -1,8 +1,8 @@
 # QAD-Modellkern
 
-TypeScript-Schnittstellen für den QUADRO-Modellkern gemäß [SPEC.md](../../SPEC.md).
+TypeScript-Schnittstellen für den GBK-Modellkern gemäß [SPEC.md](../../SPEC.md).
 Er enthält die Verträge, den Solver, die Baubarkeitsprüfung und `ModelCore`, der
-Bearbeitungen anwendet, löst, prüft und übernimmt. Die QUADRO-Geometrie ist vorläufig
+Bearbeitungen anwendet, löst, prüft und übernimmt. Die GBK-Geometrie ist vorläufig
 und ausdrücklich als solche gekennzeichnet ([GEOMETRIE.md](../../GEOMETRIE.md)).
 
 ## Entwicklung
@@ -57,8 +57,8 @@ export function previewEdit(core: ModelCore, command: EditCommand) {
 | `persistence`          | Versioniertes Dokument und Vertrag für geprüftes Laden                                                                                                                     |
 | `article-catalog`      | Bauteilkatalog auf Artikelebene: Familien, Varianten, Artikelnummern, Farbschlüssel und Standardfarben, ohne Maße; `resolveArticle` ([Übersicht](../../BAUTEILKATALOG.md)) |
 | `open-ends`            | Offene Rohrenden für die Hervorhebung im Editor (`findOpenEnds`)                                                                                                           |
-| `quadro-geometry`      | Vorläufiger QUADRO-Geometriekatalog, Kollisionsformen und Verbindungsauswerter                                                                                             |
-| `quadro-articles`      | Katalogdaten aus dem QUADRO-Shop (`quadroArticleCatalog`)                                                                                                                  |
+| `quadro-geometry`      | Vorläufiger GBK-Geometriekatalog, Kollisionsformen und Verbindungsauswerter                                                                                                |
+| `quadro-articles`      | Katalogdaten aus dem Hersteller-Shop(`quadroArticleCatalog`)                                                                                                               |
 | `document-schema`      | Zod-4-Schema des vollständigen Dateiformats, daraus abgeleiteter Dokumenttyp                                                                                               |
 | `parse-document`       | JSON einlesen und Formatfehler mit Pfadangaben melden                                                                                                                      |
 
@@ -109,7 +109,7 @@ Der Solver (`solveRealization`) ermittelt aus dem Entwurf die Realisierung für 
 Rohre und Bogenrohre an achsparallelen Verbindungspunkten mit Auto-Kupplung, schräge
 Rohre über Winkelkupplungen, Ringschluss und offene Enden. Die Baubarkeitsprüfung (`checkBuildability`) setzt die Stufen 1 bis 4
 um und bestätigt jede Lösung des Solvers unabhängig. `quadroPartCatalog` ist ein
-vorläufiger Geometriekatalog der QUADRO-Teile mit den Werten des Designprogramms von 2006
+vorläufiger Geometriekatalog der GBK-Teile mit den Werten des Designprogramms von 2006
 ([GEOMETRIE.md](../../GEOMETRIE.md)), noch nicht am Teil gemessen. `createModelCore` bildet die Konsistenzgrenze
 (SPEC 8): Jede Bearbeitung wird auf einer Kopie angewendet, gelöst und unabhängig
 geprüft; nur ein baubares Ergebnis wird übernommen. Nächste Schritte: Viewer und Editor,

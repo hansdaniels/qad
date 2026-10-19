@@ -11,7 +11,7 @@ Quellen:
 - Sicherheitsanweisung „Sicherheit“, Version 4.9 (2025),
   `https://quadroworld.com/files/manuals/Sicherheitsanweisung.pdf`, im Folgenden
   „Anleitung“ mit Abschnittsnummer.
-- QUADRO-Designprogramm 1.3 (2006), ausgewertet wie in [GEOMETRIE.md](./GEOMETRIE.md).
+- Designprogramm 1.3 (2006), ausgewertet wie in [GEOMETRIE.md](./GEOMETRIE.md).
   Die Anleitung von 2025 verweist noch auf dieses Programm.
 - Auskunft des Auftraggebers aus eigener Bauerfahrung, im Folgenden „Auskunft“. Danach
   sind die Teile seit 1979 funktional gleich.
