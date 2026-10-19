@@ -769,7 +769,7 @@ export function App() {
       </div>
       <aside className="sidebar">
         <header className="masthead">
-          <h2 style={{ fontSize: 18 }}>QUADRO-Editor</h2>
+          <h2 style={{ fontSize: 18 }}>Großbaukasten-Editor</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={newModel}>
               Neu

@@ -17,7 +17,7 @@ const MODEL = 'qad:model';
 const INFO = 'qad:model-info';
 const BROKEN = 'qad:model-broken';
 
-export const DEFAULT_FILE_NAME = 'quadro-modell.json';
+export const DEFAULT_FILE_NAME = 'gbk-modell.json';
 
 export interface StoredInfo {
   readonly fileName: string;
