@@ -46,7 +46,7 @@ const HINTS = {
   tube: 'Freien Arm (grau) anklicken; R oder der Drehknopf neigt das Rohr auf einer Winkelkupplung, Esc legt es ab.',
   curved: 'Freien Arm (grau) anklicken; R wählt die Biegerichtung, Esc legt das Rohr ab.',
   plate:
-    'Fläche zwischen vier Rohren anklicken; L wechselt zwischen waagerecht und senkrecht, R dreht die Flansche, Esc legt die Platte ab.',
+    'Fläche zwischen vier Rohren anklicken; L wechselt zwischen Boden und Wand, R dreht die Flansche, Esc legt die Platte ab.',
   slide:
     'Feld vor einem 35-cm-Querrohr anklicken. Ein Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr; der Auslauf kommt an dessen untere Kante. Esc legt das Teil ab.',
 };
@@ -110,16 +110,16 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
         <div role="radiogroup" aria-label="Lage der Platte" style={{ display: 'flex', gap: 4, marginTop: 8 }}>
           {(
             [
-              [false, 'Waagerecht'],
-              [true, 'Senkrecht'],
+              [false, 'Boden', 'Liegende Plätze: Boden, Decke, auch ein schräges Dach (Taste L wechselt)'],
+              [true, 'Wand', 'Stehende Plätze: Wände und Setzstufen (Taste L wechselt)'],
             ] as const
-          ).map(([upright, label]) => (
+          ).map(([upright, label, hint]) => (
             <button
               key={label}
               type="button"
               role="radio"
               aria-checked={(choice.upright ?? false) === upright}
-              title="Nur Plätze in dieser Lage anbieten (Taste L wechselt)"
+              title={hint}
               onClick={() => onChoose({ ...choice, upright })}
               style={{
                 padding: '4px 10px',
