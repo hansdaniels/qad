@@ -5,6 +5,7 @@ import {
   checkBuildability,
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
+  quadroDisplayGeometry,
   quadroPartCatalog,
 } from '../src/index.ts';
 import { compose, inverse, qangle, qaxisAngle, qconj, qmul, vec } from '../src/math.ts';
@@ -260,8 +261,7 @@ test('a tube pushed through a connector collides', () => {
   assert.ok(codes(check(snapshot)).includes('collision'));
 });
 
-test('tubes look hollow, connectors flush with them and bulging outwards, bent tubes as a ring piece between two hollow ends', async () => {
-  const { quadroDisplayGeometry } = await import('../src/index.ts');
+test('tubes look hollow, connectors flush with them and bulging outwards, bent tubes as a ring piece between two hollow ends', () => {
   const [tube] = quadroDisplayGeometry.shapes({ key: 'tube-35cm' });
   assert.equal(tube.kind, 'pipe');
   assert.equal(tube.b.x - tube.a.x, 350);
@@ -284,4 +284,19 @@ test('tubes look hollow, connectors flush with them and bulging outwards, bent t
   );
   // Plate shapes stay as before; unknown keys have none of their own.
   assert.equal(quadroDisplayGeometry.shapes({ key: 'no-such-part' }), undefined);
+});
+
+test('exploded views show each connector arm and the angle connector spigot as inserted shapes', () => {
+  for (const type of quadroPartCatalog.partTypes.filter((t) => t.kind === 'connector' || t.kind === 'adapter')) {
+    const arms = quadroDisplayGeometry.inserted(type.geometry.display);
+    assert.equal(arms.length, type.sites.filter((s) => s.role === 'socket').length, type.id);
+    for (const arm of arms) {
+      assert.equal(arm.kind, 'pipe');
+      assert.ok(Math.abs(Math.hypot(arm.b.x - arm.a.x, arm.b.y - arm.a.y, arm.b.z - arm.a.z) - 50) < 1e-9);
+    }
+  }
+  assert.equal(
+    quadroDisplayGeometry.inserted(quadroPartCatalog.partTypes.find((t) => t.id === 'tube-35cm').geometry.display),
+    undefined,
+  );
 });

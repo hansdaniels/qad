@@ -90,6 +90,8 @@ export type DisplayShape = CollisionShape | SlabShape | PipeShape | ArcShape | F
 export interface DisplayGeometryProvider {
   /** Undefined when the part has no display geometry of its own; its collision shapes stand in. */
   shapes(ref: GeometryRef): readonly DisplayShape[] | undefined;
+  /** What is hidden inside other parts once assembled, e.g. connector arms in their tubes; for exploded views. */
+  inserted?(ref: GeometryRef): readonly DisplayShape[] | undefined;
 }
 
 export interface PartGeometry {

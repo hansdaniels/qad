@@ -229,6 +229,10 @@ Schraube zu Schraube und 15 mm innen neben dem Flansch, wie die Platte
 verschraubt ist; die echten Platten tragen solche Markierungen (Sicherheitsanweisung
 1.3). Der Editor zeichnet sie dunkel auf hellen und hell auf dunklen Platten.
 
+Die Kupplungsarme, die sonst im Rohr stecken (Ø 41,7, von der Schulter 50 lang),
+liefert `quadroDisplayGeometry.inserted`; die Explosionsansicht des Editors
+zeichnet sie schematisch als Stäbe bis zum Armende.
+
 ## 9. Offen
 
 - Nachmessen der Werte aus Abschnitt 3 an einer Winkelkupplung (00911), außerdem

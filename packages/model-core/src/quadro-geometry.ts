@@ -675,9 +675,32 @@ export const quadroDisplayGeometry: DisplayGeometryProvider = {
     if (!displayCache.has(ref.key)) displayCache.set(ref.key, displayShapes(ref.key));
     return displayCache.get(ref.key);
   },
+  inserted(ref) {
+    if (!insertedCache.has(ref.key)) insertedCache.set(ref.key, armShapes(ref.key));
+    return insertedCache.get(ref.key);
+  },
 };
 
 const displayCache = new Map<string, readonly DisplayShape[] | undefined>();
+const insertedCache = new Map<string, readonly DisplayShape[] | undefined>();
+
+/** Arm of a connector, or the angle connector's spigot: Ø 41.7, from the shoulder 50 into the tube (GEOMETRIE.md, sections 2 and 3). */
+const ARM_INSERT = { radius: 41.7 / 2, length: 50 };
+
+/** Arms of connectors and angle connectors, each from its shoulder outwards. */
+function armShapes(key: string): readonly DisplayShape[] | undefined {
+  const type = quadroPartCatalog.partTypes.find((t) => t.id === key);
+  if (type?.kind !== 'connector' && type?.kind !== 'adapter') return undefined;
+  return type.sites
+    .filter((s) => s.role === 'socket')
+    .map((s) => ({
+      kind: 'pipe' as const,
+      a: s.frame.position,
+      b: add(s.frame.position, rotate(s.frame.orientation, vec(0, 0, ARM_INSERT.length))),
+      radiusMm: ARM_INSERT.radius,
+      innerRadiusMm: 0,
+    }));
+}
 
 function displayShapes(key: string): readonly DisplayShape[] | undefined {
   const own = tubeOrConnectorShapes(key);
