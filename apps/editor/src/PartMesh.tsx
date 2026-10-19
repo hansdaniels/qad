@@ -15,9 +15,11 @@ import {
 } from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { DisplayShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
+import type { DisplayShape, FoldShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
 
 const UP = new Vector3(0, 1, 0);
+/** Bend marks: a signal colour no part comes in, drawn thick. */
+const FOLD = { colour: '#e6007e', radiusMm: 4 };
 
 interface Look {
   readonly colour: string;
@@ -84,6 +86,8 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
       return <SlabMesh slab={shape} look={look} />;
     case 'pipe':
       return <PipeMesh pipe={shape} look={look} />;
+    case 'fold':
+      return <FoldMesh fold={shape} ghost={look.ghost ?? false} />;
     case 'arc':
       return (
         <mesh position={[shape.center.x, shape.center.y, shape.center.z]} rotation={[0, 0, shape.startRad]}>
@@ -125,6 +129,21 @@ function PipeMesh({ pipe, look }: { pipe: PipeShape; look: Look }) {
     <mesh geometry={geometry} position={a} quaternion={new Quaternion().setFromUnitVectors(UP, direction)}>
       <Material {...look} twoSided={pipe.innerRadiusMm > 0} />
       <Contour colour={look.outline} />
+    </mesh>
+  );
+}
+
+/** Bend mark as a rod along the edge, half standing out of the plate face. */
+function FoldMesh({ fold, ghost }: { fold: FoldShape; ghost: boolean }) {
+  const a = new Vector3(fold.a.x, fold.a.y, fold.a.z);
+  const axis = new Vector3(fold.b.x, fold.b.y, fold.b.z).sub(a);
+  return (
+    <mesh
+      position={a.clone().addScaledVector(axis, 0.5)}
+      quaternion={new Quaternion().setFromUnitVectors(UP, axis.clone().normalize())}
+    >
+      <cylinderGeometry args={[FOLD.radiusMm, FOLD.radiusMm, axis.length(), 16]} />
+      <meshBasicMaterial color={FOLD.colour} transparent={ghost} opacity={ghost ? 0.45 : 1} />
     </mesh>
   );
 }

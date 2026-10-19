@@ -1,4 +1,11 @@
-import { quadroArticleCatalog, type ChangeKind, type Comparison, type PartId } from '@qad/model-core';
+import {
+  articleEntryId,
+  quadroArticleCatalog,
+  quadroPartCatalog,
+  type ChangeKind,
+  type Comparison,
+  type PartId,
+} from '@qad/model-core';
 import { colourName } from './colours';
 
 /** Contour colours of the changes; the parts keep their own colours. */
@@ -17,7 +24,7 @@ const GROUPS: readonly { readonly kind: Exclude<ChangeKind, 'kept'>; readonly ti
 ];
 
 const NAMES = new Map(quadroArticleCatalog.entries.map((e) => [e.id, e.name]));
-const nameOf = (typeId: string) => NAMES.get(typeId) ?? typeId;
+const nameOf = (typeId: string) => NAMES.get(articleEntryId(quadroPartCatalog, typeId)) ?? typeId;
 
 interface RebuildProps {
   readonly comparison: Comparison;

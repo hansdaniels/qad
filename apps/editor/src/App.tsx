@@ -65,7 +65,11 @@ import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 import { Warnings } from './Warnings';
 
-const articleName = (typeId: string) => quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ?? typeId;
+// Variants without an article of their own, e.g. a bent half plate, go by their part type name.
+const articleName = (typeId: string) =>
+  quadroArticleCatalog.entries.find((e) => e.id === typeId)?.name ??
+  quadroPartCatalog.partTypes.find((t) => t.id === typeId)?.name ??
+  typeId;
 const CURVED = new Set(
   quadroPartCatalog.partTypes.flatMap((t) => (t.kind === 'tube' && t.shape === 'bent' ? [t.familyId] : [])),
 );

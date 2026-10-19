@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Box3, type Object3D } from 'three';
 import {
+  articleEntryId,
   findOpenEnds,
   quadroArticleCatalog,
   quadroCollisionGeometry,
@@ -40,7 +41,11 @@ export function useParts(snapshot: ConstructionSnapshot) {
             (quadroDisplayGeometry.shapes(type.geometry.display) ??
               quadroCollisionGeometry.shapes(type.geometry.collision))) ??
           [];
-        const article = resolveArticle(quadroArticleCatalog, part.typeId, requestedColour(snapshot, part));
+        const article = resolveArticle(
+          quadroArticleCatalog,
+          articleEntryId(quadroPartCatalog, part.typeId),
+          requestedColour(snapshot, part),
+        );
         return { part, pose, shapes, article };
       }),
     [snapshot],
