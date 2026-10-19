@@ -327,7 +327,7 @@ Three.js-Szenenobjekte bilden nicht das persistierte Fachmodell. Kamerabewegunge
 
 Jedes neue Rohr und jede neue Platte erhält eine Farbe; sie ist ein Pflichtfeld. Der Editor belegt sie mit der Standardfarbe des Katalogs vor (Rohre Rot, Platten Blau) und gibt sie immer mit. Fehlt sie in einer Datei, setzt das Einlesen diese Standardfarbe ein.
 
-Die Teileauswahl zeigt zunächst nur die gängigen Teile. Rohre mit 10, 20, 25 und 52 cm, die Platte 30 × 30 cm und die Lochplatte sind nach Auskunft des Auftraggebers kein Standard; sie erscheinen erst mit der Einstellung „Alle“. Bereits verbaute Teile bleiben davon unberührt.
+Eine Platte bietet der Editor auf der Seite der Rahmenfläche an, die zur Kamera zeigt; die Ziele der abgewandten Seite sind ausgeblendet und nehmen keine Klicks an. Für eine Platte auf der anderen Seite dreht man die Ansicht. Die Teileauswahl zeigt zunächst nur die gängigen Teile. Rohre mit 10, 20, 25 und 52 cm, die Platte 30 × 30 cm und die Lochplatte sind nach Auskunft des Auftraggebers kein Standard; sie erscheinen erst mit der Einstellung „Alle“. Bereits verbaute Teile bleiben davon unberührt.
 
 Beim Anbauen werden gültige Anschlussrichtungen und Platzierungskandidaten sichtbar angeboten. Eine Vorschau zeigt das entstehende Rohr und die betroffene Realisierung. Die Domänenlogik bestimmt zulässige Positionen und Einrastmöglichkeiten.
 
