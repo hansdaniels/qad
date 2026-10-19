@@ -48,7 +48,7 @@ const HINTS = {
   plate:
     'Fläche zwischen vier Rohren anklicken; L wechselt zwischen Boden und Wand, R dreht die Flansche, die Leertaste baut sie an, Esc legt die Platte ab.',
   slide:
-    'Feld vor einem 35-cm-Querrohr anklicken. Ein Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr; der Auslauf kommt an dessen untere Kante. Esc legt das Teil ab.',
+    'Feld vor einem 35-cm-Querrohr anklicken. Der Modularrutschen-Körper braucht zwei Etagen tiefer und drei Felder weiter ein gleiches Querrohr, die Bogenrutsche zwei Etagen tiefer, 60 cm weiter und 60 cm links ein 35-cm-Rohr quer dazu; der Auslauf hängt an dem Rohr, auf dem der Körper aufliegt. Esc legt das Teil ab.',
 };
 
 /** Parts to build with. Connectors are chosen automatically and therefore not offered. */

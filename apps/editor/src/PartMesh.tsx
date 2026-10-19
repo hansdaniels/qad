@@ -12,10 +12,13 @@ import {
   Shape as Outline,
   Vector2,
   Vector3,
+  Vector4,
 } from 'three';
+import { NURBSSurface } from 'three/examples/jsm/curves/NURBSSurface.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
+import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry.js';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { DisplayShape, FoldShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
+import type { DisplayShape, FoldShape, NurbsShape, PipeShape, Pose, SlabShape } from '@qad/model-core';
 
 const UP = new Vector3(0, 1, 0);
 /** Bend marks: a signal colour no part comes in, drawn thick. */
@@ -86,6 +89,8 @@ function Shape({ shape, look }: { shape: DisplayShape; look: Look }) {
       return <SlabMesh slab={shape} look={look} />;
     case 'pipe':
       return <PipeMesh pipe={shape} look={look} />;
+    case 'nurbs':
+      return <NurbsMesh surface={shape} look={look} />;
     case 'fold':
       return <FoldMesh fold={shape} ghost={look.ghost ?? false} />;
     case 'arc':
@@ -159,6 +164,38 @@ function SlabMesh({ slab, look }: { slab: SlabShape; look: Look }) {
   return (
     <mesh geometry={geometry} position={[0, 0, slab.bottomZ]}>
       <Material {...look} />
+      <Contour colour={look.outline} />
+    </mesh>
+  );
+}
+
+/**
+ * Moulded surface, e.g. a slide, drawn from its NURBS by three's NURBSSurface.
+ * The catalog hands out the same surface for every part of a type, so they share
+ * one geometry.
+ */
+const surfaces = new WeakMap<object, BufferGeometry>();
+function surfaceGeometry(surface: NurbsShape): BufferGeometry {
+  let geometry = surfaces.get(surface);
+  if (!geometry) {
+    const nurbs = new NURBSSurface(
+      surface.degreeU,
+      surface.degreeV,
+      [...surface.knotsU],
+      [...surface.knotsV],
+      surface.points.map((row) => row.map((p) => new Vector4(p.x, p.y, p.z, p.w))),
+    );
+    geometry = new ParametricGeometry((u, v, target) => nurbs.getPoint(u, v, target), 64, 32);
+    surfaces.set(surface, geometry);
+  }
+  return geometry;
+}
+
+function NurbsMesh({ surface, look }: { surface: NurbsShape; look: Look }) {
+  const geometry = useMemo(() => surfaceGeometry(surface), [surface]);
+  return (
+    <mesh geometry={geometry}>
+      <Material {...look} twoSided />
       <Contour colour={look.outline} />
     </mesh>
   );
