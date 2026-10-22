@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { claimSlot } from './slots';
 
 // A hot update keeps the App state, including the ModelCore made with the old
 // code, which would keep solving with it. Changes to the core reload the page;
@@ -11,8 +12,11 @@ if (import.meta.hot) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// Each tab works in a storage slot of its own, so tabs with other models do not overwrite each other.
+void claimSlot().then((slot) =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App initialSlot={slot} />
+    </StrictMode>,
+  ),
 );

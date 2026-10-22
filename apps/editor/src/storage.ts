@@ -10,11 +10,10 @@ import {
   type Result,
 } from '@qad/model-core';
 import { demoModel } from './demo';
-import { modelOptions } from './models';
+import { emptyModel, modelOptions } from './models';
+import { firstStart, readSlot, writeSlot } from './slots';
 
-// Browser storage keeps the model across reloads; files are the way to keep it for good.
-const MODEL = 'qad:model';
-const INFO = 'qad:model-info';
+// Browser storage keeps each tab's model across reloads (slots.ts); files are the way to keep it for good.
 const BROKEN = 'qad:model-broken';
 
 export const DEFAULT_FILE_NAME = 'gbk-modell.json';
@@ -28,45 +27,64 @@ export interface StoredInfo {
 export interface Restored {
   readonly core: ModelCore;
   readonly info: StoredInfo;
-  /** Why the stored model could not be opened; the demo model is used instead. */
+  /** Why the stored model could not be opened; an empty model is used instead. */
   readonly problems?: readonly Diagnostic[];
 }
 
-/** The model from the last session, else the demo model. */
-export function restoreModel(): Restored {
-  const fresh = { core: demoModel(), info: { fileName: DEFAULT_FILE_NAME, unsaved: false } };
-  let json: string | null = null;
-  let info: StoredInfo | undefined;
+/** The model of the slot; on the very first start the demo model, else an empty one. */
+export function restoreModel(slotId: string): Restored {
+  let stored: ReturnType<typeof readSlot>;
+  let first = false;
   try {
-    json = localStorage.getItem(MODEL);
-    info = JSON.parse(localStorage.getItem(INFO) ?? 'null') ?? undefined;
+    stored = readSlot(slotId);
+    first = firstStart();
   } catch {
-    // Storage blocked or info unreadable: start fresh.
+    // Storage blocked: start fresh.
   }
-  if (json === null) return fresh;
-  const opened = openModel(json);
+  const fresh = { core: first ? demoModel() : emptyModel(), info: { fileName: DEFAULT_FILE_NAME, unsaved: false } };
+  if (!stored) return fresh;
+  const opened = openModel(stored.json);
   if (opened.ok) {
     return {
       core: opened.value,
-      info: { fileName: info?.fileName ?? DEFAULT_FILE_NAME, unsaved: info?.unsaved ?? true },
+      info: { fileName: stored.info?.fileName ?? DEFAULT_FILE_NAME, unsaved: stored.info?.unsaved ?? true },
     };
   }
   try {
-    // Keep it for inspection; the next autosave overwrites the model key.
-    localStorage.setItem(BROKEN, json);
+    // Keep it for inspection; the next autosave overwrites the slot.
+    localStorage.setItem(BROKEN, stored.json);
   } catch {
     // Nothing more to do.
   }
   return { ...fresh, problems: opened.diagnostics };
 }
 
-export function storeModel(snapshot: ConstructionSnapshot, info: StoredInfo): void {
+/** Stores the model in the tab's slot; an empty model without a name leaves no slot behind. */
+export function storeModel(slotId: string, snapshot: ConstructionSnapshot, info: StoredInfo): void {
+  const { design } = snapshot;
+  const blank = design.tubes.length === 0 && design.name === undefined;
   try {
-    localStorage.setItem(MODEL, encodeConstruction(snapshot));
-    localStorage.setItem(INFO, JSON.stringify(info));
+    writeSlot(slotId, blank ? undefined : JSON.stringify(JSON.parse(encodeConstruction(snapshot))), {
+      ...info,
+      title: modelTitle(design.name, info.fileName),
+    });
   } catch {
     // Storage full or blocked; saving to a file still works.
   }
+}
+
+/** What a model is called: its name, else its file name without extension. */
+export function modelTitle(name: string | undefined, fileName: string): string {
+  return name ?? fileName.replace(/\.json$/i, '');
+}
+
+/** The file name for a model: from its name where it has one, else the file it came from. */
+export function modelFileName(name: string | undefined, fileName: string): string {
+  const base = name
+    ?.replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return base ? `${base}.json` : fileName;
 }
 
 export function openModel(json: string): Result<ModelCore> {

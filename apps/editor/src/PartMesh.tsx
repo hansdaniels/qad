@@ -263,7 +263,8 @@ interface PartMeshProps extends Look {
   readonly shapes: readonly DisplayShape[];
   /** Exploded view: the part's own shapes scaled about a point in its frame. */
   readonly shrink?: Shrink | undefined;
-  readonly onSelect?: () => void;
+  /** additive: Shift, Ctrl or Cmd held, to add the part to a selection or take it out. */
+  readonly onSelect?: (additive: boolean) => void;
   /** Pointer entering (true) or leaving (false) the part. */
   readonly onHover?: (inside: boolean) => void;
 }
@@ -306,7 +307,7 @@ export function PartMesh({
       onClick={(event) => {
         if (!onSelect) return;
         event.stopPropagation();
-        onSelect();
+        onSelect(event.shiftKey || event.ctrlKey || event.metaKey);
       }}
     >
       {shrink && o ? (

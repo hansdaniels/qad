@@ -7,6 +7,13 @@ import {
   attachPoints,
   connectionSnaps,
   attachTube,
+  copyParts,
+  encodeFragment,
+  isFragment,
+  parseFragment,
+  pasteFragment,
+  removeParts,
+  renameModel,
   bendDirections,
   obliqueDirections,
   billOfMaterials,
@@ -48,6 +55,7 @@ import {
 } from '@qad/model-core';
 import { ASSORTMENTS, inAssortment, type Assortment } from './assortment';
 import { BillOfMaterials, billCsv } from './BillOfMaterials';
+import { BoxSelect } from './BoxSelect';
 import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
 import { DOCKS, useDock, type Dock } from './dock';
@@ -60,7 +68,19 @@ import { PlateSpots } from './PlateSpots';
 import { SelectionTools } from './SelectionTools';
 import { SlideSpots } from './SlideSpots';
 import { emptyModel } from './models';
-import { DEFAULT_FILE_NAME, download, downloadModel, openModel, openPlan, restoreModel, storeModel } from './storage';
+import { RecentModels } from './RecentModels';
+import { activeSlot, freshSlot, switchSlot, type Slot } from './slots';
+import {
+  DEFAULT_FILE_NAME,
+  download,
+  downloadModel,
+  modelFileName,
+  modelTitle,
+  openModel,
+  openPlan,
+  restoreModel,
+  storeModel,
+} from './storage';
 import { useHistory } from './useHistory';
 import { VirtualArms, armKey } from './VirtualArms';
 import { Warnings } from './Warnings';
@@ -82,6 +102,13 @@ interface Notice {
 }
 const unbuildable = (diagnostics: readonly Diagnostic[]): Notice | undefined =>
   diagnostics.length > 0 ? { title: 'Nicht baubar:', diagnostics } : undefined;
+const hint = (title: string, message: string): Notice => ({
+  title,
+  diagnostics: [{ code: 'invalid-data', severity: 'warning', message, subjects: [] }],
+  info: true,
+});
+/** How often a paste tries one grid step further out when its place beside the model is taken. */
+const PASTE_TRIES = 6;
 
 /** Snapping of a moved assembly: the grid of a 35 cm tube, and how near a fitting place must come. */
 const GRID_MM = 400;
@@ -106,8 +133,10 @@ function ahead(pose: Pose, distance: number): [number, number, number] {
   return [p.x, p.y, p.z];
 }
 
-export function App() {
-  const [restored] = useState(restoreModel);
+export function App({ initialSlot }: { readonly initialSlot: Slot }) {
+  // After a hot reload the page may already work in another slot than the one it started with.
+  const [slot, setSlot] = useState(() => activeSlot() ?? initialSlot);
+  const [restored] = useState(() => restoreModel(slot.id));
   const [core, setCore] = useState(restored.core);
   const [fileName, setFileName] = useState(restored.info.fileName);
   // Design as last saved to or opened from a file; undefined when that is unknown.
@@ -115,7 +144,20 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const { snapshot, canUndo, canRedo, commit, undo, redo } = useHistory(core);
   const unsaved = snapshot.design !== savedDesign;
-  const [selected, setSelected] = useState<PartId | undefined>();
+  // Selected parts; tools for a single part show only while exactly one is selected.
+  const [picked, setPicked] = useState<ReadonlySet<PartId>>(new Set());
+  const selected = picked.size === 1 ? [...picked][0] : undefined;
+  const setSelected = (id: PartId | undefined) => setPicked(new Set(id === undefined ? [] : [id]));
+  const pick1 = (id: PartId, additive: boolean) => {
+    if (!additive) return setSelected(id);
+    const next = new Set(picked);
+    if (!next.delete(id)) next.add(id);
+    setPicked(next);
+  };
+  // The last copy, for the paste button where the page may not read the clipboard.
+  const copied = useRef<string | undefined>(undefined);
+  // Set by a paste, so the pasted assembly is ready to be moved once it is selected.
+  const moveNext = useRef(false);
   const [choice, setChoice] = useState<PaletteChoice | undefined>();
   const [hover, setHover] = useState<AttachPoint | undefined>();
   const [plateHover, setPlateHover] = useState<PlateSpot | undefined>();
@@ -153,6 +195,7 @@ export function App() {
     },
   );
   const parts = useParts(snapshot);
+  const partNames = useMemo(() => new Set(parts.map((p) => p.part.id)), [parts]);
   const openEnds = useOpenEnds(snapshot);
   const points = useMemo(
     () => (choice?.kind === 'tube' ? attachPoints(snapshot, quadroPartCatalog) : []),
@@ -270,7 +313,8 @@ export function App() {
   }, [assembly, drag, snapshot, core]);
   const moved = useMemo(() => new Set(assembly?.partIds ?? []), [assembly]);
   useEffect(() => {
-    setMoveMode(false);
+    setMoveMode(moveNext.current);
+    moveNext.current = false;
     setDrag(undefined);
     setStepLabel(undefined);
   }, [selected]);
@@ -420,6 +464,57 @@ export function App() {
           : removeSlide(snapshot, selection.intent.id);
     if (apply(command)) setSelected(undefined);
   };
+  const removePicked = () => {
+    if (picked.size > 1) {
+      if (apply(removeParts(snapshot, [...picked]))) setSelected(undefined);
+    } else remove();
+  };
+  /** The selection as clipboard text; undefined, with a hint, when it holds no tube, plate or slide. */
+  const copy = (): string | undefined => {
+    const fragment = copyParts(snapshot, quadroPartCatalog, [...picked]);
+    if (!fragment) {
+      setNotice(
+        hint('Nichts zu kopieren:', 'Rohre, Platten oder Rutschen auswählen; Kupplungen kommen mit den Rohren.'),
+      );
+      return undefined;
+    }
+    const text = encodeFragment(fragment);
+    copied.current = text;
+    setNotice(undefined);
+    return text;
+  };
+  /** Pastes copied parts as a loose assembly beside the model, on the floor, ready to be moved. */
+  const paste = (text: string) => {
+    const parsed = parseFragment(text, quadroPartCatalog);
+    if (!parsed.ok) return setNotice({ title: 'Einfügen nicht möglich:', diagnostics: parsed.diagnostics });
+    let refused: readonly Diagnostic[] = [];
+    for (let further = 0; further < PASTE_TRIES; further++) {
+      const command = pasteFragment(snapshot, quadroPartCatalog, parsed.value, further);
+      const preview = core.preview(command);
+      if (preview.status !== 'valid') {
+        if (further === 0) refused = preview.diagnostics;
+        continue;
+      }
+      if (!apply(command)) return;
+      const first = command.operations.find((op) => op.kind === 'add-tube');
+      moveNext.current = parsed.value.design.anchors.length === 1;
+      if (first?.kind === 'add-tube') setSelected(`tube:${first.tube.id}/body`);
+      return;
+    }
+    setNotice(unbuildable(refused));
+  };
+  const copyButton = () => {
+    const text = copy();
+    if (text) navigator.clipboard?.writeText(text).catch(() => {});
+  };
+  const pasteButton = () => {
+    const fallback = () =>
+      copied.current
+        ? paste(copied.current)
+        : setNotice(hint('Nichts einzufügen:', 'Erst Teile kopieren, hier oder in einem anderen Modell.'));
+    if (!navigator.clipboard?.readText) return fallback();
+    navigator.clipboard.readText().then((text) => (isFragment(text) ? paste(text) : fallback()), fallback);
+  };
   const chooseRange = (next: ColourRange) => {
     setRange(next);
     if (choice) setChoice({ ...choice, colour: fitColour(choice.familyId, choice.colour, next) });
@@ -440,10 +535,15 @@ export function App() {
     setNotice(unbuildable(step()));
   };
 
-  useEffect(() => storeModel(snapshot, { fileName, unsaved }), [snapshot, fileName, unsaved]);
-
-  const discardOk = () =>
-    !unsaved || window.confirm('Die Änderungen am Modell sind in keiner Datei gespeichert. Trotzdem verwerfen?');
+  useEffect(() => storeModel(slot.id, snapshot, { fileName, unsaved }), [slot, snapshot, fileName, unsaved]);
+  const title = modelTitle(snapshot.design.name, fileName);
+  useEffect(() => {
+    document.title = `${title} – Großbaukasten-Editor`;
+  }, [title]);
+  const rename = (name: string) => {
+    const command = renameModel(snapshot, name);
+    if (command.operations.length > 0) apply(command);
+  };
   // A model built from a building plan counts as unsaved; it has not been saved as a model yet.
   const switchTo = (next: ModelCore, name: string, saved = true) => {
     setCore(next);
@@ -456,11 +556,20 @@ export function App() {
     setSlideHover(undefined);
     setNotice(undefined);
   };
-  const newModel = () => {
-    if (discardOk()) switchTo(emptyModel(), DEFAULT_FILE_NAME);
+  // A new or opened model takes a new slot; the current one stays among the recent models.
+  const inFreshSlot = async (next: ModelCore, name: string, saved = true) => {
+    setSlot(await freshSlot(slot));
+    switchTo(next, name, saved);
   };
-  const openFile = () => {
-    if (discardOk()) fileInput.current?.click();
+  const newModel = () => void inFreshSlot(emptyModel(), DEFAULT_FILE_NAME);
+  const openFile = () => fileInput.current?.click();
+  const openSlot = async (id: string) => {
+    const next = await switchSlot(slot, id);
+    if (!next) return setNotice(hint('Nicht geöffnet:', 'Das Modell ist in einem anderen Tab offen.'));
+    const stored = restoreModel(id);
+    setSlot(next);
+    switchTo(stored.core, stored.info.fileName, !stored.info.unsaved);
+    if (stored.problems) setNotice({ title: 'Das Modell ließ sich nicht öffnen:', diagnostics: stored.problems });
   };
   const readReference = async (file: File) => {
     const json = await file.text();
@@ -474,15 +583,17 @@ export function App() {
     const opened = plan ? openPlan(json) : openModel(json);
     // Saving a plan's model under the plan's name would replace the plan.
     if (opened.ok && plan) {
-      switchTo(opened.value, file.name.replace(/(\.json)?$/i, '-modell.json'), false);
+      await inFreshSlot(opened.value, file.name.replace(/(\.json)?$/i, '-modell.json'), false);
       if (opened.diagnostics.length > 0)
         setNotice({ title: 'Hinweise aus dem Bauplan:', diagnostics: opened.diagnostics, info: true });
-    } else if (opened.ok) switchTo(opened.value, file.name);
+    } else if (opened.ok) await inFreshSlot(opened.value, file.name);
     else setNotice({ title: `${file.name} ließ sich nicht öffnen:`, diagnostics: opened.diagnostics });
   };
   const exportBill = () => download(billCsv(bill), 'text/csv', `${fileName.replace(/\.json$/i, '')}-stueckliste.csv`);
   const saveFile = () => {
-    downloadModel(snapshot, fileName);
+    const name = modelFileName(snapshot.design.name, fileName);
+    downloadModel(snapshot, name);
+    setFileName(name);
     setSavedDesign(snapshot.design);
   };
 
@@ -522,7 +633,10 @@ export function App() {
         if (active.preview.status === 'valid') insert(active.command);
       } else if (event.key === 'Delete') {
         event.preventDefault();
-        remove();
+        removePicked();
+      } else if (mod && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        setPicked(new Set(parts.map((p) => p.part.id)));
       } else if (!mod && event.key.toLowerCase() === 'l' && choice?.kind === 'plate') {
         setPlateHover(undefined);
         setChoice({ ...choice, upright: !(choice.upright ?? false) });
@@ -543,6 +657,40 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  });
+  // Ctrl+C, Ctrl+X and Ctrl+V go through the system clipboard, so parts also reach another tab or model.
+  useEffect(() => {
+    const ownText = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target && (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable);
+      return editing || (window.getSelection()?.toString() ?? '') !== '';
+    };
+    const onCopy = (event: ClipboardEvent, cut: boolean) => {
+      if (ownText(event) || picked.size === 0) return;
+      event.preventDefault();
+      const text = copy();
+      if (!text) return;
+      event.clipboardData?.setData('text/plain', text);
+      if (cut) removePicked();
+    };
+    const onPlainCopy = (event: ClipboardEvent) => onCopy(event, false);
+    const onCut = (event: ClipboardEvent) => onCopy(event, true);
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+      const text = event.clipboardData?.getData('text/plain') ?? '';
+      if (!isFragment(text)) return;
+      event.preventDefault();
+      paste(text);
+    };
+    document.addEventListener('copy', onPlainCopy);
+    document.addEventListener('cut', onCut);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('copy', onPlainCopy);
+      document.removeEventListener('cut', onCut);
+      document.removeEventListener('paste', onPaste);
+    };
   });
 
   const shown = active?.preview.status === 'invalid' ? unbuildable(active.preview.diagnostics) : notice;
@@ -669,11 +817,11 @@ export function App() {
           <ModelScene
             snapshot={snapshot}
             exploded={exploded}
-            selected={selected}
+            selected={picked}
             highlighted={assembly ? moved : highlighted}
             marks={rebuild?.marks}
             others={rebuild?.others}
-            onSelect={setSelected}
+            onSelect={pick1}
             candidate={
               movePlan
                 ? movePlan.preview.status === 'valid'
@@ -764,6 +912,10 @@ export function App() {
               onUse={() => (gizmoUsed.current = performance.now())}
             />
           ) : null}
+          <BoxSelect
+            isPart={(name) => partNames.has(name)}
+            onPick={(names) => setPicked(new Set([...picked, ...names]))}
+          />
           <CameraRig view={camera} fit={fit} zoom={zoom} />
         </Canvas>
       </div>
@@ -803,10 +955,29 @@ export function App() {
               }}
             />
           </div>
-          <p style={{ fontSize: 14, overflowWrap: 'anywhere' }}>
-            {fileName}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px', fontSize: 14 }}>
+            Bezeichnung
+            <input
+              // A new name from elsewhere, e.g. undo or another model, replaces what is typed.
+              key={`${slot.id}:${snapshot.design.name ?? ''}`}
+              defaultValue={snapshot.design.name ?? ''}
+              placeholder={modelTitle(undefined, fileName)}
+              onBlur={(e) => rename(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') {
+                  e.currentTarget.value = snapshot.design.name ?? '';
+                  e.currentTarget.blur();
+                }
+              }}
+              style={{ flex: 1, minWidth: 0, padding: '3px 6px', fontSize: 14 }}
+            />
+          </label>
+          <p style={{ fontSize: 13, margin: '0 0 6px', color: '#555', overflowWrap: 'anywhere' }}>
+            Datei: {modelFileName(snapshot.design.name, fileName)}
             {unsaved ? <span style={{ color: '#8a5a00' }}> · nicht gespeichert</span> : null}
           </p>
+          <RecentModels current={slot.id} onOpen={(id) => void openSlot(id)} />
         </header>
         <div role="tablist" style={{ display: 'flex', gap: 4, margin: '12px 0 0', borderBottom: '1px solid #d0d5db' }}>
           {(
@@ -953,7 +1124,19 @@ export function App() {
             {/* Heading and delete button share a row; each detail takes one line. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 8px' }}>
               <h3 style={{ fontSize: 15, margin: 0, marginRight: 'auto' }}>Auswahl</h3>
-              {current && selection ? (
+              {picked.size > 0 ? (
+                <button type="button" onClick={copyButton} title="Strg+C; Strg+X schneidet aus">
+                  Kopieren
+                </button>
+              ) : null}
+              <button type="button" onClick={pasteButton} title="Strg+V: neben dem Modell auf den Boden">
+                Einfügen
+              </button>
+              {picked.size > 1 ? (
+                <button type="button" onClick={removePicked} title="Entf">
+                  {picked.size} Teile löschen
+                </button>
+              ) : current && selection ? (
                 <button type="button" onClick={remove} title="Entf">
                   {selection.kind === 'plate'
                     ? 'Platte löschen'
@@ -999,8 +1182,13 @@ export function App() {
                 <dt>ID</dt>
                 <dd style={{ margin: 0, fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{current.part.id}</dd>
               </dl>
+            ) : picked.size > 1 ? (
+              <p style={{ fontSize: 14, margin: 0 }}>{picked.size} Teile ausgewählt.</p>
             ) : (
-              <p style={{ fontSize: 14, margin: 0 }}>Teil anklicken für Details.</p>
+              <p style={{ fontSize: 14, margin: 0 }}>
+                Teil anklicken für Details. Umschalt+Klick oder Umschalt+Ziehen wählt mehrere, Strg+A alle; Strg+C und
+                Strg+V kopieren sie, auch in ein anderes Modell.
+              </p>
             )}
             {current && !selection ? (
               <p style={{ fontSize: 13, color: '#555' }}>

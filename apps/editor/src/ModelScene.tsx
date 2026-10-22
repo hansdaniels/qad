@@ -69,10 +69,11 @@ export function useOpenEnds(snapshot: ConstructionSnapshot) {
 
 interface ModelSceneProps {
   readonly snapshot: ConstructionSnapshot;
-  readonly selected: PartId | undefined;
-  /** Further parts drawn like the selected one, e.g. those of a parts-list line. */
+  readonly selected: ReadonlySet<PartId> | undefined;
+  /** Further parts drawn like the selected ones, e.g. those of a parts-list line. */
   readonly highlighted?: ReadonlySet<PartId> | undefined;
-  readonly onSelect: (id: PartId) => void;
+  /** additive: to add the part to the selection or take it out. */
+  readonly onSelect: (id: PartId, additive: boolean) => void;
   /** Candidate of a pending edit; its new or changed parts are drawn as ghosts. */
   readonly candidate?: ConstructionSnapshot | undefined;
   /** Clicking a ghost carries out the pending edit. */
@@ -211,11 +212,11 @@ export function ModelScene({
             pose={pose}
             shapes={shapes}
             colour={displayColour(article?.article.colour)}
-            selected={part.id === selected || (highlighted?.has(part.id) ?? false)}
+            selected={(selected?.has(part.id) ?? false) || (highlighted?.has(part.id) ?? false)}
             outline={marks?.get(part.id)?.outline}
             {...(marks?.get(part.id)?.opacity === undefined ? {} : { opacity: marks.get(part.id)!.opacity! })}
             {...(exploded ? drawn(explodedOf(type, shapes), marks?.get(part.id)?.outline) : {})}
-            onSelect={() => onSelect(part.id)}
+            onSelect={(additive) => onSelect(part.id, additive)}
           />
         ) : null,
       )}
