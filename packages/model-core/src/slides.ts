@@ -164,3 +164,38 @@ export function localToward(snapshot: ConstructionSnapshot, tubeId: TubeId, worl
   const v = rotate(qconj(junction.orientation), DIRECTIONS.find(([d]) => d === world)![1]);
   return DIRECTIONS.find(([, u]) => dot(u, v) > 1 - 1e-6)?.[0];
 }
+
+/** Points where slide bodies end below, in world coordinates. */
+export function slideEnds(
+  snapshot: ConstructionSnapshot,
+  catalog: PartCatalog,
+  slideIds: ReadonlySet<SlideId>,
+): Vector3[] {
+  const types = new Map(catalog.partTypes.map((t) => [t.id, t]));
+  const poses = new Map(snapshot.realization.poses.map((p) => [p.partId, p.worldPose]));
+  return snapshot.realization.parts.flatMap((part) => {
+    const type = types.get(part.typeId);
+    const pose = poses.get(part.id);
+    return part.origin.intent.kind === 'slide' && slideIds.has(part.origin.intent.id) && type?.kind === 'slide'
+      ? pose && type.lowerEnd
+        ? [transformPoint(pose, type.lowerEnd.point)]
+        : []
+      : [];
+  });
+}
+
+/** Tubes the lower ends of the slides rest on. */
+export function restingTubes(
+  snapshot: ConstructionSnapshot,
+  catalog: PartCatalog,
+  slideIds: ReadonlySet<SlideId>,
+  toleranceMm = 1,
+): TubeId[] {
+  const ends = slideEnds(snapshot, catalog, slideIds);
+  const lengths = new Set(catalog.partTypes.flatMap((t) => (t.kind === 'slide' && t.lowerEnd ? [t.tubeLengthMm] : [])));
+  return [...lengths].flatMap((lengthMm) =>
+    hangers(snapshot, catalog, lengthMm)
+      .filter((t) => ends.some((end) => length(sub(t.middle, end)) <= toleranceMm))
+      .map((t) => t.tubeId),
+  );
+}

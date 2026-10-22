@@ -117,6 +117,7 @@ export function importPlan(
   const plan = parsed.data;
   const design: ConstructionDesign = {
     id: plan.name ?? 'bauplan',
+    ...(plan.name?.trim() ? { name: plan.name.trim() } : {}),
     catalog: catalog.ref,
     tubes: [],
     junctions: [{ id: 'j1' }],

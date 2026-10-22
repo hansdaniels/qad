@@ -32,6 +32,8 @@ export {
   recolourPlate,
   recolourSlide,
   recolourTube,
+  removeParts,
+  renameModel,
   removePlate,
   removeSlide,
   removeTube,
@@ -41,7 +43,9 @@ export {
 export type { PlateSpot } from './plates.js';
 export { insertPlate, plateSpots, turnPlate } from './plates.js';
 export type { SlideSpot } from './slides.js';
-export { insertSlide, localToward, slideSpots } from './slides.js';
+export { insertSlide, localToward, restingTubes, slideSpots } from './slides.js';
+export type { Fragment } from './clipboard.js';
+export { copyParts, encodeFragment, isFragment, parseFragment, pasteFragment } from './clipboard.js';
 export { realizationSolver, solveRealization } from './solver.js';
 export { applyOperations, createModelCore, modelCoreFactory, openModelCore } from './model-core.js';
 export {

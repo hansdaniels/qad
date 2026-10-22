@@ -15,6 +15,16 @@ export function tubeOfPart(snapshot: ConstructionSnapshot, partId: PartId): Tube
   return adapter?.[1];
 }
 
+/** Command that names the model; blank text takes its name away. */
+export function renameModel(snapshot: ConstructionSnapshot, name: string): EditCommand {
+  const trimmed = name.trim();
+  return {
+    baseRevision: snapshot.revision,
+    operations:
+      trimmed === (snapshot.design.name ?? '') ? [] : [{ kind: 'set-name', ...(trimmed ? { name: trimmed } : {}) }],
+  };
+}
+
 /** The plate a part realises. */
 export function plateOfPart(snapshot: ConstructionSnapshot, partId: PartId): PlateId | undefined {
   const part = snapshot.realization.parts.find((p) => p.id === partId);
@@ -78,26 +88,50 @@ export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, col
  * assembly without an anchor gets one at its current place, so nothing moves.
  */
 export function removeTube(snapshot: ConstructionSnapshot, tubeId: TubeId): EditCommand {
+  return removeIntents(snapshot, new Set([tubeId]), new Set(), new Set());
+}
+
+/**
+ * Command that removes the tubes, plates and slides the parts stand for in one
+ * step, as removeTube does for each tube; connectors stand for none.
+ */
+export function removeParts(snapshot: ConstructionSnapshot, partIds: readonly PartId[]): EditCommand {
+  return removeIntents(
+    snapshot,
+    new Set(partIds.flatMap((id) => tubeOfPart(snapshot, id) ?? [])),
+    new Set(partIds.flatMap((id) => plateOfPart(snapshot, id) ?? [])),
+    new Set(partIds.flatMap((id) => slideOfPart(snapshot, id) ?? [])),
+  );
+}
+
+function removeIntents(
+  snapshot: ConstructionSnapshot,
+  gone: ReadonlySet<TubeId>,
+  plates: ReadonlySet<PlateId>,
+  slides: ReadonlySet<SlideId>,
+): EditCommand {
   const { design, realization } = snapshot;
-  const tube = design.tubes.find((t) => t.id === tubeId);
-  if (!tube) return { baseRevision: snapshot.revision, operations: [] };
-  const remaining = design.tubes.filter((t) => t.id !== tubeId);
+  const tubes = design.tubes.filter((t) => gone.has(t.id));
+  const nothing =
+    tubes.length === 0 && !design.plates.some((p) => plates.has(p.id)) && !design.slides.some((s) => slides.has(s.id));
+  if (nothing) return { baseRevision: snapshot.revision, operations: [] };
+  const remaining = design.tubes.filter((t) => !gone.has(t.id));
   const used = new Set(remaining.flatMap((t) => [t.a.junctionId, t.b.junctionId]));
   const anchored = new Set(design.anchors.flatMap((a) => (a.target.kind === 'junction' ? [a.target.id] : [])));
   const operations: DesignOperation[] = [
     ...design.plates
-      .filter((p) => p.mounts.some((m) => m.tubeId === tubeId))
+      .filter((p) => plates.has(p.id) || p.mounts.some((m) => gone.has(m.tubeId)))
       .map((p): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'plate', id: p.id } })),
     ...design.slides
-      .filter((s) => s.tubeId === tubeId)
+      .filter((s) => slides.has(s.id) || gone.has(s.tubeId))
       .map((s): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'slide', id: s.id } })),
-    { kind: 'remove-intent', target: { kind: 'tube', id: tubeId } },
+    ...tubes.map((t): DesignOperation => ({ kind: 'remove-intent', target: { kind: 'tube', id: t.id } })),
   ];
   for (const anchor of design.anchors) {
-    if (anchor.target.kind === 'tube' && anchor.target.id === tubeId)
+    if (anchor.target.kind === 'tube' && gone.has(anchor.target.id))
       operations.push({ kind: 'remove-anchor', id: anchor.id });
   }
-  for (const junctionId of new Set([tube.a.junctionId, tube.b.junctionId])) {
+  for (const junctionId of new Set(tubes.flatMap((t) => [t.a.junctionId, t.b.junctionId]))) {
     if (!used.has(junctionId) && !anchored.has(junctionId)) {
       operations.push({ kind: 'remove-intent', target: { kind: 'junction', id: junctionId } });
     }

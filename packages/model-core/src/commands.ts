@@ -8,6 +8,8 @@ export interface EditCommand {
 }
 
 export type DesignOperation =
+  /** Without a name the model has none. */
+  | { readonly kind: 'set-name'; readonly name?: string }
   | { readonly kind: 'add-junction'; readonly junction: JunctionIntent }
   | { readonly kind: 'add-tube'; readonly tube: TubeIntent }
   | {

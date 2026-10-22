@@ -234,6 +234,10 @@ function apply(d: ConstructionDesign, op: DesignOperation): ConstructionDesign {
   const has = (ref: IntentRef) => intents(d, ref.kind).some((x) => x.id === ref.id);
   const subject = (ref: IntentRef): SubjectRef => ({ kind: 'intent', ref });
   switch (op.kind) {
+    case 'set-name': {
+      const { name: _old, ...rest } = d;
+      return op.name === undefined ? rest : { ...rest, name: op.name };
+    }
     case 'add-junction':
       if (has({ kind: 'junction', id: op.junction.id }))
         fail('duplicate-id', `Verbindungspunkt ${op.junction.id} gibt es schon.`, [

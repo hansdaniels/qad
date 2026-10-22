@@ -72,6 +72,7 @@ const slide = z.strictObject({
 });
 const design = z.strictObject({
   id,
+  name: z.string().min(1).exactOptional(),
   catalog: z.strictObject({ id, version: id }),
   tubes: z.array(tube),
   junctions: z.array(z.strictObject({ id, tilt: quaternion.exactOptional() })),
@@ -128,3 +129,11 @@ export const ConstructionDocumentSchema = z.strictObject({
 export type ConstructionDocument = DeepReadonly<z.infer<typeof ConstructionDocumentSchema>>;
 
 type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+
+/** Copied parts on the clipboard: a design of their own and the box they took up. */
+export const FragmentSchema = z.strictObject({
+  format: z.literal('qad-fragment'),
+  schemaVersion: z.literal(1),
+  design,
+  bounds: z.strictObject({ min: vector, max: vector }),
+});

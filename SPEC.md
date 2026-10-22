@@ -344,6 +344,12 @@ Der Reiter „Umbau“ vergleicht das aktuelle Modell mit einer zweiten Modellda
 
 In der 3D-Ansicht behalten alle Teile ihre eigene Farbe; Änderungen tragen eine Kontur (drei `Outlines`): grün angebaut, orange getauscht, blau versetzt, rot abgebaut. Teile der anderen Datei, die im aktuellen Modell fehlen, erscheinen durchscheinend an ihrem Ort, die alte Lage versetzter Teile blass. Auf Wunsch werden unveränderte Teile durchscheinend.
 
+### 13.4b Mehrfachauswahl, Kopieren und Einfügen
+
+Ein Klick wählt ein Teil, Umschalt+Klick (auch Strg+Klick) nimmt eines hinzu oder heraus, Umschalt+Ziehen zieht ein Rechteck auf und nimmt alle Teile hinzu, deren Mitte darin liegt, auch verdeckte (`SelectionBox` aus three); Strg+A wählt alles. Werkzeuge für ein einzelnes Teil (Farbe, Drehen, Verschieben) erscheinen nur bei genau einem gewählten Teil; Entf löscht alle gewählten in einem Schritt (`removeParts`, wie `removeTube` je Rohr, mit neuen Ankern für abgetrennte Bauteile).
+
+Strg+C kopiert die gewählten Rohre, Platten und Rutschen über die Zwischenablage des Systems, Strg+X schneidet sie aus, Strg+V fügt ein, auch in einem anderen Tab oder nach dem Öffnen eines anderen Modells; die Knöpfe „Kopieren“ und „Einfügen“ tun dasselbe. `copyParts` nimmt mit einer Platte die Rohre, an die sie geschraubt ist, mit einer Rutsche die Rohre, an denen sie hängt und auf denen sie aufliegt; Kupplungen ergeben sich aus den Rohren. Die Zwischenablage hält ein eigenes kleines Format (`qad-fragment`): einen Entwurf mit einem Anker je Bauteil an seiner bisherigen Stelle und die Ausdehnung. `pasteFragment` fügt ihn mit neuen IDs als lose Bauteile ein, zwei Rasterfelder neben dem Modell im 40-cm-Raster, die unterste Kupplung auf dem Boden; ist die Stelle belegt, ein Rasterfeld weiter. In ein leeres Modell kommt die Kopie an ihre alte Stelle und ersetzt den Startpunkt. Das eingefügte Bauteil ist gewählt und, wenn es eines ist, gleich zum Verschieben bereit. Eingefügter Text wird wie eine Datei geprüft: Format mit Zod, Katalog, dann Baubarkeit.
+
 ### 13.5 Technische Referenzen
 
 - [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer)
@@ -358,6 +364,10 @@ Zod 4 prüft beim Einlesen die Dateistruktur; der Dokumenttyp wird aus dem Schem
 abgeleitet. Unbekannte Versionen und Felder werden nicht stillschweigend übernommen.
 Diese Formatprüfung ersetzt weder die Prüfung fachlicher Referenzen und
 Katalogbedingungen noch die geometrische Baubarkeitsprüfung durch den Modellkern.
+
+Ein Modell kann eine Bezeichnung tragen (`ConstructionDesign.name`, Operation `set-name`, rückgängig zu machen wie jede Änderung). Aus ihr leitet der Editor den Dateinamen beim Speichern und den Titel des Browser-Tabs ab; ohne Bezeichnung gilt der Name der Datei, aus der das Modell stammt. Ein Bauplan mit `name` gibt dem Modell diese Bezeichnung.
+
+Der Editor hält das Modell jedes Tabs fortlaufend im Browser, damit es Neuladen und Browserneustart übersteht; Dateien bleiben der Weg, es dauerhaft aufzuheben. Jeder Tab arbeitet in einem eigenen Speicherplatz im `localStorage`; seine Kennung liegt im `sessionStorage` des Tabs, und solange er offen ist, hält er eine Sperre der Web Locks API darauf. So überschreiben sich Tabs mit verschiedenen Modellen nicht: Ein neu geladener Tab findet seinen Platz wieder, ein duplizierter arbeitet mit einer Kopie weiter, der erste Tab nach einem Browserstart ohne wiederhergestellte Tabs übernimmt das zuletzt geänderte Modell, jeder weitere neue Tab beginnt leer (nur ganz beim ersten Start mit dem Beispielmodell). „Neu“ und „Öffnen …“ beginnen einen neuen Platz; das bisherige Modell bleibt unter „Zuletzt bearbeitet“, mit Bezeichnung, Zeitpunkt und ob es ungespeichert ist. Von dort lässt es sich in diesem Tab wieder öffnen, außer es ist in einem anderen Tab offen. Leere Modelle ohne Bezeichnung belegen keinen Platz; die ältesten Plätze jenseits von zwölf entfallen.
 
 Daneben öffnet der Editor Baupläne ([BAUPLAN.md](./BAUPLAN.md)): eine Folge von Bauschritten in Weltrichtungen, die etwa ein Sprachmodell aus Fotos eines Baus schreibt. `importPlan` baut die Schritte mit den Bearbeitungsbefehlen des Editors nach und prüft jeden wie eine Bearbeitung; der erste nicht baubare Schritt wird mit Nummer und Grund gemeldet. Ein Schritt `point` beginnt ein loses Bauteil mit eigenem Anker. Schneller Weg: Die Schritte werden nur gelöst und das fertige Modell einmal geprüft; scheitert diese Prüfung, wird jeder Schritt geprüft, um den ersten nicht baubaren zu nennen.
 

@@ -10,6 +10,7 @@ import {
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
   quadroPartCatalog,
+  renameModel,
 } from '../src/index.ts';
 import { vec } from '../src/math.ts';
 
@@ -71,6 +72,17 @@ test('a saved model opens with the same design and realization', () => {
     constructionCodec.decode(encodeConstruction(saved), quadroPartCatalog, options).value,
     opened.value.snapshot,
   );
+});
+
+test('a model keeps its name in the file; a blank name takes it away', () => {
+  const core = frame();
+  assert.equal(core.execute(renameModel(core.snapshot, '  Garten mit Dach ')).ok, true);
+  assert.equal(core.snapshot.design.name, 'Garten mit Dach');
+  assert.equal(renameModel(core.snapshot, 'Garten mit Dach').operations.length, 0);
+  const opened = openConstruction(encodeConstruction(core.snapshot), quadroPartCatalog, options);
+  assert.equal(opened.value.snapshot.design.name, 'Garten mit Dach');
+  assert.equal(core.execute(renameModel(core.snapshot, ' ')).ok, true);
+  assert.equal('name' in core.snapshot.design, false);
 });
 
 test('an opened model can be edited further', () => {

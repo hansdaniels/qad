@@ -118,6 +118,8 @@ export interface PlacementAnchor {
 /** JSON-shaped source of truth. Positions of physical parts are not stored here. */
 export interface ConstructionDesign {
   readonly id: ConstructionId;
+  /** Name chosen by the user; file names and the list of recent models derive from it. */
+  readonly name?: string;
   readonly catalog: CatalogRef;
   readonly tubes: readonly TubeIntent[];
   readonly junctions: readonly JunctionIntent[];

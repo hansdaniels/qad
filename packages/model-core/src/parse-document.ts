@@ -1,6 +1,7 @@
 import * as z from 'zod';
-import { ConstructionDocumentSchema } from './document-schema.js';
+import { ConstructionDocumentSchema, FragmentSchema } from './document-schema.js';
 import type { ConstructionDocument } from './document-schema.js';
+import type { Fragment } from './clipboard.js';
 import type { Diagnostic, Result } from './diagnostics.js';
 
 // Accept other fields here so that a future document version is recognised before
@@ -28,26 +29,41 @@ export function parseConstructionDocument(json: string): Result<ConstructionDocu
   }
 
   const result = ConstructionDocumentSchema.safeParse(input);
-  if (!result.success) {
-    return {
-      ok: false,
-      diagnostics: result.error.issues.map((issue): Diagnostic => ({
-        code: 'invalid-data',
-        severity: 'error',
-        message: issue.message,
-        subjects: [],
-        details: {
-          // JSON Pointer: also unambiguous for parameter keys containing / or ~.
-          path:
-            issue.path.length === 0
-              ? ''
-              : '/' + issue.path.map((key) => String(key).replaceAll('~', '~0').replaceAll('/', '~1')).join('/'),
-          validationCode: issue.code,
-        },
-      })),
-    };
-  }
+  if (!result.success) return invalid(result.error);
   return { ok: true, value: result.data, diagnostics: [] };
+}
+
+/** Parses copied parts; like a document, they still need domain validation. */
+export function parseFragmentJson(json: string): Result<Fragment> {
+  let input: unknown;
+  try {
+    input = JSON.parse(json);
+  } catch {
+    return failure('invalid-data', 'Die Zwischenablage enthält keine kopierten Teile.');
+  }
+  const result = FragmentSchema.safeParse(input);
+  if (!result.success) return invalid(result.error);
+  return { ok: true, value: result.data, diagnostics: [] };
+}
+
+function invalid(error: z.ZodError): Result<never> {
+  return {
+    ok: false,
+    diagnostics: error.issues.map((issue): Diagnostic => ({
+      code: 'invalid-data',
+      severity: 'error',
+      message: issue.message,
+      subjects: [],
+      details: {
+        // JSON Pointer: also unambiguous for parameter keys containing / or ~.
+        path:
+          issue.path.length === 0
+            ? ''
+            : '/' + issue.path.map((key) => String(key).replaceAll('~', '~0').replaceAll('/', '~1')).join('/'),
+        validationCode: issue.code,
+      },
+    })),
+  };
 }
 
 function failure(code: Diagnostic['code'], message: string): Result<never> {
