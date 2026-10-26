@@ -83,6 +83,36 @@ export function recolourTube(snapshot: ConstructionSnapshot, tubeId: TubeId, col
 }
 
 /**
+ * Command that gives the tubes, plates and slides the parts stand for one colour
+ * in one step; connectors stand for none, and parts already in it stay as they are.
+ */
+export function recolourParts(
+  snapshot: ConstructionSnapshot,
+  partIds: readonly PartId[],
+  colour: ColourId,
+): EditCommand {
+  const { design } = snapshot;
+  const ids = (of: (s: ConstructionSnapshot, id: PartId) => string | undefined) =>
+    new Set(partIds.flatMap((id) => of(snapshot, id) ?? []));
+  const [tubes, plates, slides] = [ids(tubeOfPart), ids(plateOfPart), ids(slideOfPart)];
+  const other = (appearance: { readonly colour: ColourId }) => appearance.colour !== colour;
+  return {
+    baseRevision: snapshot.revision,
+    operations: [
+      ...design.tubes
+        .filter((t) => tubes.has(t.id) && other(t.appearance))
+        .map((tube): DesignOperation => ({ kind: 'set-tube', tube: { ...tube, appearance: { colour } } })),
+      ...design.plates
+        .filter((p) => plates.has(p.id) && other(p.appearance))
+        .map((plate): DesignOperation => ({ kind: 'set-plate', plate: { ...plate, appearance: { colour } } })),
+      ...design.slides
+        .filter((s) => slides.has(s.id) && other(s.appearance))
+        .map((slide): DesignOperation => ({ kind: 'set-slide', slide: { ...slide, appearance: { colour } } })),
+    ],
+  };
+}
+
+/**
  * Command that removes a tube. Plates screwed to it, slides hanging on it and junctions left without
  * tubes go as well, except anchored junctions. If the model falls apart, every
  * assembly without an anchor gets one at its current place, so nothing moves.

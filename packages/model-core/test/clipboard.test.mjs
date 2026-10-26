@@ -12,6 +12,7 @@ import {
   math,
   parseFragment,
   pasteFragment,
+  recolourParts,
   quadroArticleCatalog,
   quadroCollisionGeometry,
   quadroConnectionEvaluators,
@@ -160,4 +161,25 @@ test('removing several parts at once takes plates and slides on removed tubes an
   assert.equal(removed.value.design.tubes.length, snapshot.design.tubes.length - 4);
   assert.equal(removed.value.design.anchors.length, 2);
   assert.equal(removed.value.design.slides.length, 2);
+});
+
+test('recolouring several parts at once changes tubes and plates in one step and leaves connectors alone', () => {
+  const core = build(examples[0]);
+  const { snapshot } = core;
+  const before = snapshot.realization.parts.filter((p) => p.origin.intent.kind === 'junction').map((p) => p.typeId);
+  const command = recolourParts(snapshot, allParts(core), 'green');
+  const changed =
+    snapshot.design.tubes.filter((t) => t.appearance.colour !== 'green').length +
+    snapshot.design.plates.filter((p) => p.appearance.colour !== 'green').length;
+  assert.equal(command.operations.length, changed);
+  const result = core.execute(command);
+  assert.equal(result.ok, true, JSON.stringify(result.diagnostics));
+  assert.ok(
+    [...result.value.design.tubes, ...result.value.design.plates].every((x) => x.appearance.colour === 'green'),
+  );
+  assert.deepEqual(
+    result.value.realization.parts.filter((p) => p.origin.intent.kind === 'junction').map((p) => p.typeId),
+    before,
+  );
+  assert.equal(recolourParts(result.value, allParts(core), 'green').operations.length, 0);
 });

@@ -29,6 +29,7 @@ export {
 } from './attach.js';
 export {
   plateOfPart,
+  recolourParts,
   recolourPlate,
   recolourSlide,
   recolourTube,
