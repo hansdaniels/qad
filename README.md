@@ -37,12 +37,14 @@ Der Editor ist eine reine Browser-App: `apps/editor/dist/` (eine `index.html` un
 bleiben im Browser des Nutzers; an den Server geht nichts.
 
 `pnpm run deploy` baut und lädt per SFTP hoch. Das Ziel steht in `deploy.env`
-(nicht im Repository):
+(nicht im Repository); gesetzte Umgebungsvariablen gehen vor:
 
 ```sh
-QAD_SFTP=benutzer@host   # SFTP-Zugang; Port und Schlüssel ggf. in ~/.ssh/config
-QAD_SFTP_DIR=qad         # Zielordner, ohne Angabe der Startordner des Zugangs
+QAD_SFTP=benutzer@host            # SFTP-Zugang; Port und Schlüssel ggf. in ~/.ssh/config
+QAD_SFTP_DIR=webroots/www/qad     # Zielordner, ohne Angabe der Startordner des Zugangs
 ```
 
-Alte `assets/index-*.js` bleiben auf dem Server liegen und können gelegentlich
-gelöscht werden.
+Jeder Build hat einen neuen Dateinamen in `assets/`; die alten bleiben zunächst
+liegen. `pnpm run deploy clean` löscht dort alles, worauf die `index.html` auf
+dem Server nicht mehr verweist, `pnpm run deploy deploy clean` lädt hoch und
+räumt danach auf, mit einer Passwortabfrage für beides.
