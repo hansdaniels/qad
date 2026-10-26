@@ -6,7 +6,7 @@ import {
   type PlateArticle,
 } from '@qad/model-core';
 import { inAssortment, type Assortment } from './assortment';
-import { fitColour, familyColours, type ColourRange } from './colours';
+import { fitColour, type ColourRange } from './colours';
 
 export interface PaletteChoice {
   readonly kind: 'tube' | 'plate' | 'slide';
@@ -134,22 +134,10 @@ export function Palette({ choice, range, assortment, onChoose }: PaletteProps) {
           ))}
         </div>
       ) : null}
-      {choice ? (
-        <label style={{ display: 'block', marginTop: 8, fontSize: 14 }}>
-          Farbe{' '}
-          <select value={choice.colour} onChange={(e) => onChoose({ ...choice, colour: e.target.value })}>
-            {familyColours(choice.familyId, range).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
       <p style={{ fontSize: 13, color: '#555' }}>
         {choice
           ? HINTS[choice.kind === 'tube' && CURVED.has(choice.familyId) ? 'curved' : choice.kind]
-          : 'Rohr, Platte oder Rutsche wählen, dann im Modell anbauen.'}
+          : 'Rohr, Platte oder Rutsche wählen, dann im Modell anbauen. Die Farbe kommt aus der Farbleiste oben; I übernimmt die Farbe des Teils unter dem Mauszeiger.'}
       </p>
     </section>
   );

@@ -263,10 +263,12 @@ interface PartMeshProps extends Look {
   readonly shapes: readonly DisplayShape[];
   /** Exploded view: the part's own shapes scaled about a point in its frame. */
   readonly shrink?: Shrink | undefined;
-  /** additive: Shift, Ctrl or Cmd held, to add the part to a selection or take it out. */
-  readonly onSelect?: (additive: boolean) => void;
+  /** additive: Shift, Ctrl or Cmd held, to add the part to a selection or take it out; alt: Alt held, for the pipette. */
+  readonly onSelect?: (additive: boolean, alt: boolean) => void;
   /** Pointer entering (true) or leaving (false) the part. */
   readonly onHover?: (inside: boolean) => void;
+  /** Pointer over a real part, which hides the targets behind it from the pointer. */
+  readonly onPoint?: (inside: boolean) => void;
 }
 
 /** A realised part at its world pose, drawn from its display shapes. */
@@ -283,6 +285,7 @@ export function PartMesh({
   shrink,
   onSelect,
   onHover,
+  onPoint,
 }: PartMeshProps) {
   const { position, orientation } = pose;
   const look = {
@@ -303,11 +306,17 @@ export function PartMesh({
       {...(onHover
         ? { onPointerOver: () => onHover(true), onPointerOut: () => onHover(false) }
         : // A real part hides the targets behind it from the pointer.
-          { onPointerOver: (event: ThreeEvent<PointerEvent>) => event.stopPropagation() })}
+          {
+            onPointerOver: (event: ThreeEvent<PointerEvent>) => {
+              event.stopPropagation();
+              onPoint?.(true);
+            },
+            onPointerOut: () => onPoint?.(false),
+          })}
       onClick={(event) => {
         if (!onSelect) return;
         event.stopPropagation();
-        onSelect(event.shiftKey || event.ctrlKey || event.metaKey);
+        onSelect(event.shiftKey || event.ctrlKey || event.metaKey, event.altKey);
       }}
     >
       {shrink && o ? (

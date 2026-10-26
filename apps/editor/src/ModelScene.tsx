@@ -74,6 +74,10 @@ interface ModelSceneProps {
   readonly highlighted?: ReadonlySet<PartId> | undefined;
   /** additive: to add the part to the selection or take it out. */
   readonly onSelect: (id: PartId, additive: boolean) => void;
+  /** Alt+click on a part: take its colour. */
+  readonly onPipette?: ((id: PartId) => void) | undefined;
+  /** The part under the pointer, or undefined when it leaves. */
+  readonly onPoint?: ((id: PartId | undefined) => void) | undefined;
   /** Candidate of a pending edit; its new or changed parts are drawn as ghosts. */
   readonly candidate?: ConstructionSnapshot | undefined;
   /** Clicking a ghost carries out the pending edit. */
@@ -191,6 +195,8 @@ export function ModelScene({
   selected,
   highlighted,
   onSelect,
+  onPipette,
+  onPoint,
   candidate,
   onGhostClick,
   onGhostHover,
@@ -216,7 +222,8 @@ export function ModelScene({
             outline={marks?.get(part.id)?.outline}
             {...(marks?.get(part.id)?.opacity === undefined ? {} : { opacity: marks.get(part.id)!.opacity! })}
             {...(exploded ? drawn(explodedOf(type, shapes), marks?.get(part.id)?.outline) : {})}
-            onSelect={(additive) => onSelect(part.id, additive)}
+            onSelect={(additive, alt) => (alt && onPipette ? onPipette(part.id) : onSelect(part.id, additive))}
+            onPoint={(inside) => onPoint?.(inside ? part.id : undefined)}
           />
         ) : null,
       )}

@@ -30,6 +30,7 @@ import {
   slideSpots,
   quadroArticleCatalog,
   quadroPartCatalog,
+  recolourParts,
   recolourPlate,
   recolourSlide,
   recolourTube,
@@ -59,7 +60,8 @@ import { BoxSelect } from './BoxSelect';
 import { CameraRig, VIEWS, type ViewId } from './CameraRig';
 import { GhostTurn } from './GhostTurn';
 import { DOCKS, useDock, type Dock } from './dock';
-import { COLOUR_RANGES, colourName, fitColour, familyColours, type ColourRange } from './colours';
+import { ColourBar } from './ColourBar';
+import { COLOUR_RANGES, colourName, fitColour, familyColours, inRange, type ColourRange } from './colours';
 import { ModelScene, useOpenEnds, useParts, type Mark } from './ModelScene';
 import { CHANGE_COLOURS, Rebuild } from './Rebuild';
 import { MoveGizmo } from './MoveGizmo';
@@ -356,7 +358,8 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
         : added?.kind === 'add-tube' && (CURVED.has(added.tube.familyId) || added.tube.a.adapterArm)
           ? { kind: 'tube', id: added.tube.id }
           : undefined;
-    if (intent) setSelected(`${intent.kind}:${intent.id}/body`);
+    // Only the new part, so the colour bar and C do not reach an earlier selection as well.
+    setSelected(intent ? `${intent.kind}:${intent.id}/body` : undefined);
   };
   const pick = (point: AttachPoint) => {
     if (!choice) return;
@@ -388,6 +391,73 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
     const own = selection.intent.appearance.colour;
     return offered.some((c) => c.id === own) ? offered : [{ id: own, name: colourName(own) }, ...offered];
   })();
+  // The colour bar acts on the selected tubes, plates and slides, and on the colour of the part being built.
+  const intentOf = (id: PartId) => {
+    const tube = tubeOfPart(snapshot, id);
+    if (tube) return { kind: 'tube' as const, intent: snapshot.design.tubes.find((t) => t.id === tube) };
+    const plate = plateOfPart(snapshot, id);
+    if (plate) return { kind: 'plate' as const, intent: snapshot.design.plates.find((p) => p.id === plate) };
+    const slide = slideOfPart(snapshot, id);
+    if (slide) return { kind: 'slide' as const, intent: snapshot.design.slides.find((x) => x.id === slide) };
+    return undefined;
+  };
+  const coloured = [...picked].flatMap((id) => {
+    const found = intentOf(id);
+    return found?.intent ? [{ kind: found.kind, intent: found.intent }] : [];
+  });
+  // For a mixed selection, the colours all its families come in.
+  const barColours =
+    coloured.length > 0
+      ? [...new Set(coloured.map((c) => c.intent.familyId))]
+          .map((familyId) => familyColours(familyId, range))
+          .reduce((common, next) => common.filter((c) => next.some((n) => n.id === c.id)))
+      : choice
+        ? familyColours(choice.familyId, range)
+        : [];
+  const shared = new Set(coloured.map((c) => c.intent.appearance.colour));
+  const barActive = coloured.length > 0 ? (shared.size === 1 ? [...shared][0] : undefined) : choice?.colour;
+  const barTarget =
+    coloured.length > 0
+      ? `${picked.size > 1 ? 'Auswahl' : 'Teil'} umfärben${choice ? ' und so weiterbauen' : ''}`
+      : 'Farbe für das nächste Teil';
+  const paint = (colour: ColourId) => {
+    if (coloured.length > 0) {
+      const command = recolourParts(snapshot, [...picked], colour);
+      if (command.operations.length > 0) apply(command);
+    }
+    if (choice && familyColours(choice.familyId, 'both').some((c) => c.id === colour)) setChoice({ ...choice, colour });
+  };
+  const stepColour = (step: 1 | -1) => {
+    const n = barColours.length;
+    if (n === 0) return;
+    const at = barColours.findIndex((c) => c.id === barActive);
+    const next = at < 0 ? (step > 0 ? 0 : n - 1) : (at + step + n) % n;
+    paint(barColours[next]!.id);
+  };
+  // The part under the pointer, for the pipette; a ref, so moving the pointer renders nothing.
+  const pointed = useRef<PartId | undefined>(undefined);
+  /** Takes a part's colour for the next part; with nothing chosen to build, its kind as well. */
+  const pipette = (id: PartId | undefined) => {
+    const found = id ? intentOf(id) : undefined;
+    if (!found?.intent) {
+      setNotice(hint('Pipette:', 'Mauszeiger auf ein Rohr, eine Platte oder eine Rutsche, dann I oder Alt+Klick.'));
+      return;
+    }
+    const { colour } = found.intent.appearance;
+    if (!inRange(colour, range)) setRange('both');
+    if (choice) {
+      setChoice({ ...choice, colour: fitColour(choice.familyId, colour, 'both') });
+      return;
+    }
+    const pose = parts.find((p) => p.part.id === id)?.pose;
+    const upright = pose !== undefined && Math.abs(math.rotate(pose.orientation, math.vec(0, 0, 1)).z) < 0.5;
+    setChoice({
+      kind: found.kind,
+      familyId: found.intent.familyId,
+      colour,
+      ...(found.kind === 'plate' ? { upright } : {}),
+    });
+  };
   const recolour = (colour: ColourId) => {
     if (selection?.intent)
       apply(
@@ -637,6 +707,10 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
       } else if (mod && event.key.toLowerCase() === 'a') {
         event.preventDefault();
         setPicked(new Set(parts.map((p) => p.part.id)));
+      } else if (!mod && event.key.toLowerCase() === 'c') {
+        stepColour(event.shiftKey ? -1 : 1);
+      } else if (!mod && event.key.toLowerCase() === 'i') {
+        pipette(pointed.current ?? selected);
       } else if (!mod && event.key.toLowerCase() === 'l' && choice?.kind === 'plate') {
         setPlateHover(undefined);
         setChoice({ ...choice, upright: !(choice.upright ?? false) });
@@ -822,6 +896,8 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
             marks={rebuild?.marks}
             others={rebuild?.others}
             onSelect={pick1}
+            onPipette={pipette}
+            onPoint={(id) => (pointed.current = id)}
             candidate={
               movePlan
                 ? movePlan.preview.status === 'valid'
@@ -1062,6 +1138,9 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
                   ))}
                 </select>
               </label>
+              {barColours.length > 0 ? (
+                <ColourBar colours={barColours} active={barActive} target={barTarget} onPick={paint} />
+              ) : null}
               <label>
                 Teile{' '}
                 <select value={assortment} onChange={(e) => chooseAssortment(e.target.value as Assortment)}>
@@ -1084,6 +1163,8 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
                   setSlideHover(undefined);
                   setTurn(0);
                 }
+                // Building starts without a selection, which the colour bar would colour as well.
+                if (next) setSelected(undefined);
                 setChoice(next);
               }}
             />
@@ -1166,17 +1247,7 @@ export function App({ initialSlot }: { readonly initialSlot: Slot }) {
                 </dd>
                 <dt>Farbe</dt>
                 <dd style={{ margin: 0 }}>
-                  {selection?.intent ? (
-                    <select value={selection.intent.appearance.colour} onChange={(e) => recolour(e.target.value)}>
-                      {selectionColours.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    colourName(current.article?.article.colour)
-                  )}
+                  {colourName(selection?.intent?.appearance.colour ?? current.article?.article.colour)}
                   {current.article?.substituted ? ' (Ersatzfarbe)' : ''}
                 </dd>
                 <dt>ID</dt>
