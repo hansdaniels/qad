@@ -125,7 +125,7 @@ test('plates need a frame of their size on the stated side', () => {
   const ok = load(plan([...square, plate('panel-40-40cm', '-z', { colour: 'red' })]));
   assert.equal(ok.ok, true, JSON.stringify(ok.diagnostics));
   assert.equal(ok.value.snapshot.design.plates[0].appearance.colour, 'red');
-  assert.match(message(load(plan([...square, plate('panel-40-20cm', '+z')]))), /keinen freien Rahmen/);
+  assert.match(message(load(plan([...square, plate('panel-40-20cm', '+z')]))), /keine zwei freien parallelen Rohre/);
   assert.match(
     message(load(plan([...square, plate('panel-40-40cm', '+x')]))),
     /Seite \+x .* möglich ist (\+z oder -z|-z oder \+z)/,
@@ -176,4 +176,33 @@ test('a point step starts a loose assembly that a tube can later join to the mod
     message(load(plan([{ kind: 'point', name: 'A2', at: [0, 0, 0] }]))),
     /An dieser Stelle liegt schon Punkt „A“/,
   );
+});
+
+test('a gable roof: rafters on angle adapters meet at the ridge, the ridge goes on from there, plates lie on both slopes', () => {
+  const steps = [
+    tube('A', '+x', 'C'),
+    tube('A', '+y', 'B'),
+    tube('C', '+y', 'D'),
+    tube('B', '+x', 'D'),
+    tube('A', '+x+z', 'F1'),
+    tube('B', '+x+z', 'F2'),
+    tube('C', '-x+z', 'F1'),
+    tube('D', '-x+z', 'F2'),
+    tube('F1', '+y', 'F2'),
+    { kind: 'plate', part: 'panel-40-40cm', corners: ['A', 'B', 'F2', 'F1'], side: '+z' },
+    { kind: 'plate', part: 'panel-40-40cm', corners: ['C', 'D', 'F2', 'F1'], side: '+z', colour: 'green' },
+  ];
+  const built = load(plan(steps));
+  assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+  const core = built.value;
+  assert.deepEqual(position(core, core.snapshot.design.tubes.at(-1).b.junctionId), [200, 400, 308]);
+  assert.equal(core.snapshot.design.plates.length, 2);
+  const verdict = checkBuildability(core.snapshot, quadroPartCatalog, quadroCollisionGeometry, {
+    ...options,
+    maxRemediesPerFinding: 0,
+  }).verdict;
+  assert.equal(verdict, 'buildable');
+  // Under the rafters a plate runs into the angle adapters at their feet.
+  const below = load(plan([...steps.slice(0, 9), { ...steps[9], side: '-z' }]));
+  assert.match(message(below), /Schritt 10: .*angle-adapter/);
 });

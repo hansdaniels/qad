@@ -64,14 +64,20 @@ zwei 35er-Rohre über Eck, nur ohne Kupplung in der Ecke.
 
 Ein gerades Rohr im 45°-Winkel sitzt auf einer **Winkelkupplung**: einem
 schwarzen Bauteil, das auf den Arm einer normalen Kupplung gesteckt ist und einen
-schrägen Zapfen hat. Schräge Rohre sind selten. Ihr freies Ende liegt nicht im
-Raster; dort lässt sich nichts weiter anbauen.
+schrägen Zapfen hat. Schräge Rohre sind selten, meist Dachsparren. An ihrem
+freien Ende sitzt eine Kupplung, die mit dem Rohr gekippt ist. Von dort geht es
+gerade weiter, wo deren Arme hinzeigen: quer zum Sparren entlang des Firsts
+(`"+y"`, `"-y"` bei Sparren in x-Richtung) und schräg in den Richtungen des
+Sparrens. Bei einem Satteldach treffen sich die Sparren beider Seiten in einem
+Punkt: der zweite Sparren nennt in `to` den Punkt des ersten.
 
 ### Platten
 
 Platten liegen in einem Rahmen aus vier geraden Rohren und sind an zwei davon
 festgeschraubt. Sie können oben auf einem waagerechten Rahmen liegen (Boden,
 Stufe), darunter hängen oder seitlich an einem senkrechten Rahmen sitzen (Wand).
+Auf einer Dachschräge liegen sie zwischen zwei Sparren, die am Fuß auf
+Winkelkupplungen sitzen.
 
 | `part`               | Platte                | passt in einen Rahmen aus |
 | -------------------- | --------------------- | ------------------------- |
@@ -206,7 +212,9 @@ Endet ein Rohr an einem vorhandenen Punkt, muss dessen Name in `to` stehen. Ohne
 ```
 
 `side` zeigt vom Rahmen zur Platte: `+z` ist ein Boden, der oben auf dem Rahmen
-liegt, `-z` eine Platte unter dem Rahmen. Bei Wänden zeigt `side` meist nach
+liegt, `-z` eine Platte unter dem Rahmen. Auf einer Dachschräge sind die Ecken die
+beiden Sparrenfüße und die beiden Sparrenspitzen, und `+z` ist die Oberseite des
+Dachs; darunter stößt die Platte an die Winkelkupplungen. Bei Wänden zeigt `side` meist nach
 außen, z. B. `-y` für eine Wand an der Vorderseite. Liegt in einem Raum ein Boden
 innen auf dem unteren Rahmen, sitzen die Wände außen; so stoßen Boden und Wände
 nicht aneinander.

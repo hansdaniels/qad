@@ -6,9 +6,9 @@ import type { EditCommand } from './commands.js';
 import type { ConstructionSnapshot, EditPreview, ModelCore, ModelCoreOptions } from './core.js';
 import type { ConstructionDesign } from './design.js';
 import type { Diagnostic, Result } from './diagnostics.js';
-import type { Vector3 } from './geometry.js';
+import type { Pose, Vector3 } from './geometry.js';
 import type { JunctionId, TubeId } from './ids.js';
-import { dot, length, qconj, rotate, sub, vec } from './math.js';
+import { add, dot, length, qconj, rotate, scale, sub, vec } from './math.js';
 import { checkBuildability } from './buildability-checker.js';
 import { applyOperations, createModelCore } from './model-core.js';
 import { solveRealization } from './solver.js';
@@ -245,33 +245,40 @@ function buildTube(
   if (type?.kind !== 'tube') return `Unbekanntes Rohr „${step.part}“; möglich sind ${families.join(', ')}.`;
   const colour = colourFor(step.part, 'tube', step.colour, articles);
   if (typeof colour !== 'string') return colour.error;
-  const local = localDirections(core, from);
-  if (!local) return `An Punkt „${step.from}“ lässt sich nichts in Rasterrichtung anbauen.`;
+  const frame = junctionPose(core, from);
+  if (!frame) return `Punkt „${step.from}“ ist noch nicht gebaut.`;
+  const [first, second] = [step.direction.slice(0, 2), step.direction.slice(2)];
+  if (second !== '' && first[1] === second[1])
+    return `„${step.direction}“ ist keine Schräge aus zwei verschiedenen Achsen.`;
+  // In the point's own grid, which is tilted at the free end of an oblique tube, the
+  // direction is one of its axes, built straight on, or a diagonal, built on an angle adapter.
+  const local = inFrame(frame, step.direction);
+  if (!local) return `Am Punkt „${step.from}“ liegt „${step.direction}“ weder im Raster noch 45° schräg dazu.`;
   const free = freeArms(core, from);
 
   const candidates: { arm: GridDirection; options: AttachOptions }[] = [];
-  const [first, second] = [step.direction.slice(0, 2), step.direction.slice(2)] as [GridDirection, string];
-  if (second === '') {
+  if (local.length === 1) {
+    const [axis] = local as [GridDirection];
     if (type.shape === 'bent') {
       if (!step.bend) return 'Ein Bogenrohr braucht „bend“, die Richtung, in die es am Ende zeigt.';
-      if (step.bend[1] === first[1]) return '„bend“ muss quer zu „direction“ stehen.';
-      candidates.push({ arm: local(first), options: { bend: local(step.bend) } });
+      const bend = inFrame(frame, step.bend);
+      if (bend?.length !== 1 || bend[0]![1] === axis[1]) return '„bend“ muss quer zu „direction“ stehen.';
+      candidates.push({ arm: axis, options: { bend: bend[0]! } });
     } else {
       if (step.bend) return '„bend“ gibt es nur beim Bogenrohr.';
-      candidates.push({ arm: local(first), options: {} });
+      candidates.push({ arm: axis, options: {} });
     }
   } else {
     if (type.shape === 'bent') return 'Ein Bogenrohr kann nicht schräg angebaut werden.';
     if (step.bend) return '„bend“ gibt es nur beim Bogenrohr.';
-    const other = second as GridDirection;
-    if (first[1] === other[1]) return `„${step.direction}“ ist keine Schräge aus zwei verschiedenen Achsen.`;
+    const [one, other] = local as [GridDirection, GridDirection];
     // On an angle adapter the tube leaves at 45° back over the arm: arm and lean
     // are the opposite of one component and the other one.
     for (const [back, lean] of [
-      [first, other],
-      [other, first],
+      [one, other],
+      [other, one],
     ] as const) {
-      candidates.push({ arm: local(opposite(back)), options: { oblique: local(lean) } });
+      candidates.push({ arm: opposite(back), options: { oblique: lean } });
     }
   }
   const usable = candidates.filter((c) => free.has(c.arm));
@@ -356,11 +363,12 @@ function buildPlate(
   const onCorners = (tubeId: TubeId) => (ends.get(tubeId) ?? []).every((j) => corners.has(j));
   const spots = plateSpots(snapshot, catalog).filter((s) => s.familyId === step.part && s.flangeTubes.every(onCorners));
   if (spots.length === 0) {
-    return `Zwischen ${step.corners.join(', ')} gibt es keinen freien Rahmen aus vier Rohren, auf den „${step.part}“ passt.`;
+    return `Zwischen ${step.corners.join(', ')} gibt es keine zwei freien parallelen Rohre, an die „${step.part}“ passt.`;
   }
-  const sided = spots.filter((s) => dot(rotate(s.worldPose.orientation, vec(0, 0, 1)), UNIT[step.side]) > 1 - 1e-6);
+  // The side the plate faces; on a roof slope, "+z" is the top of the slope.
+  const sided = spots.filter((s) => dot(rotate(s.worldPose.orientation, vec(0, 0, 1)), UNIT[step.side]) > 0.5);
   if (sided.length === 0) {
-    const sides = [...new Set(spots.map((s) => axisOf(rotate(s.worldPose.orientation, vec(0, 0, 1)))))];
+    const sides = [...new Set(spots.map((s) => directionName(rotate(s.worldPose.orientation, vec(0, 0, 1)))))];
     return `Auf der Seite ${step.side} ist kein Platz für die Platte; möglich ist ${sides.join(' oder ')}.`;
   }
   const flanged = step.flanges
@@ -473,18 +481,27 @@ function freeArms(core: Builder, junctionId: JunctionId): Set<GridDirection> {
 }
 
 /** Maps world directions into the junction's frame; undefined if that frame is not on the grid. */
-function localDirections(core: Builder, junctionId: JunctionId) {
-  const frame = junctionPose(core, junctionId);
-  if (!frame) return undefined;
-  const inverse = qconj(frame.orientation);
-  const map = new Map(DIRECTIONS.map((d) => [d, axisOf(rotate(inverse, UNIT[d]))]));
-  if ([...map.values()].some((d) => d === undefined)) return undefined;
-  return (d: GridDirection) => map.get(d)!;
+/**
+ * A plan direction such as "+x" or "+x+z" in a junction's frame: one of its axes,
+ * or the two axes of a 45° diagonal; undefined when it is neither.
+ */
+function inFrame(frame: Pose, direction: string): GridDirection[] | undefined {
+  const parts = (direction.match(/[+-][xyz]/g) ?? []) as GridDirection[];
+  const sum = parts.reduce((v, d) => add(v, UNIT[d]), vec(0, 0, 0));
+  const local = rotate(qconj(frame.orientation), scale(sum, 1 / length(sum)));
+  const along = DIRECTIONS.filter((d) => dot(UNIT[d], local) > 1e-3);
+  const share = 1 / Math.sqrt(along.length);
+  return along.length <= 2 && along.every((d) => Math.abs(dot(UNIT[d], local) - share) < 1e-6) ? along : undefined;
+}
+
+/** A direction in plan axes, e.g. "+y" or "+x+z" for a diagonal. */
+function directionName(v: Vector3): string {
+  return DIRECTIONS.filter((d) => dot(UNIT[d], v) > 1e-3).join('');
 }
 
 function world(core: Builder, junctionId: JunctionId, local: GridDirection): string {
   const frame = junctionPose(core, junctionId);
-  return (frame && axisOf(rotate(frame.orientation, UNIT[local]))) ?? local;
+  return frame ? directionName(rotate(frame.orientation, UNIT[local])) : local;
 }
 
 function junctionPose(core: Builder, junctionId: JunctionId) {

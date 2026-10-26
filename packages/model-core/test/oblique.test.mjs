@@ -276,3 +276,38 @@ test('two roof slopes from both eaves meet in one connector at the ridge', () =>
   );
   attach(core, apex, ridge.direction);
 });
+
+test('a plate lies on a roof slope between two rafters whose feet sit on angle adapters, on top only', () => {
+  const core = corner();
+  // Two parallel rafters 40 cm apart, rising from the eave j1–j2, joined by a ridge tube.
+  const left = attach(core, 'j1', '-x', { oblique: '+z' });
+  const right = attach(core, 'j2', '-x', { oblique: '+z' });
+  const ridge = attachPoints(core.snapshot, quadroPartCatalog).find(
+    (p) => p.junctionId === left && rotate(p.worldPose.orientation, vec(0, 0, 1)).y > 0.9,
+  );
+  const closed = core.execute(
+    attachTube(core.snapshot, ridge, { familyId: 'tube-35cm', colour: 'green' }, quadroPartCatalog),
+  );
+  assert.equal(closed.ok, true, JSON.stringify(closed.diagnostics));
+  assert.equal(core.snapshot.design.tubes.at(-1).b.junctionId, right);
+  const rafters = core.snapshot.design.tubes.filter((t) => t.a.adapterArm).map((t) => t.id);
+  const spots = plateSpots(core.snapshot, quadroPartCatalog).filter(
+    (s) => s.familyId === 'panel-40-40cm' && rafters.every((t) => s.flangeTubes.includes(t)),
+  );
+  assert.equal(spots.length, 2);
+  const upward = (s) => rotate(s.worldPose.orientation, vec(0, 0, 1)).z > 0;
+  const top = spots.find(upward);
+  assert.deepEqual(rounded(rotate(top.worldPose.orientation, vec(0, 0, 1))).map(Math.sign), [-1, 0, 1]);
+  // Underneath, the plate would run into the angle adapters at the feet.
+  const below = core.preview(
+    insertPlate(
+      core.snapshot,
+      spots.find((s) => !upward(s)),
+      'blue',
+    ),
+  );
+  assert.equal(below.status, 'invalid');
+  assert.ok(below.diagnostics.every((d) => d.message.includes('angle-adapter')));
+  const placed = core.execute(insertPlate(core.snapshot, top, 'blue'));
+  assert.equal(placed.ok, true, JSON.stringify(placed.diagnostics));
+});

@@ -179,6 +179,8 @@ Ein gedachter Eckpunkt ist kein verfügbarer Anschluss. Die Biegeebene ist geome
 
 Platten werden relativ zu den tragenden parallelen Rohren und den benötigten Montagepositionen beschrieben. Ihr Typ legt die vollständige Befestigungsgeometrie fest.
 
+Ein Platz für eine Platte sind zwei parallele gerade Rohre, an die ihre Flansche geschraubt werden: so weit auseinander, wie ihre Zelle breit ist, mit gleicher Spannweite und auf gleicher Höhe, auf beiden Seiten ihrer Ebene (`plateSpots`). Quer dazu braucht es kein Rohr. So liegt eine Platte auch auf einer Dachschräge zwischen zwei Sparren, deren Fuß auf einer Winkelkupplung sitzt; unter den Sparren stößt sie an die Winkelkupplungen. Ob die Bohrungen passen und nichts kollidiert, entscheidet wie immer die Prüfung.
+
 Das Bohrungsmuster eines Rohrtyps beschreibt Position und Richtung der einzelnen Bohrungen einschließlich der um 90° wechselnden Ausrichtungen und vorhandener Sondervarianten.
 
 Eine Platte schränkt sowohl die zulässige Rohrvariante als auch die zulässige Rohrdrehung ein. Alle Platten an einem Rohr müssen gleichzeitig montierbar sein.
